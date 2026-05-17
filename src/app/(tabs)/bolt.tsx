@@ -3,10 +3,11 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { useRouter } from 'expo-router'
-import { Moon, X } from 'lucide-react-native'
+import { Check, ChevronDown, Moon, X } from 'lucide-react-native'
 import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
 
 import BoltRow from '@/components/bolt/BoltRow'
+import BottomSheet from '@/components/ui/BottomSheet'
 import { useListStore } from '@/store/listStore'
 
 export default function BoltScreen() {
@@ -14,6 +15,7 @@ export default function BoltScreen() {
   const insets = useSafeAreaInsets()
   const [keepAwake, setKeepAwake] = useState(false)
   const [ctaForced, setCtaForced] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
   const prevListId = useRef<string | null>(null)
 
   const lists = useListStore((s) => s.lists)
@@ -21,6 +23,9 @@ export default function BoltScreen() {
   const toggleItem = useListStore((s) => s.toggleItem)
   const completeList = useListStore((s) => s.completeList)
   const activeListId = useListStore((s) => s.activeListId)
+  const setActiveListId = useListStore((s) => s.setActiveListId)
+
+  const activeLists = lists.filter((l) => !l.completed)
 
   const activeList = (() => {
     if (activeListId) {
@@ -97,9 +102,17 @@ export default function BoltScreen() {
             <X size={24} color="#F8FAFC" />
           </Pressable>
 
-          <Text style={styles.headerTitle} numberOfLines={1}>
-            {activeList.name}
-          </Text>
+          <Pressable
+            onPress={() => setShowPicker(true)}
+            style={({ pressed }) => [styles.headerTitleRow, { opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {activeList.name}
+            </Text>
+            {activeLists.length > 1 && (
+              <ChevronDown size={18} color="#94A3B8" />
+            )}
+          </Pressable>
 
           <Pressable
             onPress={toggleKeepAwake}
@@ -129,6 +142,33 @@ export default function BoltScreen() {
           />
         ))}
       </ScrollView>
+
+      {/* List picker bottom sheet */}
+      <BottomSheet
+        visible={showPicker}
+        onClose={() => setShowPicker(false)}
+        title="Lista kiválasztása"
+      >
+        <ScrollView showsVerticalScrollIndicator={false}>
+          {activeLists.map((list) => (
+            <Pressable
+              key={list.id}
+              onPress={() => {
+                setActiveListId(list.id)
+                setShowPicker(false)
+              }}
+              style={({ pressed }) => [styles.pickerRow, { opacity: pressed ? 0.7 : 1 }]}
+            >
+              <Text style={styles.pickerRowText} numberOfLines={1}>
+                {list.name}
+              </Text>
+              {list.id === activeList.id && (
+                <Check size={20} color="#2563EB" />
+              )}
+            </Pressable>
+          ))}
+        </ScrollView>
+      </BottomSheet>
 
       {/* Sticky progress bar – bg #111827, hairline top #1F2937 */}
       <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
@@ -170,13 +210,34 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: '#1F2937',
   },
-  headerTitle: {
+  headerTitleRow: {
     flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginHorizontal: 12,
+    gap: 4,
+  },
+  headerTitle: {
+    flexShrink: 1,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '600',
     color: '#F8FAFC',
-    marginHorizontal: 12,
+  },
+  pickerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    height: 56,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: '#E2E8F0',
+  },
+  pickerRowText: {
+    flex: 1,
+    fontSize: 17,
+    lineHeight: 22,
+    color: '#0F172A',
+    marginRight: 12,
   },
   bar: {
     backgroundColor: '#111827',
