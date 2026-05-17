@@ -3,14 +3,16 @@ import '../global.css'
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native'
 import { Stack } from 'expo-router'
 import { useEffect } from 'react'
-import { useColorScheme } from 'react-native'
+import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native'
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon'
+import { ToastContainer } from '@/components/ui/Toast'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
 export default function RootLayout() {
   const colorScheme = useColorScheme()
+  const initialized = useAuthStore((s) => s.initialized)
   const setSession = useAuthStore((s) => s.setSession)
 
   useEffect(() => {
@@ -23,10 +25,31 @@ export default function RootLayout() {
     return () => subscription.unsubscribe()
   }, [setSession])
 
+  if (!initialized) {
+    return (
+      <View style={styles.loading}>
+        <ActivityIndicator color="#2563EB" size="large" />
+      </View>
+    )
+  }
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <AnimatedSplashOverlay />
-      <Stack screenOptions={{ headerShown: false }} />
+      <View style={styles.root}>
+        <AnimatedSplashOverlay />
+        <Stack screenOptions={{ headerShown: false }} />
+        <ToastContainer />
+      </View>
     </ThemeProvider>
   )
 }
+
+const styles = StyleSheet.create({
+  root: { flex: 1 },
+  loading: {
+    flex: 1,
+    backgroundColor: '#000000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+})

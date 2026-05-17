@@ -1,5 +1,5 @@
-import { useEffect } from 'react'
-import { StyleSheet, useColorScheme } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { StyleSheet, useColorScheme, View } from 'react-native'
 import Animated, {
   interpolateColor,
   useAnimatedStyle,
@@ -7,31 +7,88 @@ import Animated, {
   withRepeat,
   withSequence,
   withTiming,
+  type SharedValue,
 } from 'react-native-reanimated'
 
-type SkeletonVariant = 'rect' | 'text' | 'circle'
+type SkeletonVariant = 'card' | 'listRow'
 
 interface SkeletonProps {
-  width?: number | string
-  height?: number
-  borderRadius?: number
-  variant?: SkeletonVariant
+  variant: SkeletonVariant
+  isLoading: boolean
 }
 
-export default function Skeleton({
-  width,
-  height = 16,
-  borderRadius,
-  variant = 'rect',
-}: SkeletonProps) {
+function SkeletonBar({
+  width = '100%',
+  height = 14,
+  borderRadius = 6,
+  shimmer,
+  dark,
+}: {
+  width?: number | `${number}%`
+  height?: number
+  borderRadius?: number
+  shimmer: SharedValue<number>
+  dark: boolean
+}) {
+  const animatedStyle = useAnimatedStyle(() => ({
+    backgroundColor: interpolateColor(
+      shimmer.value,
+      [0, 1],
+      dark ? ['#1E293B', '#334155'] : ['#E2E8F0', '#F8FAFC'],
+    ),
+  }))
+
+  return (
+    <Animated.View
+      style={[animatedStyle, { width, height, borderRadius }]}
+    />
+  )
+}
+
+function CardSkeleton({
+  shimmer,
+  dark,
+}: {
+  shimmer: SharedValue<number>
+  dark: boolean
+}) {
+  return (
+    <View
+      className="bg-card dark:bg-dark-card rounded-card p-4"
+      style={styles.cardShadow}
+    >
+      <SkeletonBar width="60%" height={16} borderRadius={6} shimmer={shimmer} dark={dark} />
+      <View className="h-3" />
+      <SkeletonBar width="100%" height={12} borderRadius={4} shimmer={shimmer} dark={dark} />
+      <View className="h-2" />
+      <SkeletonBar width="80%" height={12} borderRadius={4} shimmer={shimmer} dark={dark} />
+    </View>
+  )
+}
+
+function ListRowSkeleton({
+  shimmer,
+  dark,
+}: {
+  shimmer: SharedValue<number>
+  dark: boolean
+}) {
+  return (
+    <View className="flex-row items-center gap-3 px-4" style={{ height: 56 }}>
+      <SkeletonBar width={40} height={40} borderRadius={20} shimmer={shimmer} dark={dark} />
+      <View className="flex-1 gap-2">
+        <SkeletonBar width="55%" height={14} shimmer={shimmer} dark={dark} />
+        <SkeletonBar width="35%" height={11} borderRadius={4} shimmer={shimmer} dark={dark} />
+      </View>
+    </View>
+  )
+}
+
+export default function Skeleton({ variant, isLoading }: SkeletonProps) {
   const dark = useColorScheme() === 'dark'
-
-  const isDark = useSharedValue(dark ? 1 : 0)
   const shimmer = useSharedValue(0)
-
-  useEffect(() => {
-    isDark.value = dark ? 1 : 0
-  }, [dark, isDark])
+  const mountedAt = useRef(Date.now())
+  const [show, setShow] = useState(isLoading)
 
   useEffect(() => {
     shimmer.value = withRepeat(
@@ -42,39 +99,39 @@ export default function Skeleton({
       -1,
       false,
     )
-  }, [shimmer])
+    return () => {
+      shimmer.value = 0
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
-  const animatedStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      shimmer.value,
-      [0, 1],
-      isDark.value === 1
-        ? ['#1E293B', '#334155']
-        : ['#E2E8F0', '#F1F5F9'],
-    ),
-  }))
+  useEffect(() => {
+    if (isLoading) {
+      mountedAt.current = Date.now()
+      setShow(true)
+    } else {
+      const elapsed = Date.now() - mountedAt.current
+      const delay = Math.max(0, 200 - elapsed)
+      const timer = setTimeout(() => setShow(false), delay)
+      return () => clearTimeout(timer)
+    }
+  }, [isLoading])
 
-  const isCircle = variant === 'circle'
-  const resolvedSize = isCircle ? ((width as number) ?? height) : undefined
-  const resolvedBorderRadius = isCircle
-    ? (resolvedSize ?? 0) / 2
-    : borderRadius ?? (variant === 'text' ? 4 : 6)
+  if (!show) return null
 
-  return (
-    <Animated.View
-      style={[
-        styles.base,
-        animatedStyle,
-        {
-          width: isCircle ? resolvedSize : (width ?? '100%'),
-          height: isCircle ? resolvedSize : height,
-          borderRadius: resolvedBorderRadius,
-        },
-      ]}
-    />
+  return variant === 'card' ? (
+    <CardSkeleton shimmer={shimmer} dark={dark} />
+  ) : (
+    <ListRowSkeleton shimmer={shimmer} dark={dark} />
   )
 }
 
 const styles = StyleSheet.create({
-  base: {},
+  cardShadow: {
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
 })

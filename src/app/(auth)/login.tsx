@@ -23,6 +23,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context'
 
 import { supabase } from '@/lib/supabase'
+import { useToastStore } from '@/store/toastStore'
 
 function isValidEmail(value: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
@@ -41,8 +42,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [toast, setToast] = useState<{ msg: string; variant: 'error' | 'info' } | null>(null)
   const [emailError, setEmailError] = useState<string | null>(null)
+  const showToast = useToastStore((s) => s.showToast)
 
   const passwordRef = useRef<TextInput>(null)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -98,11 +99,6 @@ export default function LoginScreen() {
     )
   }
 
-  const showToast = (msg: string, variant: 'error' | 'info') => {
-    setToast({ msg, variant })
-    setTimeout(() => setToast(null), 3500)
-  }
-
   const handleEmailBlur = () => {
     emailFocus.value = withTiming(0, { duration: 120 })
     if (email.trim() && !isValidEmail(email.trim())) {
@@ -132,7 +128,7 @@ export default function LoginScreen() {
         return
       }
 
-      router.replace('/(tabs)/lists')
+      router.replace('/(tabs)')
     } catch (err: unknown) {
       setLoading(false)
       const msg = err instanceof Error ? err.message : ''
@@ -157,12 +153,6 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {toast && (
-            <View className={`rounded-xl px-4 py-3 mb-4 ${toast.variant === 'error' ? 'bg-red-500' : 'bg-blue-600'}`}>
-              <Text className="text-white text-[15px] leading-5 font-medium">{toast.msg}</Text>
-            </View>
-          )}
-
           {/* Logo + Brand zone */}
           <View className="items-center mt-20 mb-14">
             <View style={styles.brandIcon}>

@@ -47,7 +47,7 @@ export default function RegisterScreen() {
       return
     }
 
-    router.replace('/(tabs)/lists')
+    router.replace('/(tabs)')
   }
 
   const isDisabled = !name.trim() || !email.trim() || !password || loading
