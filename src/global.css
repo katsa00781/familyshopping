@@ -1,9 +1,223 @@
-:root {
-  --font-display:
-    Spline Sans, Inter, ui-sans-serif, system-ui, sans-serif, Apple Color Emoji, Segoe UI Emoji,
-    Segoe UI Symbol, Noto Color Emoji;
-  --font-mono:
-    ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace;
-  --font-rounded: 'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif;
-  --font-serif: Georgia, 'Times New Roman', serif;
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  /* ─── CSS Custom Properties – Light Mode ─────────────────────────────────── */
+  :root {
+    --color-primary: #2563eb;
+    --color-destructive: #ef4444;
+    --color-success: #22c55e;
+    --color-warning: #f59e0b;
+    --color-muted: #94a3b8;
+
+    --color-background: #b2b2b2;
+    --color-card: #ffffff;
+    --color-border: #e2e8f0;
+    --color-foreground: #0f172a;
+
+    /* Bolt mód – nem témafüggő */
+    --color-bolt-bg: #000000;
+    --color-bolt-bar: #111827;
+    --color-bolt-border: #1f2937;
+    --color-bolt-unchecked: #334155;
+
+    /* Kategória tintok */
+    --color-cat-produce: #86efac;
+    --color-cat-dairy: #93c5fd;
+    --color-cat-meat: #fca5a5;
+    --color-cat-bakery: #fcd34d;
+    --color-cat-other: #cbd5e1;
+
+    /* Spacing */
+    --spacing-screen-x: 16px;
+    --spacing-section: 24px;
+    --spacing-row: 56px;
+    --spacing-row-bolt: 72px;
+    --spacing-cta: 50px;
+    --spacing-tap: 44px;
+    --spacing-bolt-cb: 56px;
+
+    /* Border radius */
+    --radius-badge: 6px;
+    --radius-card: 12px;
+    --radius-button: 12px;
+    --radius-sheet: 16px;
+    --radius-fab: 9999px;
+  }
+
+  /* ─── CSS Custom Properties – Dark Mode ──────────────────────────────────── */
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --color-background: #0f172a;
+      --color-card: #1e293b;
+      --color-border: #334155;
+      --color-foreground: #f8fafc;
+      --color-muted: #64748b;
+    }
+  }
+}
+
+@layer components {
+  /* ─── Tipográfia ──────────────────────────────────────────────────────────── */
+
+  /* heading-xl: 34/41 Bold -0.02em */
+  .text-heading-xl {
+    font-size: 34px;
+    line-height: 41px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+  }
+
+  /* heading-lg: 28/34 Bold */
+  .text-heading-lg {
+    font-size: 28px;
+    line-height: 34px;
+    font-weight: 700;
+  }
+
+  /* heading-md: 22/28 Semibold */
+  .text-heading-md {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 600;
+  }
+
+  /* body-lg: 17/22 Regular */
+  .text-body-lg {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 400;
+  }
+
+  /* body-md: 15/20 Regular */
+  .text-body-md {
+    font-size: 15px;
+    line-height: 20px;
+    font-weight: 400;
+  }
+
+  /* body-sm: 13/18 Regular */
+  .text-body-sm {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+
+  /* caption: 11/14 Regular +0.04em */
+  .text-caption {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+  }
+
+  /* bolt-item: 24/30 Semibold */
+  .text-bolt-item {
+    font-size: 24px;
+    line-height: 30px;
+    font-weight: 600;
+  }
+
+  /* ─── Layout helpers ──────────────────────────────────────────────────────── */
+
+  .screen-padding {
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  .section-gap {
+    margin-top: 24px;
+  }
+
+  /* ─── Kártya ──────────────────────────────────────────────────────────────── */
+
+  .card {
+    background-color: #ffffff;
+    border-radius: 12px;
+    padding: 16px;
+    border-width: 1px;
+    border-color: #e2e8f0;
+  }
+
+  /* ─── Gomb – CTA ──────────────────────────────────────────────────────────── */
+
+  .btn-cta {
+    height: 50px;
+    border-radius: 12px;
+    align-items: center;
+    justify-content: center;
+    background-color: #2563eb;
+  }
+
+  .btn-cta-text {
+    font-size: 17px;
+    line-height: 22px;
+    font-weight: 600;
+    color: #ffffff;
+  }
+
+  /* ─── Badge ───────────────────────────────────────────────────────────────── */
+
+  .badge {
+    border-radius: 6px;
+    padding-left: 8px;
+    padding-right: 8px;
+    padding-top: 2px;
+    padding-bottom: 2px;
+  }
+
+  .badge-text {
+    font-size: 11px;
+    line-height: 14px;
+    font-weight: 400;
+    letter-spacing: 0.04em;
+  }
+
+  /* ─── Lista sor ───────────────────────────────────────────────────────────── */
+
+  .list-row {
+    height: 56px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+  }
+
+  /* ─── Bolt mód ────────────────────────────────────────────────────────────── */
+
+  .bolt-row {
+    height: 72px;
+    flex-direction: row;
+    align-items: center;
+    padding-left: 16px;
+    padding-right: 16px;
+    background-color: #000000;
+  }
+
+  .bolt-checkbox {
+    width: 56px;
+    height: 56px;
+    border-radius: 9999px;
+    align-items: center;
+    justify-content: center;
+  }
+
+  /* ─── Kategória badge-ek ──────────────────────────────────────────────────── */
+
+  .cat-produce {
+    background-color: #86efac;
+  }
+  .cat-dairy {
+    background-color: #93c5fd;
+  }
+  .cat-meat {
+    background-color: #fca5a5;
+  }
+  .cat-bakery {
+    background-color: #fcd34d;
+  }
+  .cat-other {
+    background-color: #cbd5e1;
+  }
 }
