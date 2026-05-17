@@ -4,6 +4,7 @@ import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native
 import { Stack } from 'expo-router'
 import { useEffect } from 'react'
 import { ActivityIndicator, StyleSheet, useColorScheme, View } from 'react-native'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon'
 import { ToastContainer } from '@/components/ui/Toast'
@@ -34,13 +35,15 @@ export default function RootLayout() {
   }
 
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <View style={styles.root}>
-        <AnimatedSplashOverlay />
-        <Stack screenOptions={{ headerShown: false }} />
-        <ToastContainer />
-      </View>
-    </ThemeProvider>
+    <GestureHandlerRootView style={styles.root}>
+      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+        <View style={styles.root}>
+          <AnimatedSplashOverlay />
+          <Stack screenOptions={{ headerShown: false }} />
+          <ToastContainer />
+        </View>
+      </ThemeProvider>
+    </GestureHandlerRootView>
   )
 }
 

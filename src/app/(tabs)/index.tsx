@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Animated,
   type NativeSyntheticEvent,
@@ -13,6 +13,7 @@ import { useRouter } from 'expo-router'
 import { Plus, ShoppingCart } from 'lucide-react-native'
 
 import ListCard from '@/components/lista/ListCard'
+import ListCreateSheet from '@/components/lista/ListCreateSheet'
 import { useListStore } from '@/store/listStore'
 import type { ShoppingList } from '@/types'
 
@@ -85,9 +86,11 @@ export default function ListsScreen() {
   const router = useRouter()
   const fabY = useRef(new Animated.Value(0)).current
   const lastScrollY = useRef(0)
+  const [createVisible, setCreateVisible] = useState(false)
 
   const lists = useListStore((s) => s.lists)
   const loadLists = useListStore((s) => s.loadLists)
+  const createList = useListStore((s) => s.createList)
 
   useEffect(() => { loadLists() }, [loadLists])
 
@@ -122,7 +125,7 @@ export default function ListsScreen() {
             Bevásárló listák
           </Text>
           <Pressable
-            onPress={() => {}}
+            onPress={() => setCreateVisible(true)}
             style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
@@ -176,7 +179,7 @@ export default function ListsScreen() {
         }}
       >
         <Pressable
-          onPress={() => {}}
+          onPress={() => setCreateVisible(true)}
           style={({ pressed }) => ({
             width: 56,
             height: 56,
@@ -195,6 +198,12 @@ export default function ListsScreen() {
           <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
         </Pressable>
       </Animated.View>
+
+      <ListCreateSheet
+        visible={createVisible}
+        onClose={() => setCreateVisible(false)}
+        onCreate={(name, date) => createList(name, date)}
+      />
     </SafeAreaView>
   )
 }

@@ -18,11 +18,10 @@ function calcTotal(items: ShoppingItem[]): number {
   return Math.round(items.reduce((sum, item) => sum + (item.price ?? 0) * item.quantity, 0))
 }
 
-type SupabasePayload = Omit<ShoppingList, 'updated_at'>
+type SupabasePayload = Omit<ShoppingList, 'updated_at' | 'completed_at'>
 
 function toPayload(list: ShoppingList): SupabasePayload {
-  // updated_at-t a trigger kezeli, kliens nem küldi
-  const { updated_at: _u, ...payload } = list
+  const { updated_at: _u, completed_at: _c, ...payload } = list
   return payload
 }
 
@@ -88,6 +87,7 @@ export const useListStore = create<ListState>((set, get) => ({
       const lists = (data ?? []).map((l) => ({
         ...l,
         items: Array.isArray(l.items) ? l.items : [],
+        completed_at: l.completed_at ?? null,
       })) as ShoppingList[]
       await saveCache(lists)
       set({ lists, isLoading: false })
@@ -120,41 +120,59 @@ export const useListStore = create<ListState>((set, get) => ({
       updated_at: now,
     }
 
-    const next = [newList, ...get().lists]
+    const prev = get().lists
+    const next = [newList, ...prev]
     set({ lists: next })
     await saveCache(next)
 
     if (user) {
-      await supabase.from('shopping_lists').insert(toPayload(newList))
+      const { error } = await supabase.from('shopping_lists').insert(toPayload(newList))
+      if (error) {
+        set({ lists: prev, error: 'Lista létrehozása sikertelen' })
+        await saveCache(prev)
+      }
     }
   },
 
   updateList: async (id, patch) => {
-    const next = get().lists.map((l) => (l.id === id ? { ...l, ...patch } : l))
+    const prev = get().lists
+    const next = prev.map((l) => (l.id === id ? { ...l, ...patch } : l))
     set({ lists: next })
     await saveCache(next)
 
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const list = next.find((l) => l.id === id)
-      if (list) await supabase.from('shopping_lists').upsert(toPayload(list))
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Lista frissítése sikertelen' })
+          await saveCache(prev)
+        }
+      }
     }
   },
 
   deleteList: async (id) => {
-    const next = get().lists.filter((l) => l.id !== id)
+    const prev = get().lists
+    const next = prev.filter((l) => l.id !== id)
     set({ lists: next })
     await saveCache(next)
 
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      await supabase.from('shopping_lists').delete().eq('id', id)
+      const { error } = await supabase.from('shopping_lists').delete().eq('id', id)
+      if (error) {
+        set({ lists: prev, error: 'Lista törlése sikertelen' })
+        await saveCache(prev)
+      }
     }
   },
 
   completeList: async (id) => {
+    const prev = get().lists
     const completedAt = new Date().toISOString()
-    const next = get().lists.map((l) =>
+    const next = prev.map((l) =>
       l.id === id ? { ...l, completed: true, completed_at: completedAt } : l
     )
     set({ lists: next })
@@ -163,12 +181,19 @@ export const useListStore = create<ListState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const list = next.find((l) => l.id === id)
-      if (list) await supabase.from('shopping_lists').upsert(toPayload(list))
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Lista befejezése sikertelen' })
+          await saveCache(prev)
+        }
+      }
     }
   },
 
   addItem: async (listId, item) => {
-    const next = get().lists.map((l) => {
+    const prev = get().lists
+    const next = prev.map((l) => {
       if (l.id !== listId) return l
       const items = [...l.items, item]
       return { ...l, items, total_amount: calcTotal(items) }
@@ -179,12 +204,19 @@ export const useListStore = create<ListState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const list = next.find((l) => l.id === listId)
-      if (list) await supabase.from('shopping_lists').upsert(toPayload(list))
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Tétel hozzáadása sikertelen' })
+          await saveCache(prev)
+        }
+      }
     }
   },
 
   updateItem: async (listId, itemId, patch) => {
-    const next = get().lists.map((l) => {
+    const prev = get().lists
+    const next = prev.map((l) => {
       if (l.id !== listId) return l
       const items = l.items.map((i) => (i.id === itemId ? { ...i, ...patch } : i))
       return { ...l, items, total_amount: calcTotal(items) }
@@ -195,12 +227,19 @@ export const useListStore = create<ListState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const list = next.find((l) => l.id === listId)
-      if (list) await supabase.from('shopping_lists').upsert(toPayload(list))
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Tétel frissítése sikertelen' })
+          await saveCache(prev)
+        }
+      }
     }
   },
 
   deleteItem: async (listId, itemId) => {
-    const next = get().lists.map((l) => {
+    const prev = get().lists
+    const next = prev.map((l) => {
       if (l.id !== listId) return l
       const items = l.items.filter((i) => i.id !== itemId)
       return { ...l, items, total_amount: calcTotal(items) }
@@ -211,12 +250,19 @@ export const useListStore = create<ListState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const list = next.find((l) => l.id === listId)
-      if (list) await supabase.from('shopping_lists').upsert(toPayload(list))
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Tétel törlése sikertelen' })
+          await saveCache(prev)
+        }
+      }
     }
   },
 
   toggleItem: async (listId, itemId) => {
-    const next = get().lists.map((l) => {
+    const prev = get().lists
+    const next = prev.map((l) => {
       if (l.id !== listId) return l
       const items = l.items.map((i) =>
         i.id === itemId ? { ...i, checked: !i.checked } : i
@@ -229,7 +275,13 @@ export const useListStore = create<ListState>((set, get) => ({
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
       const list = next.find((l) => l.id === listId)
-      if (list) await supabase.from('shopping_lists').upsert(toPayload(list))
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Kipipálás sikertelen' })
+          await saveCache(prev)
+        }
+      }
     }
   },
 }))

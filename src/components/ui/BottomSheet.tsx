@@ -2,14 +2,18 @@ import type { ReactNode } from 'react'
 import { useEffect } from 'react'
 import {
   Dimensions,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   useColorScheme,
   View,
 } from 'react-native'
+import { Gesture, GestureDetector } from 'react-native-gesture-handler'
 import Animated, {
+  runOnJS,
   useAnimatedStyle,
   useSharedValue,
   withTiming,
@@ -35,15 +39,35 @@ export default function BottomSheet({
   const dark = useColorScheme() === 'dark'
   const sheetH = variant === 'full' ? SCREEN_H * 0.88 : SCREEN_H * 0.5
   const translateY = useSharedValue(sheetH)
+  const dragY = useSharedValue(0)
 
   useEffect(() => {
-    translateY.value = visible
-      ? withTiming(0, { duration: 300 })
-      : withTiming(sheetH, { duration: 250 })
-  }, [visible, sheetH, translateY])
+    if (visible) {
+      dragY.value = 0
+      translateY.value = withTiming(0, { duration: 300 })
+    } else {
+      translateY.value = withTiming(sheetH, { duration: 250 })
+    }
+  }, [visible, sheetH, translateY, dragY])
+
+  const pan = Gesture.Pan()
+    .onUpdate((e) => {
+      if (e.translationY > 0) {
+        dragY.value = e.translationY
+      }
+    })
+    .onEnd((e) => {
+      const shouldDismiss = e.velocityY > 800 || dragY.value > sheetH * 0.3
+      if (shouldDismiss) {
+        dragY.value = withTiming(sheetH, { duration: 250 })
+        runOnJS(onClose)()
+      } else {
+        dragY.value = withTiming(0, { duration: 200 })
+      }
+    })
 
   const sheetStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: translateY.value }],
+    transform: [{ translateY: translateY.value + dragY.value }],
   }))
 
   return (
@@ -54,9 +78,12 @@ export default function BottomSheet({
       onRequestClose={onClose}
       statusBarTranslucent
     >
-      <View style={styles.overlay}>
+      <KeyboardAvoidingView
+        style={styles.overlay}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      >
         {/* Backdrop */}
-        <Pressable className="absolute inset-0 bg-black/40" onPress={onClose} />
+        <Pressable style={StyleSheet.absoluteFill} className="bg-black/40" onPress={onClose} />
 
         {/* Sheet panel */}
         <Animated.View
@@ -69,24 +96,26 @@ export default function BottomSheet({
             },
           ]}
         >
-          {/* Drag handle */}
-          <View
-            style={[
-              styles.handle,
-              { backgroundColor: dark ? '#334155' : '#CBD5E1' },
-            ]}
-          />
-
-          {/* Title */}
-          {title && (
-            <Text className="text-heading-md text-foreground dark:text-dark-foreground text-center mb-4">
-              {title}
-            </Text>
-          )}
+          {/* Drag handle – gesture target */}
+          <GestureDetector gesture={pan}>
+            <View style={styles.handleArea}>
+              <View
+                style={[
+                  styles.handle,
+                  { backgroundColor: dark ? '#334155' : '#CBD5E1' },
+                ]}
+              />
+              {title && (
+                <Text className="text-heading-md text-foreground dark:text-dark-foreground text-center mb-4">
+                  {title}
+                </Text>
+              )}
+            </View>
+          </GestureDetector>
 
           {children}
         </Animated.View>
-      </View>
+      </KeyboardAvoidingView>
     </Modal>
   )
 }
@@ -107,6 +136,9 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.20,
     shadowRadius: 30,
     elevation: 24,
+  },
+  handleArea: {
+    paddingTop: 0,
   },
   handle: {
     width: 32,
