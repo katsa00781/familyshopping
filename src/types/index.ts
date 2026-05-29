@@ -97,9 +97,56 @@ export interface ShoppingStatistic {
   created_at: string
 }
 
+// ─── OCR ─────────────────────────────────────────────────────────────────────
+export interface OCRItem {
+  name: string
+  qty: number
+  unit: string | null
+  price: number
+  conf: number
+}
+
+export interface OCRResponse {
+  lines: string[]
+  items: OCRItem[]
+  total: number | null
+  store: string | null
+  date: string | null
+  conf: number
+}
+
+export interface ReviewItem extends OCRItem {
+  id: string
+  isDuplicate: boolean
+  existingProductId: string | null
+  matchedProductName: string | null
+  skip: boolean
+}
+
+// ─── Család ───────────────────────────────────────────────────────────────────
+export type FamilyRole = 'admin' | 'member' | 'viewer'
+
+export interface FamilyMember {
+  id: string
+  name: string
+  email: string
+  role: FamilyRole
+  joinedAt: string
+}
+
+export interface Family {
+  id: string
+  name: string
+  inviteLink: string
+  inviteExpiresAt: string
+  members: FamilyMember[]
+}
+
 // ─── UI helper típusok ────────────────────────────────────────────────────────
 export interface PriceChange {
+  product_id: string | null
   product_name: string
+  product_category: string | null
   store_name: string | null
   old_price: number
   new_price: number

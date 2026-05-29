@@ -48,6 +48,7 @@ interface ListState {
   updateList: (id: string, patch: Partial<Pick<ShoppingList, 'name' | 'date' | 'store_name'>>) => Promise<void>
   deleteList: (id: string) => Promise<void>
   completeList: (id: string) => Promise<void>
+  restoreList: (id: string) => Promise<void>
   addItem: (listId: string, item: ShoppingItem) => Promise<void>
   updateItem: (listId: string, itemId: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => Promise<void>
   deleteItem: (listId: string, itemId: string) => Promise<void>
@@ -65,7 +66,8 @@ export const useListStore = create<ListState>((set, get) => ({
   loadLists: async () => {
     set({ isLoading: true, error: null })
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
 
     if (!user) {
       const cached = await loadCache()
@@ -102,7 +104,8 @@ export const useListStore = create<ListState>((set, get) => ({
   },
 
   createList: async (name, date) => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     const userId = user?.id ?? 'mock-user'
     const now = new Date().toISOString()
 
@@ -140,7 +143,8 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === id)
       if (list) {
@@ -159,7 +163,8 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const { error } = await supabase.from('shopping_lists').delete().eq('id', id)
       if (error) {
@@ -178,13 +183,74 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === id)
       if (list) {
         const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
         if (error) {
           set({ lists: prev, error: 'Lista befejezése sikertelen' })
+          await saveCache(prev)
+          return
+        }
+
+        // Áras tételeket rögzítjük a statisztika és árhistória táblákban
+        const pricedItems = list.items.filter((item) => item.price !== null && item.price > 0)
+        if (pricedItems.length > 0) {
+          const shoppingDate = list.date || completedAt.split('T')[0]!
+
+          const statsRows = pricedItems.map((item) => ({
+            user_id: user.id,
+            shopping_list_id: list.id,
+            product_name: item.name,
+            product_category: item.category as string,
+            store_name: list.store_name,
+            unit: item.unit,
+            unit_price: item.price!,
+            quantity: item.quantity,
+            total_price: item.price! * item.quantity,
+            shopping_date: shoppingDate,
+            source: 'list' as const,
+          }))
+
+          const priceRows = pricedItems.map((item) => ({
+            user_id: user.id,
+            product_id: item.product_id,
+            product_name: item.name,
+            product_category: item.category as string,
+            store_name: list.store_name,
+            unit: item.unit,
+            unit_price: item.price!,
+            quantity: item.quantity,
+            total_price: item.price! * item.quantity,
+            price_date: shoppingDate,
+            source: 'list' as const,
+          }))
+
+          void supabase.from('shopping_statistics').insert(statsRows)
+          void supabase.from('product_price_history').insert(priceRows)
+        }
+      }
+    }
+  },
+
+  restoreList: async (id) => {
+    const prev = get().lists
+    const next = prev.map((l) =>
+      l.id === id ? { ...l, completed: false, completed_at: null } : l
+    )
+    set({ lists: next })
+    await saveCache(next)
+
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
+    if (user) {
+      const list = next.find((l) => l.id === id)
+      if (list) {
+        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
+        if (error) {
+          set({ lists: prev, error: 'Lista visszaállítása sikertelen' })
           await saveCache(prev)
         }
       }
@@ -201,7 +267,8 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
@@ -224,7 +291,8 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
@@ -247,7 +315,8 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
@@ -272,7 +341,8 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {

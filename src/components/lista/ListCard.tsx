@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { Svg, Circle } from 'react-native-svg'
 
+import { colors } from '@/constants/colors'
 import type { ShoppingList } from '@/types'
 
 interface Props {
@@ -18,8 +19,8 @@ function formatDate(dateStr: string): string {
 }
 
 function ProgressRing({ progress }: { progress: number }) {
-  const size = 44
-  const strokeWidth = 3
+  const size = 32
+  const strokeWidth = 2
   const radius = (size - strokeWidth) / 2
   const circumference = 2 * Math.PI * radius
   const strokeDashoffset = circumference * (1 - progress)
@@ -28,21 +29,19 @@ function ProgressRing({ progress }: { progress: number }) {
   return (
     <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
       <Svg width={size} height={size} style={{ position: 'absolute' }}>
-        {/* Track */}
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke="#E2E8F0"
+          stroke={colors.border}
           strokeWidth={strokeWidth}
           fill="none"
         />
-        {/* Progress */}
         <Circle
           cx={size / 2}
           cy={size / 2}
           r={radius}
-          stroke={pct === 100 ? '#22C55E' : '#2563EB'}
+          stroke={pct === 100 ? colors.success : colors.primary}
           strokeWidth={strokeWidth}
           fill="none"
           strokeDasharray={circumference}
@@ -54,10 +53,10 @@ function ProgressRing({ progress }: { progress: number }) {
       </Svg>
       <Text
         style={{
-          fontSize: 11,
-          lineHeight: 14,
+          fontSize: 9,
+          lineHeight: 11,
           fontWeight: '600',
-          color: pct === 100 ? '#22C55E' : '#2563EB',
+          color: pct === 100 ? colors.success : colors.primary,
           letterSpacing: 0,
         }}
       >
@@ -67,7 +66,7 @@ function ProgressRing({ progress }: { progress: number }) {
   )
 }
 
-export default function ListCard({ list, onPress }: Props) {
+export function ListCard({ list, onPress }: Props) {
   const total = list.items.length
   const checked = list.items.filter((i) => i.checked).length
   const progress = total > 0 ? checked / total : 0
@@ -97,7 +96,8 @@ export default function ListCard({ list, onPress }: Props) {
           <Text className="text-body-sm text-muted">
             {formatDate(list.date)}
           </Text>
-          <Text className="text-body-sm text-muted mt-0.5" numberOfLines={1}>
+          <View className="h-px bg-border dark:bg-dark-border my-1" />
+          <Text className="text-body-sm text-muted" numberOfLines={1}>
             {meta}
           </Text>
         </View>

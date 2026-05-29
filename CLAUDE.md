@@ -1,49 +1,49 @@
 # Bevásárló – CLAUDE.md
 
+> **Claude Code-nak:** ezt olvasd el először, minden prompt előtt. Ez definiálja, mit építünk, hogyan, és mik a nem-alkudható szabályok.
+
 ## Szerepkör
-Te egy tapasztalt Expo és React Native mérnök vagy, aki segít megépíteni a **Bevásárló**
-alkalmazást – a FamilyBudget webes app mobilos párját.
-Írj tiszta, egyszerű, karbantartható kódot. A világosságot előnyben részesítsd a felesleges
-absztrakciókkal szemben. Ha valami nem egyértelmű, javasold a jobb megközelítést és kérdezz rá.
+Te egy tapasztalt Expo és React Native mérnök vagy, aki segít megépíteni a **Bevásárló** alkalmazást. Írj tiszta, egyszerű, karbantartható kódot. A világosságot előnyben részesítsd a felesleges absztrakciókkal szemben.
 
 ---
 
 ## Projekt áttekintés
+**Bevásárló** – magyar háztartási bevásárló app, amelyben egy család közösen kezel bevásárlólistákat, termékeket és árelőzményeket. iOS-first.
 
-**Bevásárló** – Háztartási bevásárlólisták kezelése iOS-en, a FamilyBudget Supabase backend felett.
+A killer feature a **Bolt mód**: nagy kontrasztú, óriási tap-targetes képernyő, amit a boltban, a polc előtt használsz.
 
-Az app a következő főbb funkciókat tartalmazza:
-- **Autentikáció** – Supabase email+jelszó login (ugyanaz mint a webes appnál)
-- **Bevásárló lista** – listák létrehozása, tételek hozzáadása/szerkesztése/törlése, kipipálás
-- **Bolt mód** – nagy kontrasztú, egy kézzel kezelhető üzleti nézet (fekete háttér, 72pt sorok, 56pt checkbox)
-- **Termékek** – termékkönyvtár böngészése, keresés, új termék felvitele
-- **Árak dashboard** – árváltozások, személyes infláció, KPI kártyák
+Az app a következőket tartalmazza:
+- Közös bevásárlólisták (család szinten megosztva)
+- Bolt mód – fekete háttér, óriás sorok, haptikus pipálás
+- Termékkatalógus árelőzménnyel
+- Áráttekintés / ártrendek boltonként
+- OCR blokk-szkennelés (kamera + szerver oldali vision endpoint)
+- Profil és családbeállítások
 
-Az implementáció legyen egyszerű és olvasható. MVP: 1 felhasználó (saját tesztelés).
+Az implementáció legyen egyszerű és olvasható.
 
 ---
 
-## Tech stack
+## Tech stack (rögzített)
 
-| Réteg | Csomag |
-|---|---|
-| Framework | Expo SDK 52+ + React Native |
-| Nyelv | TypeScript (strict mode) |
-| Router | Expo Router v4 (file-based) |
-| Styling | NativeWind v4 (Tailwind szintaxis) |
-| State | Zustand + AsyncStorage perzisztencia |
-| Backend/DB | Supabase (meglévő familybudget projekt) |
-| Auth | Supabase Auth (email + jelszó) |
-| Icons | Lucide React Native |
-| Analitika | – (v1-ben nincs) |
+- **Runtime:** React Native via Expo (managed workflow), SDK ~54
+- **Nyelv:** TypeScript, strict mode. `src/`-ben nincs JS fájl.
+- **Styling:** NativeWind v4 (Tailwind RN-hez). `StyleSheet.create` csak ha elkerülhetetlen (animált értékek, stb.)
+- **Navigáció:** `expo-router` (file-based routing, Tabs + Stack). **Megjegyzés:** a projekt expo-router-t használ, nem @react-navigation direktben.
+- **State:** Local state first. Megosztott state-hez `zustand` v5. **Redux tilos.**
+- **Perzisztencia:** `AsyncStorage` (theme, view toggle-ök, utolsó aktív lista)
+- **Animáció:** `react-native-reanimated` v4. Spring minden state-flipnél.
+- **Ikonok:** `lucide-react-native`, stroke width 1.75
+- **Haptika:** `expo-haptics` — **telepítendő még** (mapping: `handoff/animations.md`)
+- **Backend / Auth:** `@supabase/supabase-js` v2, Supabase Auth. Kliens: `src/lib/supabase.ts`.
+- **OCR kamera:** `expo-camera` — **telepítendő még**; az OCR hívás szerver oldali (vision endpoint, kontraktus: `handoff/screens/10-OCRFlow.md`)
+- **Keep-awake (Bolt mód):** `expo-keep-awake` (telepítve, **de még nincs bekapcsolva a Bolt képernyőn**)
 
-**Új könyvtárat ne adj hozzá engedély nélkül.** Ha indokolt lenne, javasold és kérdezz rá.
-Max 10 fő dependency.
+Új könyvtárat ne adj hozzá engedély nélkül. Ha indokolt lenne, javasold és kérdezz rá. Max kevés, jól dokumentált dependency.
 
 ---
 
 ## Fejlesztési filozófia
-
 Feature-by-feature építés. Minden feature esetén:
 
 1. Olvasd el ezt a fájlt először
@@ -55,515 +55,163 @@ Feature-by-feature építés. Minden feature esetén:
 
 ---
 
+## Döntési szabályok
+Ha valami nem egyértelmű, javasold a jobb megközelítést.
+Ha egy új könyvtár segítene, indokold meg és kérdezz rá mielőtt hozzáadod.
+Meglévő UI-t ne változtass meg engedély nélkül.
+**Ha egy markdown spec és a HTML mockup eltér, a HTML a kanonikus igazság.**
+
+---
+
 ## Mappastruktúra
 
+Részletesen: `handoff/architecture.md`. Tényleges jelenlegi állapot:
+
 ```
-app/
-  (auth)/
-    login.tsx
-    register.tsx
-  (tabs)/
-    index.tsx           ← Lista tab (ListOverview)
-    termekek.tsx        ← Termékek tab
-    arak.tsx            ← Árak tab
-    bolt.tsx            ← Bolt mód tab
-    profil.tsx          ← Profil tab
-  lista/
-    [id].tsx            ← ListDetail
-  termekek/
-    [id].tsx            ← ProductDetail
-    uj.tsx              ← ProductAdd
-  _layout.tsx
-
-components/
-  lista/
-    ListCard.tsx
-    ListItem.tsx
-    ItemAddSheet.tsx
-    ItemEditSheet.tsx
-  termekek/
-    ProductCard.tsx
-    ProductRow.tsx
-  arak/
-    DonutChart.tsx
-    KpiCard.tsx
-    ChangeRow.tsx
-  bolt/
-    BoltRow.tsx
-    BoltCheckbox.tsx
-  ui/
-    Button.tsx
-    Input.tsx
-    Badge.tsx
-    Toast.tsx
-    Skeleton.tsx
-    EmptyState.tsx
-    BottomSheet.tsx
-
-constants/
-  colors.ts             ← design system tokenek
-  typography.ts
-  images.ts
-
-data/
-  mockProducts.ts       ← hardcoded kezdő termékek
-  mockLists.ts          ← hardcoded kezdő listák
-
-hooks/
-  useAuth.ts
-  useLists.ts
-  useProducts.ts
-  usePrices.ts
-
-lib/
-  supabase.ts           ← Supabase kliens init
-
-store/
-  authStore.ts
-  listStore.ts
-  productStore.ts
-  priceStore.ts
-
-types/
-  index.ts              ← List, Item, Product, PriceEntry típusok
-
-assets/
-  images/
+src/
+  app/             # expo-router route-ok (tabs, auth stack, lista/[id], termekek/[id])
+  components/
+    ui/            # Button, Input, Badge, BottomSheet, EmptyState, Skeleton, Toast
+    bolt/          # BoltRow, BoltCheckbox
+    lista/         # ListCard, ListItem, ItemAddSheet, ItemEditSheet, ListCreateSheet
+    termekek/      # ProductCard, ProductRow
+    arak/          # KpiCard, DonutChart, ChangeRow
+  store/           # authStore, listStore, productStore, priceStore, toastStore
+  hooks/           # use-theme.ts, use-color-scheme.ts
+  lib/             # supabase.ts (hiányzik: format.ts, storage.ts, haptics.ts)
+  types/           # index.ts (minden típus egy fájlban)
+  data/            # mockLists.ts, mockProducts.ts (dev only)
+  constants/       # colors.ts, theme.ts, typography.ts, images.ts
 ```
 
-**`app/`** – csak route-ok és képernyők. Komponenseket és üzleti logikát ne tartalmazzon.
+**Tervezett (backlogban):** `screens/`, `navigation/types.ts`, `lib/format.ts`, `lib/storage.ts`, `lib/haptics.ts`
 
-**`components/`** – újrafelhasználható UI elemek. Akkor hozz létre komponenst, ha:
-- több helyen újra van használva
-- átláthatóbbá teszi a képernyőt
-- önálló UI koncepciót képvisel
+**app/ + screens/** – csak route-ok és képernyők. Komponenseket és üzleti logikát ne tartalmazzon.
 
-**`data/`** – hardcoded mock tartalom. v1-ben ezekkel dolgozunk, Supabase szinkron later.
+**components/** – újrafelhasználható UI primitívek. Egy fájl / komponens, named export. Példák: Button, Input, Card, Badge, Checkbox, BottomSheet, EmptyState, Skeleton, Toast.
 
-**`store/`** – Zustand store-ok, AsyncStorage perzisztenciával ahol szükséges.
+**lib/** – külső service helperek (pl. ocr.ts, storage.ts, format.ts). Titkos kulcsokat soha ne tárolj itt.
 
-**`lib/`** – külső service helperek. Titkos kulcsokat soha ne tároljunk itt.
+**store/ (zustand)** – csak megosztott state-hez. Példa: aktív lista, family kontextus.
 
 ---
 
-## Styling szabályok
+## Design tokenek
+**Egyetlen forrás:** `handoff/tokens/tokens.json`. Típusos tükör: `handoff/tokens/tokens.ts`. A Tailwind a `tailwind.config.js`-en keresztül olvassa.
 
-### ✅ ALAPSZABÁLY: NativeWind-first
-Minden stílust NativeWind `className` proppal írj. StyleSheet-et CSAK akkor
-használj, ha className-mel technikailag nem megoldható.
-
-### ❌ TILOS StyleSheet-et használni ezekre:
-- Egyszerű layout (flex, padding, margin, gap, width, height)
-- Színek, háttérszínek
-- Border, border-radius
-- Text stílusok (font-size, font-weight, color)
-- Opacity
-- Bármilyen stílus, ami Tailwind osztályokkal leírható
-
-### ✅ StyleSheet KIVÉTELEK – csak ezekre:
-- `SafeAreaView` (platform-specifikus padding)
-- `KeyboardAvoidingView`
-- `Modal`
-- `Animated.View` (animated.style prop)
-- Runtime-ban kiszámolt dinamikus értékek (pl. `{ width: itemWidth }`)
-- Platform-specifikus feltételes stílusok (`Platform.OS`)
-- `Pressable` / `TouchableOpacity` pressed state callback
-- `shadow*` props iOS-on (cross-platform árnyékok)
-
-### Helyes minta:
-```tsx
-// ✅ HELYES
-<View className="flex-1 bg-white px-4 py-6">
-  <Text className="text-lg font-semibold text-slate-900">Tej 2,8%</Text>
-</View>
-
-// ❌ HELYTELEN
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', paddingHorizontal: 16 }
-})
-<View style={styles.container}>
-```
-
-### Design System tokenek (tailwind.config.ts alapján):
-```
-Színek:       bg-primary, bg-destructive, bg-success, bg-warning, bg-muted
-              bg-cat-produce, bg-cat-dairy, bg-cat-meat, bg-cat-bakery, bg-cat-other
-Betűk:        text-heading-xl, text-heading-lg, text-heading-md
-              text-body-lg, text-body-md, text-body-sm, text-caption, text-bolt-mod-item
-Radius:       rounded-card, rounded-btn, rounded-badge, rounded-fab
-Árnyék:       shadow-sm, shadow-md, shadow-xl
-```
-
-## Design system – kötelező tokenek
-
-A design system az 1/5 PDF-ből. **Ezeket pontosan kövesd:**
-
-### Színek (`constants/colors.ts`)
-```ts
-export const colors = {
-  primary:     '#2563EB',   // blue-600 – CTA, aktív tab
-  destructive: '#EF4444',   // red-500 – törlés
-  success:     '#22C55E',   // green-500 – kipipált, OK
-  warning:     '#F59E0B',   // amber-500 – árváltozás
-  muted:       '#94A3B8',   // slate-400 – placeholder
-
-  // Surfaces light
-  background:  '#FFFFFF',
-  card:        '#FFFFFF',
-  border:      '#E2E8F0',
-  foreground:  '#0F172A',
-
-  // Surfaces dark
-  darkBackground: '#0F172A',
-  darkCard:       '#1E293B',
-  darkBorder:     '#334155',
-  darkForeground: '#F8FAFC',
-
-  // Bolt mód – mindig fekete, system theme-től független
-  boltBg:      '#000000',
-  boltBar:     '#111827',
-
-  // Kategória tintok (pastel-300)
-  cat: {
-    produce: '#86EFAC',   // green-300
-    dairy:   '#93C5FD',   // blue-300
-    meat:    '#FCA5A5',   // red-300
-    bakery:  '#FCD34D',   // amber-300
-    other:   '#CBD5E1',   // slate-300
-  }
-}
-```
-
-### Spacing & layout
-- Screen padding X: **16pt**
-- Card inner padding: **16pt**
-- Section spacing: **24pt**
-- List row default: **56pt**
-- List row bolt mód: **72pt**
-- CTA button height: **50pt**
-- Min tap area: **44×44pt**
-- Bolt checkbox: **56×56pt**
-
-### Border radius
-- badge: 6pt | card: 12pt | button: 12pt | sheet: 16pt | FAB: 9999pt
-
-### Tipográfia (SF Pro / system stack)
-```
-heading-xl:  34/41  Bold   -0.02em  (large title)
-heading-lg:  28/34  Bold            (stack header)
-heading-md:  22/28  Semibold        (card header)
-body-lg:     17/22  Regular         (list item)
-body-md:     15/20  Regular         (secondary)
-body-sm:     13/18  Regular         (metadata)
-caption:     11/14  Regular  +0.04em (badge/label)
-bolt-item:   24/30  Semibold        (bolt mód sor)
-```
+**Soha** ne hardcode-olj hex értéket, betűméretet vagy pt spacinget komponensekben. Ha kell egy érték, ami nincs a tokenekben, először javasold a tokens fájlba felvenni.
 
 ---
 
-## Bolt mód – kritikus szabályok
-
-A Bolt mód a legfontosabb képernyő. Kötelező betartani:
-
-- **Background mindig `#000000`** – soha nem a sötét téma bg-je, hanem true black
-- Row height: **72pt**, bolt-item font: **24pt Semibold**
-- Checkbox: **56pt filled circle** – üres: `#334155`, kipipált: `#22C55E`
-- Kipipált sor: **40% opacity + áthúzott szöveg, helyben marad** (nem kerül alulra)
-- Moon icon: `activateKeepAwake()` – aktív = primary blue tint
-- Sticky progress bar: bg `#111827`, hairline `#1F2937`
-- "Vásárlás kész" gomb: csak ha minden kipipálva, VAGY long-press a barra
-
----
-
-## Supabase konfiguráció
-
-```ts
-// lib/supabase.ts
-import { createClient } from '@supabase/supabase-js'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-
-const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    storage: AsyncStorage,
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: false,
-  },
-})
-```
-
-**`.env` fájl (soha ne commitold!):**
-```
-EXPO_PUBLIC_SUPABASE_URL=...
-EXPO_PUBLIC_SUPABASE_ANON_KEY=...
-```
-
-A Supabase projekt a meglévő **familybudget** repo backend-je. A táblák és schema
-megegyeznek a webes appban használtakkal.
+## Komponens szabályok
+- Minden UI primitív a `src/components/`-ben, egy fájl / komponens.
+- Named export, soha nem default. `import { Button } from '@/components/Button'`.
+- Propok az ugyanabban a fájlban definiált `ButtonProps` interfészen át.
+- Variant/size/state union típusként, nem boolean-ként:
+  ```ts
+  type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'destructive';
+  type ButtonSize = 'sm' | 'md' | 'lg';
+  ```
+- Minimum tap target **44×44 pt** mindenhol. `hitSlop`-pal, ha a vizuál kisebb.
+- **Minden interaktív komponens támogassa a magyar VoiceOver feliratot** `accessibilityLabel`-en át.
 
 ---
 
-## Autentikáció
-
-Supabase Auth – email + jelszó. Ne építs egyedi auth megoldást.
-
-- Auth state: `authStore.ts` (Zustand)
-- Session: Supabase AsyncStorage storage kezeli
-- Login screen: `app/(auth)/login.tsx`
-- Redirect login után: `/(tabs)` (Lista tab)
-- Redirect logout után: `/(auth)/login`
+## Képernyő szabályok
+- Egy mappa / képernyő: `src/screens/<ScreenName>/`.
+- Belül: `index.tsx` (komponens), `styles.ts` ha elkerülhetetlen, `hooks.ts` a képernyő-lokális state-hez.
+- Képernyők soha ne stílusozzanak literál színnel — csak `bg-primary`, `text-foreground`, stb.
 
 ---
 
 ## UI szabályok
-
-- A megadott design dokumentumot (PDF 1–5) pontosan replikáld
-- Layout, spacing, padding, betűméret, hierarchia, színek, border-radius, árnyékok mind egyezzenek
-- Ne approximálj, ne egyszerűsíts engedély nélkül
-- Light/dark mód: `useColorScheme()` – automatikus
-- **Kivétel:** Bolt mód mindig fekete, system theme-től független
+- A megadott designt **pontosan** replikáld.
+- Layout, spacing, padding, betűméret, hierarchia, színek, border-radius, árnyékok, igazítás és arányok mind egyezzenek.
+- Ne approximálj, ne egyszerűsíts engedély nélkül.
 
 ---
 
 ## Styling szabályok
-
-Használj NativeWind osztályokat. StyleSheet-et csak ha className-mel nem megoldható.
-
-**StyleSheet kivételek (ezekhez ne használj className-t):**
-- `SafeAreaView`
-- `KeyboardAvoidingView`
-- `Modal`
-- `Animated.View`
-- Runtime dinamikus stílusok (pl. bolt checkbox checked state)
-- Platform-specifikus stílusok
-- `Pressable` pressed state
-- Árnyékok (platform-függők)
-
----
-
-## Kép szabályok
-
-```ts
-// constants/images.ts
-export const images = {
-  logo: require('@/assets/images/logo.png'),
-}
-```
-
-Képeket ne importálj közvetlenül képernyőkben vagy komponensekben.
+Használj NativeWind osztályokat. `StyleSheet.create`-et csak akkor, ha className-mel nem megoldható (animált értékek, runtime-számolt dinamikus stílus, platform-specifikus eset).
 
 ---
 
 ## State management
+- **Zustand** – globális/megosztott kliens state (csak ha kell)
+- **Lokális state** – átmeneti UI state (first choice)
+- **AsyncStorage** – perzisztencia
 
-| State | Store | Perzisztencia |
-|---|---|---|
-| Auth session | authStore | Supabase AsyncStorage |
-| Bevásárló listák | listStore | AsyncStorage (offline cache) |
-| Termékek | productStore | AsyncStorage (offline cache) |
-| Árak | priceStore | AsyncStorage (offline cache) |
-| UI state (sheet nyitva stb.) | lokális useState | – |
-
----
-
-## Supabase adatbázis schema
-
-A meglévő familybudget Supabase projektből az alábbi táblák relevánsak a mobil apphoz.
-**Ezeket pontosan kövesd – ne változtasd meg a meglévő schema-t!**
-
-### Releváns táblák
-
-```
-profiles              – felhasználói profilok (auth.users-hez kapcsolódik)
-shopping_lists        – bevásárlólisták (items JSONB tömbben)
-products              – termékkönyvtár (price_history JSONB tömbben)
-product_price_history – árváltozás log (Árak tab alapja)
-shopping_statistics   – vásárlási statisztikák (Árak tab KPI-ok)
-```
-
-### TypeScript típusok (`types/index.ts`)
-
-```ts
-// ─── Auth ────────────────────────────────────────────────────────────────────
-export interface Profile {
-  id: string                    // UUID, = auth.users.id
-  email: string | null
-  full_name: string | null
-  display_name: string | null
-  avatar_url: string | null
-  family_id: string | null      // UUID
-  created_at: string
-  updated_at: string
-}
-
-// ─── Bevásárlólista ───────────────────────────────────────────────────────────
-export type ItemCategory = 'Zöldség' | 'Tejtermék' | 'Hús' | 'Pékáru' | 'Egyéb'
-
-export interface ShoppingItem {
-  id: string                    // lokális UUID (nem Supabase sor)
-  name: string
-  quantity: number
-  unit: string                  // 'db' | 'kg' | 'g' | 'l' | 'ml' stb.
-  category: ItemCategory
-  checked: boolean
-  price: number | null          // Ft
-  product_id: string | null     // opcionális link a products táblához
-}
-
-export interface ShoppingList {
-  id: string                    // UUID
-  user_id: string
-  name: string
-  date: string                  // ISO date string YYYY-MM-DD
-  items: ShoppingItem[]         // JSONB a DB-ben, parsed array itt
-  total_amount: number
-  completed: boolean
-  store_name: string | null
-  completed_at: string | null
-  created_at: string
-  updated_at: string
-}
-
-// ─── Termékek ─────────────────────────────────────────────────────────────────
-export interface PriceHistoryEntry {
-  price: number
-  store_name: string | null
-  date: string                  // ISO date string
-  source: 'manual' | 'list' | 'ocr' | 'import'
-}
-
-export interface Product {
-  id: string                    // UUID
-  user_id: string
-  name: string
-  brand: string | null
-  category: string              // ItemCategory értéke
-  store_name: string | null
-  price: number | null          // legutóbbi ár Ft-ban
-  unit: string                  // 'db' | 'kg' | 'l' stb.
-  barcode: string | null
-  last_price: number | null
-  price_history: PriceHistoryEntry[]  // JSONB a DB-ben
-  available: boolean
-  created_at: string
-  updated_at: string
-}
-
-// ─── Árváltozások (product_price_history tábla) ───────────────────────────────
-export interface ProductPriceHistory {
-  id: string
-  user_id: string
-  product_id: string | null
-  product_name: string
-  product_category: string | null
-  store_name: string | null
-  unit: string
-  unit_price: number
-  quantity: number
-  total_price: number
-  price_date: string            // ISO date string
-  source: 'manual' | 'list' | 'ocr' | 'import'
-  created_at: string
-}
-
-// ─── Statisztikák (shopping_statistics tábla) ────────────────────────────────
-export interface ShoppingStatistic {
-  id: string
-  user_id: string
-  shopping_list_id: string | null
-  product_name: string
-  product_category: string | null
-  store_name: string | null
-  unit: string
-  unit_price: number
-  quantity: number
-  total_price: number
-  shopping_date: string         // ISO date string
-  source: 'manual' | 'list' | 'ocr' | 'import'
-  created_at: string
-}
-
-// ─── UI helper típusok ────────────────────────────────────────────────────────
-export interface PriceChange {
-  product_name: string
-  store_name: string | null
-  old_price: number
-  new_price: number
-  change_pct: number            // pl. +12.5 vagy -4.2
-  change_ft: number             // pl. +40 vagy -20
-  date: string
-}
-
-export interface InflationByCategory {
-  category: ItemCategory
-  change_pct: number
-  share: number                 // 0–1, a donut szelet aránya
-}
-```
-
-### Supabase lekérdezési minták
-
-```ts
-// Listák lekérése
-const { data } = await supabase
-  .from('shopping_lists')
-  .select('*')
-  .eq('user_id', userId)
-  .order('created_at', { ascending: false })
-
-// Lista mentése / frissítése
-await supabase
-  .from('shopping_lists')
-  .upsert({ id, user_id, name, date, items, total_amount, completed })
-
-// Termékek keresése
-await supabase
-  .from('products')
-  .select('*')
-  .eq('user_id', userId)
-  .ilike('name', `%${query}%`)
-  .order('name')
-
-// Árváltozások (utolsó 30 nap)
-await supabase
-  .from('product_price_history')
-  .select('*')
-  .eq('user_id', userId)
-  .gte('price_date', thirtyDaysAgo)
-  .order('price_date', { ascending: false })
-
-// Vásárlási statisztikák (KPI-okhoz)
-await supabase
-  .from('shopping_statistics')
-  .select('*')
-  .eq('user_id', userId)
-  .gte('shopping_date', periodStart)
-```
-
-### Fontos schema megjegyzések
-
-- A `shopping_lists.items` mező **JSONB** a DB-ben → mindig `ShoppingItem[]`-ként parse-old
-- A `products.price_history` mező **JSONB** → `PriceHistoryEntry[]`-ként parse-old
-- Az `ItemCategory` értékek magyarul vannak a designban: `'Zöldség'`, `'Tejtermék'`, `'Hús'`, `'Pékáru'`, `'Egyéb'`
-- A termék duplikáció-védelem miatt a `products` táblán unique index van: `(user_id, LOWER(TRIM(name)), LOWER(TRIM(COALESCE(brand, ''))))` – upsert-nél figyelj erre
-- Az `updated_at` mezőket **ne** küld a kliens, azt trigger kezeli
+Tárolt kulcsok (typed, `lib/storage.ts`): `appearance`, `product.viewMode`, `price.period`, `list.lastActive`, `auth.token`.
 
 ---
 
 ## TypeScript szabályok
-
-- Strict mode (`"strict": true` a tsconfig-ban)
-- `any` tiltott – használj `unknown` + type guard-ot
+- Strict mode + `noUncheckedIndexedAccess`
+- `any` tiltott
+- Path alias: `@/*` → `src/*`
 - Tartsd a típusokat egyszerűnek és olvashatónak
-- Minden Supabase táblának van typed interface a `types/index.ts`-ben (lásd fent)
+
+---
+
+## Magyar copy és formázás
+Minden user-facing string magyar. Pénznem `Ft` (HUF), suffix pozícióban (`340 Ft`), ezres elválasztó szóköz (`1 240 Ft`). Dátum: `2026.04.18.`. Számokhoz `Intl.NumberFormat('hu-HU')`. Helperek: `lib/format.ts` (`formatHuf`, `formatHuDate`).
+
+---
+
+## Bolt mód szent
+- Háttér **mindig** `#000000`, függetlenül a rendszer témától.
+- Sormagasság **72 pt**, checkbox **56 pt**, item szöveg **24 pt Semibold**.
+- Medium haptika minden pipálásnál.
+- Kipipált sorok **nem rendeződnek át** — helyben dimmelnek. A user "hol volt a Tej" mentális térképének túl kell élnie.
+- `useKeepAwake()` aktív az egész képernyőn.
+- A Bolt mód **nem** veszi figyelembe a rendszer dark/light módot.
+
+---
+
+## Don'ts
+- ❌ Nincs emoji a tab barban vagy core navigációban. Csak segmented controlon belül (Megjelenés: ☀ ◐ ☾).
+- ❌ Nincs stacked toast. Új toast lecseréli a régit 120 ms cross-fade-del.
+- ❌ Nincs `destructive` button variant a "Mégse"-hez — csak törléshez/eltávolításhoz.
+- ❌ Nincs floating label inputon belül. Mindig fölötte (a magyar összetett szavak hosszúak).
+- ❌ Nincs skeleton < 200 ms — ha gyors az adat, hagyd ki.
+
+---
+
+## Kép szabályok
+Centralizált image importot használj (`constants/images.ts` vagy `theme/`). Képeket ne importálj közvetlenül képernyőkben vagy komponensekben.
+
+---
+
+## Titkok és biztonság
+- Titkos kulcsokat soha ne tegyél kliens kódba.
+- Server route-okat használj tokenekhez, OCR/AI hívásokhoz és külső API hozzáféréshez.
+
+---
+
+## Autentikáció
+Az MVP-ben egyszerű auth (Login / Register / ForgotPassword). Ne építs túlbonyolított egyedi auth megoldást; ha külső szolgáltató (pl. Clerk / Supabase Auth) kerül szóba, javasold és kérdezz rá.
+
+---
+
+## Parancsok
+
+```bash
+# dev
+npm run start          # expo start
+npm run ios            # ios simulator
+npm run android        # android emulator (alacsonyabb prioritás)
+
+# lint (működik)
+npm run lint           # expo lint (eslint)
+
+# typecheck / format — még NINCS package.json scriptként bekötve
+npx tsc --noEmit       # typecheck
+npx prettier --write . # format
+```
 
 ---
 
 ## Feature implementáció
-
 Minden feature esetén:
 1. Olvasd el ezt a fájlt
 2. Azonosítsd az érintett fájlokat
@@ -575,38 +223,24 @@ Minden feature esetén:
 
 ---
 
-## Titkok és biztonság
+## Referencia — handoff mappa
 
-- Supabase URL és anon key csak `.env`-ben, `EXPO_PUBLIC_` prefixszel
-- Service role key-t soha ne tegyél kliens kódba
-- `.env` legyen `.gitignore`-ban
+A `handoff/` mappa tartalmaz minden tervezési dokumentumot. Ha bármi kétséges, ezek az igazság forrása:
 
----
-
-## Nem scope (v1)
-
-Ezeket **ne implementáld**, hacsak nem kapsz explicit utasítást:
-
-- OCR blokk-beolvasás
-- Family / multi-user meghívó flow
-- Push notifications
-- CSV import/export
-- Barcode scanner
-- Receipt photo archive
-- Analitika events
-
----
-
-## Kommunikáció
-
-Légy tömör. Magyarázd el mi változott és hogyan lehet tesztelni.
+- `handoff/screens/screenshots/` — képernyő screenshotok (01–12 + OCR lépések)
+- `handoff/screens/` — részletes screen spec markdown fájlok (01-Login.md … 12-FamilySettings.md)
+- `handoff/components/` — komponens spec markdown fájlok
+- `handoff/tokens/tokens.json` — design tokenek
+- `handoff/animations.md` — haptika + animáció mapping
+- `handoff/navigation.md` — nav gráf
 
 ---
 
 ## Emlékeztető
-
 **Minden feature előtt:**
-- Mindig olvasd el a @CLAUDE.md fájlt
+- Olvasd el ezt a fájlt
 - Kövesd szigorúan
 - Tiszta, egyszerű kódot írj
-- UI-t pontosan replikáld a design link ([text](https://api.anthropic.com/v1/design/h/eT7ng9XsMKWkLtki1h5LAQ?open_file=component-library-print.html)) alapján.
+- UI-t pontosan replikáld a megadott design alapján
+- Ha a markdown és a HTML eltér → a HTML nyer
+-Ha végeztél egy művelettel azt a backlog.md fájlban is aktualizáld. 

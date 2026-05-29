@@ -1,8 +1,9 @@
 import { Redirect, Tabs } from 'expo-router'
 import { Package, ShoppingBag, ShoppingCart, TrendingUp, User } from 'lucide-react-native'
-import { useColorScheme } from 'react-native'
+import { StyleSheet, useColorScheme } from 'react-native'
 
 import { useAuthStore } from '@/store/authStore'
+import { colors } from '@/constants/colors'
 
 export default function TabsLayout() {
   const { session, initialized } = useAuthStore()
@@ -15,11 +16,11 @@ export default function TabsLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563EB',
-        tabBarInactiveTintColor: '#94A3B8',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.muted,
         tabBarStyle: {
           borderTopWidth: 1,
-          borderTopColor: dark ? '#334155' : '#E2E8F0',
+          borderTopColor: dark ? colors.darkBorder : colors.border,
         },
       }}
     >
@@ -49,6 +50,13 @@ export default function TabsLayout() {
         options={{
           title: 'Bolt',
           tabBarIcon: ({ color }) => <ShoppingBag size={28} color={color} />,
+          tabBarStyle: {
+            backgroundColor: colors.boltBar,
+            borderTopWidth: StyleSheet.hairlineWidth,
+            borderTopColor: colors.boltBorder,
+          },
+          tabBarActiveTintColor: colors.primaryLight,
+          tabBarInactiveTintColor: '#6B7280',
         }}
       />
       <Tabs.Screen

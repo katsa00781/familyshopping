@@ -1,5 +1,6 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Search, ShoppingCart, WifiOff } from 'lucide-react-native'
+import { colors } from '@/constants/colors'
 
 export type EmptyStatePreset = 'emptyList' | 'offline' | 'noResults'
 
@@ -36,7 +37,7 @@ export default function EmptyState({ preset, ctaLabel, onCtaPress }: EmptyStateP
   return (
     <View className="flex-1 items-center justify-center px-4 py-8">
       <View className="w-16 h-16 rounded-full items-center justify-center bg-[#F1F5F9] dark:bg-dark-card mb-4">
-        <Icon size={32} color="#94A3B8" strokeWidth={1.75} />
+        <Icon size={32} color={colors.muted} strokeWidth={1.75} />
       </View>
 
       <Text className="text-heading-md text-foreground dark:text-dark-foreground text-center mb-2">

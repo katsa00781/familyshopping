@@ -1,19 +1,23 @@
 import { useEffect, useState, useRef } from 'react'
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { Pressable, ScrollView, StyleSheet, Text, useColorScheme, View } from 'react-native'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { StatusBar } from 'expo-status-bar'
 import { useRouter } from 'expo-router'
-import { Check, ChevronDown, Moon, X } from 'lucide-react-native'
-import { activateKeepAwakeAsync, deactivateKeepAwake } from 'expo-keep-awake'
+import { useKeepAwake } from 'expo-keep-awake'
+import { Check, ChevronDown, X } from 'lucide-react-native'
 
 import BoltRow from '@/components/bolt/BoltRow'
 import BottomSheet from '@/components/ui/BottomSheet'
 import { useListStore } from '@/store/listStore'
+import { colors } from '@/constants/colors'
+import { haptics } from '@/lib/haptics'
+import { formatHuf } from '@/lib/format'
 
 export default function BoltScreen() {
+  useKeepAwake()
+
   const router = useRouter()
   const insets = useSafeAreaInsets()
-  const [keepAwake, setKeepAwake] = useState(false)
   const [ctaForced, setCtaForced] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   const prevListId = useRef<string | null>(null)
@@ -25,6 +29,7 @@ export default function BoltScreen() {
   const activeListId = useListStore((s) => s.activeListId)
   const setActiveListId = useListStore((s) => s.setActiveListId)
 
+  const dark = useColorScheme() === 'dark'
   const activeLists = lists.filter((l) => !l.completed)
 
   const activeList = (() => {
@@ -43,7 +48,6 @@ export default function BoltScreen() {
     items.filter((i) => i.checked).reduce((sum, i) => sum + (i.price ?? 0) * i.quantity, 0),
   )
 
-  // Reset forced CTA when switching lists
   useEffect(() => {
     if (activeList?.id !== prevListId.current) {
       prevListId.current = activeList?.id ?? null
@@ -53,20 +57,7 @@ export default function BoltScreen() {
 
   useEffect(() => {
     void loadLists()
-    return () => {
-      void deactivateKeepAwake()
-    }
   }, [loadLists])
-
-  async function toggleKeepAwake() {
-    if (keepAwake) {
-      await deactivateKeepAwake()
-      setKeepAwake(false)
-    } else {
-      await activateKeepAwakeAsync()
-      setKeepAwake(true)
-    }
-  }
 
   async function handleComplete() {
     if (!activeList) return
@@ -91,15 +82,15 @@ export default function BoltScreen() {
     <View style={styles.root}>
       <StatusBar style="light" />
 
-      {/* Header – 52pt, bg #000, hairline bottom #1F2937 */}
-      <SafeAreaView edges={['top']} style={{ backgroundColor: '#000000' }}>
+      {/* Header */}
+      <SafeAreaView edges={['top']} style={{ backgroundColor: colors.boltBg }}>
         <View style={styles.header}>
           <Pressable
             onPress={() => router.back()}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           >
-            <X size={24} color="#F8FAFC" />
+            <X size={24} color={colors.darkForeground} />
           </Pressable>
 
           <Pressable
@@ -109,21 +100,7 @@ export default function BoltScreen() {
             <Text style={styles.headerTitle} numberOfLines={1}>
               {activeList.name}
             </Text>
-            {activeLists.length > 1 && (
-              <ChevronDown size={18} color="#94A3B8" />
-            )}
-          </Pressable>
-
-          <Pressable
-            onPress={toggleKeepAwake}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
-          >
-            <Moon
-              size={24}
-              color={keepAwake ? '#2563EB' : '#94A3B8'}
-              fill={keepAwake ? '#2563EB' : 'none'}
-            />
+            <ChevronDown size={20} color={colors.muted} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -138,7 +115,10 @@ export default function BoltScreen() {
           <BoltRow
             key={item.id}
             item={item}
-            onToggle={() => void toggleItem(activeList.id, item.id)}
+            onToggle={() => {
+              haptics.medium()
+              void toggleItem(activeList.id, item.id)
+            }}
           />
         ))}
       </ScrollView>
@@ -148,31 +128,61 @@ export default function BoltScreen() {
         visible={showPicker}
         onClose={() => setShowPicker(false)}
         title="Lista kiválasztása"
+        variant="half"
       >
-        <ScrollView showsVerticalScrollIndicator={false}>
-          {activeLists.map((list) => (
-            <Pressable
-              key={list.id}
-              onPress={() => {
-                setActiveListId(list.id)
-                setShowPicker(false)
-              }}
-              style={({ pressed }) => [styles.pickerRow, { opacity: pressed ? 0.7 : 1 }]}
-            >
-              <Text style={styles.pickerRowText} numberOfLines={1}>
-                {list.name}
-              </Text>
-              {list.id === activeList.id && (
-                <Check size={20} color="#2563EB" />
-              )}
-            </Pressable>
-          ))}
-        </ScrollView>
+        <View style={{ flex: 1 }}>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.pickerList}
+          >
+            {activeLists.map((list) => {
+              const isActive = list.id === activeList.id
+              const unchecked = list.items.filter((i) => !i.checked).length
+              const total = list.items.length
+              return (
+                <Pressable
+                  key={list.id}
+                  onPress={() => {
+                    setActiveListId(list.id)
+                    setShowPicker(false)
+                  }}
+                  style={({ pressed }) => [
+                    styles.pickerCard,
+                    {
+                      backgroundColor: isActive
+                        ? '#EFF6FF'
+                        : dark ? colors.darkBackground : colors.background,
+                      borderColor: isActive ? colors.primary : 'transparent',
+                      opacity: pressed ? 0.75 : 1,
+                    },
+                  ]}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.pickerCardName,
+                        { color: isActive ? '#1D4ED8' : dark ? colors.darkForeground : colors.foreground },
+                      ]}
+                      numberOfLines={1}
+                    >
+                      {list.name}
+                    </Text>
+                    <Text style={[styles.pickerCardSub, { color: colors.muted }]}>
+                      {total === 0
+                        ? 'Üres lista'
+                        : `${unchecked} / ${total} tétel`}
+                    </Text>
+                  </View>
+                  {isActive && <Check size={22} color={colors.primary} />}
+                </Pressable>
+              )
+            })}
+          </ScrollView>
+        </View>
       </BottomSheet>
 
-      {/* Sticky progress bar – bg #111827, hairline top #1F2937 */}
+      {/* Sticky progress bar */}
       <View style={[styles.bar, { paddingBottom: insets.bottom + 12 }]}>
-        {/* Long-press this row to force-activate the CTA */}
         <Pressable
           onLongPress={() => setCtaForced(true)}
           delayLongPress={600}
@@ -180,7 +190,7 @@ export default function BoltScreen() {
         >
           <Text style={styles.progressText}>{checkedCount}/{items.length} kipipálva</Text>
           <Text style={styles.progressText}>
-            Eddig {checkedTotal.toLocaleString('hu-HU')} Ft
+            Eddig {formatHuf(checkedTotal)}
           </Text>
         </Pressable>
 
@@ -200,49 +210,56 @@ export default function BoltScreen() {
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#000000',
+    backgroundColor: colors.boltBg,
   },
   header: {
-    height: 52,
+    height: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
+    gap: 16,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#1F2937',
+    borderBottomColor: colors.boltBorder,
   },
   headerTitleRow: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginHorizontal: 12,
-    gap: 4,
+    gap: 6,
   },
   headerTitle: {
     flexShrink: 1,
     fontSize: 22,
     lineHeight: 28,
     fontWeight: '600',
-    color: '#F8FAFC',
+    color: colors.darkForeground,
   },
-  pickerRow: {
+  pickerList: {
+    paddingVertical: 8,
+    gap: 10,
+  },
+  pickerCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    height: 56,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: '#E2E8F0',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
   },
-  pickerRowText: {
-    flex: 1,
+  pickerCardName: {
     fontSize: 17,
     lineHeight: 22,
-    color: '#0F172A',
-    marginRight: 12,
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  pickerCardSub: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   bar: {
-    backgroundColor: '#111827',
+    backgroundColor: colors.boltBar,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1F2937',
+    borderTopColor: colors.boltBorder,
     paddingTop: 14,
     paddingHorizontal: 16,
   },
@@ -255,13 +272,13 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: 15,
     lineHeight: 20,
-    color: '#94A3B8',
+    color: colors.muted,
     fontWeight: '500',
   },
   cta: {
     height: 50,
     borderRadius: 12,
-    backgroundColor: '#2563EB',
+    backgroundColor: colors.primary,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
@@ -270,6 +287,6 @@ const styles = StyleSheet.create({
     fontSize: 17,
     lineHeight: 22,
     fontWeight: '600',
-    color: '#FFFFFF',
+    color: colors.card,
   },
 })

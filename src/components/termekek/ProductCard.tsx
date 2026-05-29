@@ -2,23 +2,9 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
 import { CategoryBadge } from '@/components/ui/Badge'
+import { catBg, catAbbr } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
 import type { ItemCategory, Product } from '@/types'
-
-const CAT_BG: Record<string, string> = {
-  'Zöldség':   '#86EFAC',
-  'Tejtermék': '#93C5FD',
-  'Hús':       '#FCA5A5',
-  'Pékáru':    '#FCD34D',
-  'Egyéb':     '#CBD5E1',
-}
-
-const CAT_ABBR: Record<string, string> = {
-  'Zöldség':   'ZÖL',
-  'Tejtermék': 'TEJ',
-  'Hús':       'HÚS',
-  'Pékáru':    'PÉK',
-  'Egyéb':     'EGY',
-}
 
 const VALID_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
 
@@ -28,8 +14,8 @@ interface Props {
 
 export default function ProductCard({ product }: Props) {
   const router = useRouter()
-  const tileBg = CAT_BG[product.category] ?? '#CBD5E1'
-  const abbr = CAT_ABBR[product.category] ?? product.category.slice(0, 3).toUpperCase()
+  const tileBg = catBg[product.category] ?? catBg['Egyéb']
+  const abbr = catAbbr[product.category] ?? product.category.slice(0, 3).toUpperCase()
   const isValidCat = VALID_CATEGORIES.includes(product.category as ItemCategory)
 
   function handleLongPress() {
@@ -69,7 +55,7 @@ export default function ProductCard({ product }: Props) {
         )}
         <View className="flex-row items-center justify-between mt-1.5">
           <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-            {product.price != null ? `${product.price.toLocaleString('hu-HU')} Ft` : '–'}
+            {product.price != null ? formatHuf(product.price) : '–'}
           </Text>
           {isValidCat && <CategoryBadge category={product.category as ItemCategory} />}
         </View>

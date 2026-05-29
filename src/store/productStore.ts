@@ -65,7 +65,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
   loadProducts: async () => {
     set({ isLoading: true, error: null })
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
 
     if (!user) {
       try {
@@ -105,7 +106,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   upsertProduct: async (draft) => {
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     const userId = user?.id ?? 'mock-user'
     const now = new Date().toISOString()
     const isNew = !draft.id
@@ -137,7 +139,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
     await saveCache(next)
 
     if (user) {
-      const { updated_at: _u, ...payload } = product
+      // last_price és price_history csak lokálisan létezik, a DB-ben nincs ilyen oszlop
+      const { updated_at: _u, last_price: _lp, price_history: _ph, ...payload } = product
       const { error } = await supabase.from('products').upsert(payload)
       if (error) {
         set({ products: prev })
@@ -146,6 +149,25 @@ export const useProductStore = create<ProductState>((set, get) => ({
           throw new Error('DUPLICATE')
         }
         throw new Error(error.message)
+      }
+
+      // Ha az ár be van állítva és változott (vagy új termék), rögzítjük az árhistóriában
+      const priceChanged = isNew || (existing?.price !== product.price)
+      if (product.price !== null && priceChanged) {
+        const today = new Date().toISOString().split('T')[0]!
+        void supabase.from('product_price_history').insert({
+          user_id: user.id,
+          product_id: product.id,
+          product_name: product.name,
+          product_category: product.category,
+          store_name: product.store_name,
+          unit: product.unit,
+          unit_price: product.price,
+          quantity: 1,
+          total_price: product.price,
+          price_date: today,
+          source: 'manual',
+        })
       }
     }
   },
@@ -156,7 +178,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ products: next })
     await saveCache(next)
 
-    const { data: { user } } = await supabase.auth.getUser()
+    const { data: { session } } = await supabase.auth.getSession()
+    const user = session?.user
     if (user) {
       const { error } = await supabase.from('products').delete().eq('id', id)
       if (error) {

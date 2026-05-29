@@ -11,17 +11,15 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Plus, ShoppingCart } from 'lucide-react-native'
 
-import ListCard from '@/components/lista/ListCard'
+import { ListCard } from '@/components/lista/ListCard'
 import { mockLists } from '@/data/mockLists'
+import { formatHuf } from '@/lib/format'
 import type { ShoppingList } from '@/types'
 
 function formatPastDate(dateStr: string): string {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })
-}
-
-function formatAmount(amount: number): string {
-  return amount.toLocaleString('hu-HU') + ' Ft'
+  const str = date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })
+  return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
 function SectionHeader({ title }: { title: string }) {
@@ -37,25 +35,14 @@ function SectionHeader({ title }: { title: string }) {
 function PastListRow({ list }: { list: ShoppingList }) {
   return (
     <Pressable
-      style={({ pressed }) => ({
-        height: 56,
-        paddingHorizontal: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        opacity: pressed ? 0.7 : 1,
-      })}
+      className="flex-row items-center justify-between px-4 py-3"
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
     >
-      <View>
-        <Text className="text-body-md text-foreground dark:text-dark-foreground font-medium">
-          {list.name}
-        </Text>
-        <Text className="text-body-sm text-muted">
-          {formatPastDate(list.date)}
-        </Text>
-      </View>
+      <Text className="text-body-md text-foreground dark:text-dark-foreground font-medium">
+        {formatPastDate(list.date)}
+      </Text>
       <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-        {formatAmount(list.total_amount)}
+        {formatHuf(list.total_amount)}
       </Text>
     </Pressable>
   )

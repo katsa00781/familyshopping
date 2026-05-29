@@ -5,23 +5,9 @@ import { useRouter } from 'expo-router'
 import { Pencil, Trash2 } from 'lucide-react-native'
 
 import { CategoryBadge } from '@/components/ui/Badge'
+import { catBg, catAbbr } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
 import type { ItemCategory, Product } from '@/types'
-
-const CAT_BG: Record<string, string> = {
-  'Zöldség':   '#86EFAC',
-  'Tejtermék': '#93C5FD',
-  'Hús':       '#FCA5A5',
-  'Pékáru':    '#FCD34D',
-  'Egyéb':     '#CBD5E1',
-}
-
-const CAT_ABBR: Record<string, string> = {
-  'Zöldség':   'ZÖL',
-  'Tejtermék': 'TEJ',
-  'Hús':       'HÚS',
-  'Pékáru':    'PÉK',
-  'Egyéb':     'EGY',
-}
 
 const VALID_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
 
@@ -33,8 +19,8 @@ interface Props {
 export default function ProductRow({ product, onDelete }: Props) {
   const router = useRouter()
   const swipeRef = useRef<Swipeable>(null)
-  const tileBg = CAT_BG[product.category] ?? '#CBD5E1'
-  const abbr = CAT_ABBR[product.category] ?? product.category.slice(0, 3).toUpperCase()
+  const tileBg = catBg[product.category] ?? catBg['Egyéb']
+  const abbr = catAbbr[product.category] ?? product.category.slice(0, 3).toUpperCase()
   const isValidCat = VALID_CATEGORIES.includes(product.category as ItemCategory)
 
   function renderRightActions() {
@@ -98,7 +84,7 @@ export default function ProductRow({ product, onDelete }: Props) {
           </Text>
           {product.price != null && (
             <Text className="text-body-sm text-muted">
-              {product.price.toLocaleString('hu-HU')} Ft / {product.unit}
+              {formatHuf(product.price)} / {product.unit}
             </Text>
           )}
         </View>

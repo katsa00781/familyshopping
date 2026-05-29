@@ -1,5 +1,7 @@
 import { Text, View } from 'react-native'
 import BoltCheckbox from './BoltCheckbox'
+import { colors } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
 import type { ShoppingItem } from '@/types'
 
 interface Props {
@@ -27,7 +29,7 @@ export default function BoltRow({ item, onToggle }: Props) {
             fontSize: 24,
             lineHeight: 30,
             fontWeight: '600',
-            color: '#F8FAFC',
+            color: colors.darkForeground,
             textDecorationLine: item.checked ? 'line-through' : 'none',
           }}
         >
@@ -37,8 +39,8 @@ export default function BoltRow({ item, onToggle }: Props) {
 
       <View style={{ alignItems: 'flex-end', marginLeft: 12 }}>
         {item.price != null && (
-          <Text style={{ fontSize: 15, lineHeight: 20, color: '#94A3B8', fontWeight: '500' }}>
-            {item.price.toLocaleString('hu-HU')} Ft
+          <Text style={{ fontSize: 15, lineHeight: 20, color: colors.muted, fontWeight: '500' }}>
+            {formatHuf(item.price)}
           </Text>
         )}
         <Text style={{ fontSize: 13, lineHeight: 18, color: '#475569' }}>

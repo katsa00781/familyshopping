@@ -1,8 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import {
+  Alert,
   Animated,
-  type NativeSyntheticEvent,
-  type NativeScrollEvent,
   Pressable,
   ScrollView,
   Text,
@@ -10,20 +9,19 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { Plus, ShoppingCart } from 'lucide-react-native'
+import { MoreHorizontal, Plus, ScanLine, ShoppingBag, ShoppingCart } from 'lucide-react-native'
 
-import ListCard from '@/components/lista/ListCard'
+import { ListCard } from '@/components/lista/ListCard'
 import ListCreateSheet from '@/components/lista/ListCreateSheet'
 import { useListStore } from '@/store/listStore'
+import { colors } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
 import type { ShoppingList } from '@/types'
 
 function formatPastDate(dateStr: string): string {
   const date = new Date(dateStr)
-  return date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })
-}
-
-function formatAmount(amount: number): string {
-  return amount.toLocaleString('hu-HU') + ' Ft'
+  const str = date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })
+  return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
 function SectionHeader({ title }: { title: string }) {
@@ -36,29 +34,53 @@ function SectionHeader({ title }: { title: string }) {
   )
 }
 
-function PastListRow({ list }: { list: ShoppingList }) {
+interface PastListRowProps {
+  list: ShoppingList
+  onOpen: () => void
+  onRestore: () => void
+  onDelete: () => void
+}
+
+function PastListRow({ list, onOpen, onRestore, onDelete }: PastListRowProps) {
+  function handleMenu() {
+    Alert.alert(list.name, formatPastDate(list.date), [
+      { text: 'Betöltés', onPress: onRestore },
+      { text: 'Törlés', style: 'destructive', onPress: onDelete },
+      { text: 'Mégse', style: 'cancel' },
+    ])
+  }
+
   return (
     <Pressable
-      style={({ pressed }) => ({
-        height: 56,
-        paddingHorizontal: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        opacity: pressed ? 0.7 : 1,
-      })}
+      className="flex-row items-center justify-between px-4 py-3"
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      onPress={onOpen}
+      accessibilityLabel={`${list.name}, ${formatPastDate(list.date)}, ${formatHuf(list.total_amount)}`}
     >
-      <View>
-        <Text className="text-body-md text-foreground dark:text-dark-foreground font-medium">
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text
+          className="text-body-md text-foreground dark:text-dark-foreground font-medium"
+          numberOfLines={1}
+        >
           {list.name}
         </Text>
         <Text className="text-body-sm text-muted">
           {formatPastDate(list.date)}
         </Text>
       </View>
-      <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-        {formatAmount(list.total_amount)}
-      </Text>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+        <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
+          {formatHuf(list.total_amount)}
+        </Text>
+        <Pressable
+          onPress={handleMenu}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
+          accessibilityLabel="Műveletek"
+        >
+          <MoreHorizontal size={18} color={colors.muted} strokeWidth={1.75} />
+        </Pressable>
+      </View>
     </Pressable>
   )
 }
@@ -70,7 +92,7 @@ function EmptyState() {
         className="items-center justify-center rounded-full bg-border dark:bg-dark-border"
         style={{ width: 72, height: 72 }}
       >
-        <ShoppingCart size={32} color="#94A3B8" />
+        <ShoppingCart size={32} color={colors.muted} />
       </View>
       <Text className="text-heading-md font-semibold text-foreground dark:text-dark-foreground text-center">
         Még nincs listád
@@ -82,15 +104,54 @@ function EmptyState() {
   )
 }
 
+function BoltModeButton({ onPress }: { onPress: () => void }) {
+  return (
+    <Animated.View
+      style={{
+        position: 'absolute',
+        right: 24,
+        bottom: 24,
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        backgroundColor: '#60A5FA',
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 6,
+      }}
+    >
+      <Pressable
+        onPress={onPress}
+        accessibilityLabel="Bolt mód megnyitása"
+        accessibilityRole="button"
+        style={({ pressed }) => ({
+          width: 56,
+          height: 56,
+          borderRadius: 28,
+          alignItems: 'center',
+          justifyContent: 'center',
+          opacity: pressed ? 0.85 : 1,
+        })}
+      >
+        <ShoppingBag size={24} color="#ffffff" strokeWidth={1.75} />
+      </Pressable>
+    </Animated.View>
+  )
+}
+
 export default function ListsScreen() {
   const router = useRouter()
-  const fabY = useRef(new Animated.Value(0)).current
-  const lastScrollY = useRef(0)
   const [createVisible, setCreateVisible] = useState(false)
 
   const lists = useListStore((s) => s.lists)
   const loadLists = useListStore((s) => s.loadLists)
   const createList = useListStore((s) => s.createList)
+  const deleteList = useListStore((s) => s.deleteList)
+  const restoreList = useListStore((s) => s.restoreList)
 
   useEffect(() => { loadLists() }, [loadLists])
 
@@ -98,22 +159,9 @@ export default function ListsScreen() {
   const pastLists = lists.filter((l) => l.completed)
   const isEmpty = lists.length === 0
 
-  function onScroll(e: NativeSyntheticEvent<NativeScrollEvent>) {
-    const y = e.nativeEvent.contentOffset.y
-    const diff = y - lastScrollY.current
-    lastScrollY.current = y
-
-    if (diff > 4 && y > 60) {
-      Animated.timing(fabY, { toValue: 100, duration: 200, useNativeDriver: true }).start()
-    } else if (diff < -4) {
-      Animated.timing(fabY, { toValue: 0, duration: 200, useNativeDriver: true }).start()
-    }
-  }
-
   return (
     <SafeAreaView
-      style={{ flex: 1, backgroundColor: '#F1F5F9' }}
-      className="dark:bg-dark-background"
+      className="flex-1 bg-background dark:bg-dark-background"
       edges={['top']}
     >
       <View
@@ -124,13 +172,26 @@ export default function ListsScreen() {
           <Text className="text-heading-xl font-bold text-foreground dark:text-dark-foreground">
             Bevásárló listák
           </Text>
-          <Pressable
-            onPress={() => setCreateVisible(true)}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Plus size={28} color="#2563EB" strokeWidth={2.5} />
-          </Pressable>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <Pressable
+              onPress={() => router.push('/ocr')}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Blokk beolvasása"
+              accessibilityRole="button"
+            >
+              <ScanLine size={24} color={colors.muted} strokeWidth={1.75} />
+            </Pressable>
+            <Pressable
+              onPress={() => setCreateVisible(true)}
+              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              accessibilityLabel="Új lista létrehozása"
+              accessibilityRole="button"
+            >
+              <Plus size={28} color={colors.primary} strokeWidth={2.5} />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -139,9 +200,7 @@ export default function ListsScreen() {
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
-          onScroll={onScroll}
-          scrollEventThrottle={16}
-          contentContainerStyle={{ paddingBottom: 120 }}
+          contentContainerStyle={{ paddingBottom: 104 }}
         >
           {activeLists.length > 0 && (
             <>
@@ -161,7 +220,21 @@ export default function ListsScreen() {
                 {pastLists.map((list, idx) => (
                   <View key={list.id}>
                     {idx > 0 && <View className="h-px bg-border dark:bg-dark-border mx-4" />}
-                    <PastListRow list={list} />
+                    <PastListRow
+                      list={list}
+                      onOpen={() => router.push(`/lista/${list.id}`)}
+                      onRestore={() => restoreList(list.id)}
+                      onDelete={() =>
+                        Alert.alert(
+                          'Lista törlése',
+                          `Biztosan törlöd a(z) „${list.name}" listát?`,
+                          [
+                            { text: 'Törlés', style: 'destructive', onPress: () => deleteList(list.id) },
+                            { text: 'Mégse', style: 'cancel' },
+                          ]
+                        )
+                      }
+                    />
                   </View>
                 ))}
               </View>
@@ -170,34 +243,7 @@ export default function ListsScreen() {
         </ScrollView>
       )}
 
-      <Animated.View
-        style={{
-          position: 'absolute',
-          right: 24,
-          bottom: 24,
-          transform: [{ translateY: fabY }],
-        }}
-      >
-        <Pressable
-          onPress={() => setCreateVisible(true)}
-          style={({ pressed }) => ({
-            width: 56,
-            height: 56,
-            borderRadius: 9999,
-            backgroundColor: '#2563EB',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.85 : 1,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
-          })}
-        >
-          <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
-        </Pressable>
-      </Animated.View>
+      <BoltModeButton onPress={() => router.navigate('/(tabs)/bolt')} />
 
       <ListCreateSheet
         visible={createVisible}

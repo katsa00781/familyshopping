@@ -37,7 +37,7 @@ interface PriceBadgeProps {
 
 export function PriceBadge({ direction, pct, ft }: PriceBadgeProps) {
   const up = direction === 'up'
-  const iconColor = up ? '#B91C1C' : '#15803D'
+  const iconColor = up ? '#B91C1C' : '#15803D' // red-700 / green-700 — nincs token
   const sign = up ? '+' : '-'
 
   return (

@@ -5,9 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import Animated, {
@@ -17,12 +17,16 @@ import Animated, {
   withSequence,
   withTiming,
 } from 'react-native-reanimated'
-import { ArrowLeft, Camera, MoreVertical, Plus } from 'lucide-react-native'
+import { Camera, ChevronLeft, MoreVertical, Plus } from 'lucide-react-native'
+
+import { useOcrStore } from '@/store/ocrStore'
 
 import ListItem from '@/components/lista/ListItem'
 import ItemAddSheet from '@/components/lista/ItemAddSheet'
 import ItemEditSheet from '@/components/lista/ItemEditSheet'
 import { useListStore } from '@/store/listStore'
+import { colors } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
 import type { ItemCategory, ShoppingItem } from '@/types'
 
 type FilterCategory = 'Összes' | ItemCategory
@@ -31,7 +35,9 @@ const FILTERS: FilterCategory[] = ['Összes', 'Zöldség', 'Tejtermék', 'Hús',
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const router = useRouter()
-  const dark = useColorScheme() === 'dark'
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
+
   const insets = useSafeAreaInsets()
 
   const list = useListStore((s) => s.lists.find((l) => l.id === id))
@@ -73,10 +79,10 @@ export default function ListDetailScreen() {
     transform: [{ scale: pulse.value }],
   }))
 
-  const bg = dark ? '#0F172A' : '#F1F5F9'
-  const barBg = dark ? '#1E293B' : '#FFFFFF'
-  const borderColor = dark ? '#334155' : '#E2E8F0'
-  const fgColor = dark ? '#F8FAFC' : '#0F172A'
+  const bg = dark ? colors.darkBackground : colors.background
+  const barBg = dark ? colors.darkCard : colors.card
+  const borderColor = dark ? colors.darkBorder : colors.border
+  const fgColor = dark ? colors.darkForeground : colors.foreground
 
   function showMenu() {
     Alert.alert(list?.name ?? 'Lista', undefined, [
@@ -119,27 +125,32 @@ export default function ListDetailScreen() {
           className="flex-row items-center px-screen-x"
           style={[styles.header, { borderBottomColor: borderColor }]}
         >
+          {/* Bal: vissza gomb */}
           <Pressable
             onPress={() => router.back()}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginRight: 8 })}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           >
-            <ArrowLeft size={24} color={fgColor} />
+            <View className="flex-row items-center">
+              <ChevronLeft size={22} color={colors.primary} strokeWidth={1.75} />
+              <Text style={{ color: colors.primary, fontSize: 17, lineHeight: 22 }}>Vissza</Text>
+            </View>
           </Pressable>
 
+          {/* Cím */}
           <Text
-            className="flex-1 text-heading-md font-semibold text-foreground dark:text-dark-foreground"
-            numberOfLines={1}
+            className="flex-1 text-[17px] font-semibold text-foreground dark:text-dark-foreground text-center px-2"
           >
             {list.name}
           </Text>
 
+          {/* Jobb: menü */}
           <Pressable
             onPress={showMenu}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, marginLeft: 8 })}
+            style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}
           >
-            <MoreVertical size={24} color={fgColor} />
+            <MoreVertical size={24} color={fgColor} strokeWidth={1.75} />
           </Pressable>
         </View>
       </SafeAreaView>
@@ -208,52 +219,55 @@ export default function ListDetailScreen() {
           { backgroundColor: barBg, borderTopColor: borderColor, paddingBottom: insets.bottom },
         ]}
       >
-        {/* Total */}
-        <View className="flex-row items-baseline gap-1 mb-3">
-          <Text className="text-body-sm text-muted">ÖSSZESEN</Text>
-          <Text className="text-heading-md font-bold text-foreground dark:text-dark-foreground">
-            {totalFt.toLocaleString('hu-HU')} Ft
-          </Text>
-          <Text className="text-body-sm text-muted ml-1">
-            {checkedCount}/{items.length} kipipálva
-          </Text>
-        </View>
+        {/* Totals sor: összeg bal, ikonok jobb */}
+        <View className="flex-row items-center mb-3">
+          <View className="flex-1">
+            <Text className="text-caption text-muted uppercase tracking-widest">Összesen</Text>
+            <Text className="text-heading-md font-bold text-foreground dark:text-dark-foreground">
+              {formatHuf(totalFt)}
+            </Text>
+          </View>
 
-        {/* Actions row */}
-        <View className="flex-row items-center gap-3">
-          {/* Camera (scope-on-kívül, disabled) */}
-          <Pressable
-            className="w-tap h-tap rounded-button bg-[#F1F5F9] dark:bg-[#1E293B] items-center justify-center opacity-40"
-            disabled
-          >
-            <Camera size={22} color={fgColor} />
-          </Pressable>
-
-          {/* Add item */}
-          <Pressable
-            onPress={() => setAddVisible(true)}
-            className="w-tap h-tap rounded-button bg-[#F1F5F9] dark:bg-[#1E293B] items-center justify-center"
-            style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-          >
-            <Plus size={22} color="#2563EB" />
-          </Pressable>
-
-          {/* Complete CTA */}
-          <Animated.View style={[styles.ctaWrap, pulseStyle]}>
+          <View className="flex-row items-center gap-2">
+            {/* Camera – OCR blokk beolvasás kötve a listához */}
             <Pressable
-              onPress={handleComplete}
-              disabled={list.completed}
-              className={`flex-1 h-cta rounded-button bg-primary items-center justify-center ${
-                list.completed ? 'opacity-40' : ''
-              }`}
-              style={({ pressed }) => ({ opacity: list.completed ? 0.4 : pressed ? 0.8 : 1 })}
+              className="w-tap h-tap rounded-button bg-[#F1F5F9] dark:bg-[#1E293B] items-center justify-center"
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+              onPress={() => {
+                useOcrStore.getState().setBoundList(id ?? null)
+                router.push('/ocr')
+              }}
+              accessibilityLabel="Blokk beolvasása"
             >
-              <Text className="text-[17px] leading-[22px] font-semibold text-white">
-                {list.completed ? 'Befejezve' : 'Lista befejezése'}
-              </Text>
+              <Camera size={22} color={fgColor} />
             </Pressable>
-          </Animated.View>
+
+            {/* Tétel hozzáadása */}
+            <Pressable
+              onPress={() => setAddVisible(true)}
+              className="w-tap h-tap rounded-button bg-[#F1F5F9] dark:bg-[#1E293B] items-center justify-center"
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+            >
+              <Plus size={22} color={colors.primary} />
+            </Pressable>
+          </View>
         </View>
+
+        {/* Teljes szélességű CTA */}
+        <Animated.View style={pulseStyle}>
+          <Pressable
+            onPress={handleComplete}
+            disabled={list.completed}
+            className={`h-cta rounded-button bg-primary items-center justify-center ${
+              list.completed ? 'opacity-40' : ''
+            }`}
+            style={({ pressed }) => ({ opacity: list.completed ? 0.4 : pressed ? 0.8 : 1 })}
+          >
+            <Text className="text-[17px] leading-[22px] font-semibold text-white">
+              {list.completed ? 'Befejezve' : 'Lista befejezése'}
+            </Text>
+          </Pressable>
+        </Animated.View>
       </View>
 
       {/* Sheets */}
@@ -275,7 +289,8 @@ export default function ListDetailScreen() {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   header: {
-    height: 56,
+    minHeight: 44,
+    paddingVertical: 8,
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   chips: {
@@ -289,8 +304,5 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 16,
     borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  ctaWrap: {
-    flex: 1,
   },
 })

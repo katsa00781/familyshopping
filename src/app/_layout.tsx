@@ -8,6 +8,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 
 import { AnimatedSplashOverlay } from '@/components/animated-icon'
 import { ToastContainer } from '@/components/ui/Toast'
+import { AppThemeProvider } from '@/lib/theme'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
@@ -36,13 +37,26 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <View style={styles.root}>
-          <AnimatedSplashOverlay />
-          <Stack screenOptions={{ headerShown: false }} />
-          <ToastContainer />
-        </View>
-      </ThemeProvider>
+      <AppThemeProvider>
+        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+          <View style={styles.root}>
+            <AnimatedSplashOverlay />
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen name="(auth)" />
+              <Stack.Screen name="lista/[id]" />
+              <Stack.Screen name="termekek/[id]" />
+              <Stack.Screen name="termekek/uj" />
+              <Stack.Screen
+                name="ocr"
+                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              />
+              <Stack.Screen name="family-settings" />
+            </Stack>
+            <ToastContainer />
+          </View>
+        </ThemeProvider>
+      </AppThemeProvider>
     </GestureHandlerRootView>
   )
 }

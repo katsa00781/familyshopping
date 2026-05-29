@@ -6,9 +6,9 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
 } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
 import { AlertTriangle, X } from 'lucide-react-native'
@@ -17,6 +17,7 @@ import { useProductStore } from '@/store/productStore'
 import { useToastStore } from '@/store/toastStore'
 import Input from '@/components/ui/Input'
 import Button from '@/components/ui/Button'
+import { colors } from '@/constants/colors'
 import type { ItemCategory } from '@/types'
 
 const CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
@@ -94,7 +95,8 @@ function ChipSelector({
 
 export default function ProductAddScreen() {
   const router = useRouter()
-  const dark = useColorScheme() === 'dark'
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const insets = useSafeAreaInsets()
   const { id: editId } = useLocalSearchParams<{ id?: string }>()
 
@@ -169,7 +171,7 @@ export default function ProductAddScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} className="bg-background dark:bg-dark-background" edges={['top']}>
       {/* Nav bar */}
       <View
         className="flex-row items-center px-screen-x border-b border-border dark:border-dark-border"
@@ -180,7 +182,7 @@ export default function ProductAddScreen() {
           style={({ pressed }) => (pressed ? styles.pressed : undefined)}
           onPress={() => router.back()}
         >
-          <X size={22} color={dark ? '#F8FAFC' : '#0F172A'} />
+          <X size={22} color={dark ? colors.darkForeground : colors.foreground} />
         </Pressable>
 
         <Text className="flex-1 text-body-lg font-semibold text-foreground dark:text-dark-foreground text-center">
@@ -316,6 +318,6 @@ export default function ProductAddScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F1F5F9' },
+  safeArea: { flex: 1 },
   pressed: { opacity: 0.75 },
 })

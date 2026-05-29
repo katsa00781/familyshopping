@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, TextInput, useColorScheme, View } from 'react-native'
 import { Eye, EyeOff, Search } from 'lucide-react-native'
+import { colors } from '@/constants/colors'
 
 type InputType = 'text' | 'password' | 'search' | 'email' | 'number'
 
@@ -33,10 +34,10 @@ export default function Input({
 
   const isError = !!error
   const borderColor = isError
-    ? '#EF4444'
+    ? colors.destructive
     : focused
-      ? '#2563EB'
-      : dark ? '#334155' : '#E2E8F0'
+      ? colors.primary
+      : dark ? colors.darkBorder : colors.border
   const borderWidth = isError || focused ? 1.5 : 1
 
   const fieldBgClass = disabled
@@ -55,14 +56,14 @@ export default function Input({
         style={{ borderWidth, borderColor }}
       >
         {type === 'search' && (
-          <Search size={16} strokeWidth={2} color="#94A3B8" />
+          <Search size={16} strokeWidth={2} color={colors.muted} />
         )}
         <TextInput
           className={`flex-1 text-[17px] leading-[22px] text-foreground dark:text-dark-foreground p-0 ${type === 'password' ? 'pr-9' : ''}`}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#94A3B8"
+          placeholderTextColor={colors.muted}
           secureTextEntry={type === 'password' && !showPassword}
           keyboardType={type === 'number' ? 'numeric' : type === 'email' ? 'email-address' : 'default'}
           autoCapitalize={type === 'email' || type === 'password' ? 'none' : 'sentences'}
@@ -82,8 +83,8 @@ export default function Input({
             hitSlop={4}
           >
             {showPassword
-              ? <EyeOff size={18} color="#94A3B8" />
-              : <Eye size={18} color="#94A3B8" />}
+              ? <EyeOff size={18} color={colors.muted} />
+              : <Eye size={18} color={colors.muted} />}
           </Pressable>
         )}
       </View>

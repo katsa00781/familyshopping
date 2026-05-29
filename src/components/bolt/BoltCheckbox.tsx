@@ -7,6 +7,7 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated'
 import { Check } from 'lucide-react-native'
+import { colors } from '@/constants/colors'
 
 interface Props {
   checked: boolean
@@ -40,7 +41,7 @@ export default function BoltCheckbox({ checked, onToggle }: Props) {
   }, [checked, progress])
 
   const circleStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(progress.value, [0, 1], ['#334155', '#22C55E']),
+    backgroundColor: interpolateColor(progress.value, [0, 1], [colors.darkBorder, colors.success]),
   }))
 
   const checkStyle = useAnimatedStyle(() => ({
@@ -56,7 +57,7 @@ export default function BoltCheckbox({ checked, onToggle }: Props) {
     >
       <Animated.View style={[styles.circle, circleStyle]}>
         <Animated.View style={checkStyle}>
-          <Check size={28} color="#FFFFFF" strokeWidth={3} />
+          <Check size={28} color={colors.card} strokeWidth={3} />
         </Animated.View>
       </Animated.View>
     </Pressable>

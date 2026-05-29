@@ -9,6 +9,8 @@ import Animated, {
 import { Check, Pencil, Trash2 } from 'lucide-react-native'
 
 import { CategoryBadge } from '@/components/ui/Badge'
+import { colors } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
 import type { ShoppingItem } from '@/types'
 
 interface Props {
@@ -85,15 +87,15 @@ export default function ListItem({ item, onToggle, onDelete, onEdit }: Props) {
         {/* Checkbox: 44pt tap area, 24pt visual */}
         <View className="w-tap h-tap items-center justify-center mr-2">
           <View
-            className="w-6 h-6 rounded-fab items-center justify-center"
+            className="w-6 h-6 rounded-[4px] items-center justify-center"
             style={{
               borderWidth: 2,
-              borderColor: item.checked ? '#2563EB' : '#E2E8F0',
-              backgroundColor: item.checked ? '#2563EB' : 'transparent',
+              borderColor: item.checked ? colors.primary : colors.border,
+              backgroundColor: item.checked ? colors.primary : 'transparent',
             }}
           >
             <Animated.View style={checkAnimStyle}>
-              <Check size={14} color="#FFFFFF" strokeWidth={2.8} />
+              <Check size={14} color={colors.card} strokeWidth={2.8} />
             </Animated.View>
           </View>
         </View>
@@ -116,7 +118,7 @@ export default function ListItem({ item, onToggle, onDelete, onEdit }: Props) {
         <View className="items-end gap-0.5 ml-2">
           {item.price != null && (
             <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-              {item.price.toLocaleString('hu-HU')} Ft
+              {formatHuf(item.price)}
             </Text>
           )}
           <CategoryBadge category={item.category} />

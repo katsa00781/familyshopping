@@ -36,7 +36,20 @@
         }
       ],
       "expo-font",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "A blokk beolvasásához szükséges a kamera-hozzáférés."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "A blokk beolvasásához engedélyezd a fotókönyvtár-hozzáférést.",
+          "cameraPermission": "A blokk beolvasásához szükséges a kamera-hozzáférés."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

@@ -5,10 +5,10 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  useColorScheme,
   useWindowDimensions,
   View,
 } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useRouter } from 'expo-router'
@@ -18,6 +18,7 @@ import { useProductStore } from '@/store/productStore'
 import ProductCard from '@/components/termekek/ProductCard'
 import ProductRow from '@/components/termekek/ProductRow'
 import EmptyState from '@/components/ui/EmptyState'
+import { colors } from '@/constants/colors'
 import Skeleton from '@/components/ui/Skeleton'
 import Input from '@/components/ui/Input'
 import type { ItemCategory, Product } from '@/types'
@@ -52,7 +53,8 @@ function ListSkeletons({ count }: { count: number }) {
 
 export default function TermekekScreen() {
   const router = useRouter()
-  const dark = useColorScheme() === 'dark'
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const { width } = useWindowDimensions()
 
   const products = useProductStore((s) => s.products)
@@ -150,8 +152,8 @@ export default function TermekekScreen() {
           onPress={toggleViewMode}
         >
           {viewMode === 'grid'
-            ? <List size={20} color={dark ? '#F8FAFC' : '#0F172A'} />
-            : <Grid3X3 size={20} color={dark ? '#F8FAFC' : '#0F172A'} />}
+            ? <List size={20} color={dark ? colors.darkForeground : colors.foreground} />
+            : <Grid3X3 size={20} color={dark ? colors.darkForeground : colors.foreground} />}
         </Pressable>
       </View>
 
@@ -189,7 +191,7 @@ export default function TermekekScreen() {
   )
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} className="bg-background dark:bg-dark-background" edges={['top']}>
       {/* Header area (non-scrollable) */}
       <View className="bg-background dark:bg-dark-background">
         {Header}
@@ -232,17 +234,17 @@ export default function TermekekScreen() {
         style={styles.fab}
         onPress={() => router.push('/termekek/uj')}
       >
-        <Plus size={26} color="#FFFFFF" strokeWidth={2.2} />
+        <Plus size={26} color={colors.card} strokeWidth={2.2} />
       </Pressable>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F1F5F9' },
+  safeArea: { flex: 1 },
   pressed: { opacity: 0.75 },
   fab: {
-    shadowColor: '#2563EB',
+    shadowColor: colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.35,
     shadowRadius: 12,

@@ -13,6 +13,7 @@ import BottomSheet from '@/components/ui/BottomSheet'
 import Button from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
+import { formatHuf } from '@/lib/format'
 import type { ItemCategory, Product, ShoppingItem } from '@/types'
 
 const UNITS = ['db', 'kg', 'g', 'l', 'ml']
@@ -225,7 +226,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
                   </View>
                   {(product.last_price ?? product.price) != null && (
                     <Text className="text-body-sm font-semibold text-primary ml-2">
-                      {(product.last_price ?? product.price)?.toLocaleString('hu-HU')} Ft
+                      {formatHuf((product.last_price ?? product.price) ?? 0)}
                     </Text>
                   )}
                 </Pressable>

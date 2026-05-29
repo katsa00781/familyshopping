@@ -1,22 +1,33 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Alert,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  useColorScheme,
   useWindowDimensions,
   View,
 } from 'react-native'
+import { useColorScheme } from 'nativewind'
 import { SafeAreaView } from 'react-native-safe-area-context'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react-native'
+import { ArrowLeft, Pencil, ShoppingCart, Trash2 } from 'lucide-react-native'
 import { Circle, Defs, Line, LinearGradient, Path, Stop, Svg } from 'react-native-svg'
 
 import { useProductStore } from '@/store/productStore'
+import { useListStore } from '@/store/listStore'
+import { useToastStore } from '@/store/toastStore'
+import BottomSheet from '@/components/ui/BottomSheet'
+import Button from '@/components/ui/Button'
 import { CategoryBadge, PriceBadge } from '@/components/ui/Badge'
-import type { ItemCategory, PriceHistoryEntry } from '@/types'
+import { colors } from '@/constants/colors'
+import { formatHuf } from '@/lib/format'
+import type { ItemCategory, PriceHistoryEntry, ShoppingItem } from '@/types'
+
+function generateId(): string {
+  return Math.random().toString(36).slice(2, 10)
+}
 
 // ─── Period selector ──────────────────────────────────────────────────────────
 
@@ -62,7 +73,8 @@ interface AreaChartProps {
 }
 
 function AreaChart({ history, period, chartWidth }: AreaChartProps) {
-  const dark = useColorScheme() === 'dark'
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const chartHeight = 120
   const padX = 10
   const padY = 16
@@ -72,7 +84,7 @@ function AreaChart({ history, period, chartWidth }: AreaChartProps) {
   if (filtered.length < 2) {
     return (
       <View style={{ height: chartHeight, alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ color: '#94A3B8', fontSize: 13 }}>Nincs elég adat a kiválasztott időszakra</Text>
+        <Text style={{ color: colors.muted, fontSize: 13 }}>Nincs elég adat a kiválasztott időszakra</Text>
       </View>
     )
   }
@@ -96,7 +108,7 @@ function AreaChart({ history, period, chartWidth }: AreaChartProps) {
   }))
 
   const isUp = filtered[filtered.length - 1].price > filtered[0].price
-  const trendColor = isUp ? '#EF4444' : '#22C55E'
+  const trendColor = isUp ? colors.destructive : colors.success
 
   const linePath = points.reduce(
     (d, p, i) => (i === 0 ? `M ${p.x} ${p.y}` : `${d} L ${p.x} ${p.y}`),
@@ -107,7 +119,7 @@ function AreaChart({ history, period, chartWidth }: AreaChartProps) {
   const minY = padY + innerH
   const maxY = padY
 
-  const gridColor = dark ? '#334155' : '#E2E8F0'
+  const gridColor = dark ? colors.darkBorder : colors.border
 
   return (
     <Svg width={chartWidth} height={chartHeight}>
@@ -158,19 +170,33 @@ function AreaChart({ history, period, chartWidth }: AreaChartProps) {
 export default function ProductDetailScreen() {
   const router = useRouter()
   const { id } = useLocalSearchParams<{ id: string }>()
-  const dark = useColorScheme() === 'dark'
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const { width } = useWindowDimensions()
+  const insets = useSafeAreaInsets()
 
   const products = useProductStore((s) => s.products)
   const deleteProduct = useProductStore((s) => s.deleteProduct)
 
+  const lists = useListStore((s) => s.lists)
+  const loadLists = useListStore((s) => s.loadLists)
+  const addItem = useListStore((s) => s.addItem)
+  const showToast = useToastStore((s) => s.showToast)
+
+  const activeLists = lists.filter((l) => !l.completed)
+
+  useEffect(() => {
+    if (lists.length === 0) void loadLists()
+  }, [])
+
   const product = products.find((p) => p.id === id)
 
   const [period, setPeriod] = useState<Period>('3hó')
+  const [addSheetVisible, setAddSheetVisible] = useState(false)
 
   if (!product) {
     return (
-      <SafeAreaView style={styles.safeArea} edges={['top']}>
+      <SafeAreaView style={styles.safeArea} className="bg-background dark:bg-dark-background" edges={['top']}>
         <View className="flex-1 items-center justify-center">
           <Text className="text-body-lg text-muted">Termék nem található</Text>
         </View>
@@ -198,10 +224,30 @@ export default function ProductDetailScreen() {
     ])
   }
 
+  async function handleAddToList(listId: string) {
+    if (!product) return
+    const item: ShoppingItem = {
+      id: generateId(),
+      name: product.name,
+      quantity: 1,
+      unit: product.unit,
+      category: VALID_CATEGORIES.includes(product.category as ItemCategory)
+        ? (product.category as ItemCategory)
+        : 'Egyéb',
+      checked: false,
+      price: product.price,
+      product_id: product.id,
+    }
+    await addItem(listId, item)
+    const listName = lists.find((l) => l.id === listId)?.name ?? 'lista'
+    showToast(`Hozzáadva: ${listName}`, 'success')
+    setAddSheetVisible(false)
+  }
+
   const chartWidth = width - 32
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top']}>
+    <SafeAreaView style={styles.safeArea} className="bg-background dark:bg-dark-background" edges={['top']}>
       {/* Nav bar */}
       <View
         className="flex-row items-center px-screen-x border-b border-border dark:border-dark-border"
@@ -212,7 +258,7 @@ export default function ProductDetailScreen() {
           style={({ pressed }) => (pressed ? styles.pressed : undefined)}
           onPress={() => router.back()}
         >
-          <ArrowLeft size={22} color={dark ? '#F8FAFC' : '#0F172A'} />
+          <ArrowLeft size={22} color={dark ? colors.darkForeground : colors.foreground} />
         </Pressable>
 
         <Text
@@ -228,19 +274,19 @@ export default function ProductDetailScreen() {
             style={({ pressed }) => (pressed ? styles.pressed : undefined)}
             onPress={() => router.push(`/termekek/uj?id=${product.id}`)}
           >
-            <Pencil size={20} color={dark ? '#F8FAFC' : '#0F172A'} />
+            <Pencil size={20} color={dark ? colors.darkForeground : colors.foreground} />
           </Pressable>
           <Pressable
             className="w-tap h-tap items-center justify-center"
             style={({ pressed }) => (pressed ? styles.pressed : undefined)}
             onPress={handleDelete}
           >
-            <Trash2 size={20} color="#EF4444" />
+            <Trash2 size={20} color={colors.destructive} />
           </Pressable>
         </View>
       </View>
 
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
         {/* Identity card */}
         <View className="bg-card dark:bg-dark-card border border-border dark:border-dark-border rounded-card p-4 mb-4">
           <Text className="text-heading-md font-semibold text-foreground dark:text-dark-foreground mb-1">
@@ -261,15 +307,15 @@ export default function ProductDetailScreen() {
         {/* Dark price highlight */}
         <View
           className="rounded-card p-4 mb-4"
-          style={{ backgroundColor: '#1E293B' }}
+          style={{ backgroundColor: colors.darkCard }}
         >
-          <Text className="text-body-sm mb-1" style={{ color: '#94A3B8' }}>
+          <Text className="text-body-sm mb-1" style={{ color: colors.muted }}>
             Aktuális ár
           </Text>
           <View className="flex-row items-end justify-between">
-            <Text className="text-heading-lg font-bold" style={{ color: '#F8FAFC' }}>
+            <Text className="text-heading-lg font-bold" style={{ color: colors.darkForeground }}>
               {product.price != null
-                ? `${product.price.toLocaleString('hu-HU')} Ft`
+                ? formatHuf(product.price)
                 : '–'}
             </Text>
             {changePct != null && changeFt != null && (
@@ -281,8 +327,8 @@ export default function ProductDetailScreen() {
             )}
           </View>
           {product.last_price != null && (
-            <Text className="text-body-sm mt-1" style={{ color: '#64748B' }}>
-              Előző ár: {product.last_price.toLocaleString('hu-HU')} Ft
+            <Text className="text-body-sm mt-1" style={{ color: colors.muted }}>
+              Előző ár: {formatHuf(product.last_price)}
             </Text>
           )}
         </View>
@@ -327,10 +373,10 @@ export default function ProductDetailScreen() {
               return (
                 <View className="flex-row justify-between mt-2">
                   <Text className="text-body-sm text-muted">
-                    Min: {minP.toLocaleString('hu-HU')} Ft
+                    Min: {formatHuf(minP)}
                   </Text>
                   <Text className="text-body-sm text-muted">
-                    Max: {maxP.toLocaleString('hu-HU')} Ft
+                    Max: {formatHuf(maxP)}
                   </Text>
                 </View>
               )
@@ -380,7 +426,7 @@ export default function ProductDetailScreen() {
 
                   {/* Price */}
                   <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-                    {entry.price.toLocaleString('hu-HU')} Ft
+                    {formatHuf(entry.price)}
                   </Text>
                 </View>
               )
@@ -388,11 +434,83 @@ export default function ProductDetailScreen() {
           </View>
         )}
       </ScrollView>
+      {/* Footer: hozzáadás listához */}
+      <View style={[styles.footer, { paddingBottom: insets.bottom + 12 }]}>
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          leftIcon={<ShoppingCart size={20} color="#fff" strokeWidth={1.75} />}
+          onPress={() => setAddSheetVisible(true)}
+        >
+          Hozzáadás listához
+        </Button>
+      </View>
+
+      {/* Lista választó sheet */}
+      <BottomSheet
+        visible={addSheetVisible}
+        onClose={() => setAddSheetVisible(false)}
+        title="Lista kiválasztása"
+      >
+        {activeLists.length === 0 ? (
+          <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', paddingVertical: 32 }}>
+            <Text style={{ color: colors.muted, fontSize: 15 }}>Nincs aktív lista.</Text>
+          </View>
+        ) : (
+          <ScrollView showsVerticalScrollIndicator={false} style={{ flex: 1 }}>
+            {activeLists.map((list, idx) => (
+              <View key={list.id}>
+                {idx > 0 && (
+                  <View style={{ height: 1, backgroundColor: dark ? colors.darkBorder : colors.border, marginHorizontal: 4 }} />
+                )}
+                <Pressable
+                  style={({ pressed }) => [styles.listRow, pressed && { opacity: 0.7 }]}
+                  onPress={() => handleAddToList(list.id)}
+                  accessibilityLabel={`Hozzáadás: ${list.name}`}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[styles.listRowName, { color: dark ? colors.darkForeground : colors.foreground }]}
+                      numberOfLines={1}
+                    >
+                      {list.name}
+                    </Text>
+                    <Text style={{ fontSize: 13, color: colors.muted }}>
+                      {list.items.length} tétel
+                    </Text>
+                  </View>
+                  <ShoppingCart size={18} color={colors.primary} strokeWidth={1.75} />
+                </Pressable>
+              </View>
+            ))}
+          </ScrollView>
+        )}
+      </BottomSheet>
     </SafeAreaView>
   )
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: '#F1F5F9' },
+  safeArea: { flex: 1 },
   pressed: { opacity: 0.75 },
+  footer: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  listRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+    gap: 12,
+    minHeight: 56,
+  },
+  listRowName: {
+    fontSize: 16,
+    fontWeight: '500',
+    marginBottom: 2,
+  },
 })

@@ -1,5 +1,6 @@
 export const colors = {
-  primary:     '#2563EB',
+  primary:      '#2563EB',
+  primaryLight: '#60A5FA',
   destructive: '#EF4444',
   success:     '#22C55E',
   warning:     '#F59E0B',
@@ -15,8 +16,9 @@ export const colors = {
   darkBorder:     '#334155',
   darkForeground: '#F8FAFC',
 
-  boltBg:  '#000000',
-  boltBar: '#111827',
+  boltBg:     '#000000',
+  boltBar:    '#111827',
+  boltBorder: '#1F2937',
 
   cat: {
     produce: '#86EFAC',
@@ -26,3 +28,19 @@ export const colors = {
     other:   '#CBD5E1',
   },
 } as const
+
+export const catBg: Record<string, string> = {
+  'Zöldség':   colors.cat.produce,
+  'Tejtermék': colors.cat.dairy,
+  'Hús':       colors.cat.meat,
+  'Pékáru':    colors.cat.bakery,
+  'Egyéb':     colors.cat.other,
+}
+
+export const catAbbr: Record<string, string> = {
+  'Zöldség':   'ZÖL',
+  'Tejtermék': 'TEJ',
+  'Hús':       'HÚS',
+  'Pékáru':    'PÉK',
+  'Egyéb':     'EGY',
+}
