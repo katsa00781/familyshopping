@@ -27,6 +27,7 @@ interface RawReceiptItem {
   unit_price: number | null
   total_price: number | null
   category: string | null
+  confidence?: number | null
 }
 
 interface RawReceiptResponse {
@@ -42,16 +43,23 @@ function transformResponse(raw: RawReceiptResponse): OCRResponse {
     qty: item.quantity ?? 1,
     unit: item.unit,
     price: item.unit_price ?? item.total_price ?? 0,
-    conf: 0.9,
+    conf: clampConf(item.confidence),
   }))
+  const conf =
+    items.length > 0 ? items.reduce((sum, i) => sum + i.conf, 0) / items.length : 0.9
   return {
     lines: [],
     items,
     total: raw.total,
     store: raw.store,
     date: raw.date,
-    conf: 0.9,
+    conf,
   }
+}
+
+function clampConf(value: number | null | undefined): number {
+  if (value == null || !Number.isFinite(value)) return 0.9
+  return Math.min(1, Math.max(0, value))
 }
 
 export async function sendOCRRequest(imageUri: string): Promise<OCRResponse> {

@@ -37,6 +37,28 @@ function generateId(): string {
   return Math.random().toString(36).slice(2)
 }
 
+// A felhasználó kézi javításait visszatöltjük a tanuló glosszáriumba (ocr_corrections).
+// Csak ott rögzítünk, ahol volt eredeti OCR-név és a végleges név érdemben eltér tőle.
+async function recordCorrections(items: ReviewItem[]): Promise<void> {
+  const corrections = items.filter(
+    (item) =>
+      item.rawName.trim().length > 0 &&
+      item.name.trim().length > 0 &&
+      item.rawName.trim().toLowerCase() !== item.name.trim().toLowerCase()
+  )
+  if (corrections.length === 0) return
+
+  await Promise.all(
+    corrections.map((item) =>
+      supabase.rpc('record_ocr_correction', {
+        p_raw: item.rawName,
+        p_corrected: item.name,
+        p_unit: item.unit,
+      })
+    )
+  )
+}
+
 export default function OCRReviewScreen() {
   const insets = useSafeAreaInsets()
   const { reviewItems, ocrResponse, updateReviewItem, toggleSkip } = useOcrStore()
@@ -157,6 +179,10 @@ export default function OCRReviewScreen() {
       if (error) throw new Error(error.message)
     }
 
+    // Tanuló réteg: ahol a felhasználó javította az OCR által kiolvasott nevet,
+    // rögzítjük a (nyers → javított) párt. Fire-and-forget — sosem blokkolja a mentést.
+    void recordCorrections(activeItems).catch(() => {})
+
     router.push({
       pathname: '/ocr/confirm',
       params: {
@@ -171,6 +197,7 @@ export default function OCRReviewScreen() {
     const newItem: ReviewItem = {
       id: generateId(),
       name: '',
+      rawName: '',
       qty: 1,
       unit: 'db',
       price: 0,

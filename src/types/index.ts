@@ -117,6 +117,7 @@ export interface OCRResponse {
 
 export interface ReviewItem extends OCRItem {
   id: string
+  rawName: string // amit az OCR eredetileg kiolvasott (tanuló glosszáriumhoz)
   isDuplicate: boolean
   existingProductId: string | null
   matchedProductName: string | null

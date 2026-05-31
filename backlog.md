@@ -61,7 +61,7 @@
 - [x] Auth stack – `src/app/(auth)/` (login, register)
 - [x] Lista stack – `src/app/lista/[id].tsx`
 - [x] Termék stack – `src/app/termekek/[id].tsx`, `src/app/termekek/uj.tsx`
-- [ ] OCRFlow modál – **HIÁNYZIK**
+- [x] OCRFlow modál – `src/app/ocr/` (index/preview/processing/review/confirm)
 - [ ] Typed ParamList-ek (`navigation/types.ts`) – **HIÁNYZIK**
 
 ---
@@ -72,7 +72,7 @@
 
 - [x] **01 – Login** – `src/app/(auth)/login.tsx` (email/jelszó, animált shake, Supabase auth)
 - [x] **01b – Register** – `src/app/(auth)/register.tsx`
-- [x] **02 – ListOverview** – `src/app/(tabs)/index.tsx` (aktív + korábbi listák, FAB, ListCreateSheet, scroll-hide FAB)
+- [x] **02 – ListOverview** – `src/app/(tabs)/index.tsx` (aktív + korábbi listák, FAB, ListCreateSheet, scroll-hide FAB, korábbi lista **újraaktiválás** `...` menüből → átkerül az Aktív listák közé + toast visszajelzés)
 - [x] **03 – ListDetail** – `src/app/lista/[id].tsx` (kategória filter chips, ItemAdd + ItemEdit sheet, complete + delete, pulse animáció, összesítő sáv)
 - [x] **04 – ItemAddSheet** – `src/components/lista/ItemAddSheet.tsx` (barcode scan scope-on kívül)
 - [x] **05 – ShopMode / Bolt mód** – `src/app/(tabs)/bolt.tsx` + `BoltRow` + `BoltCheckbox` ⚠️ (hiányok lejjebb)
@@ -97,7 +97,12 @@
 ### ❌ HIÁNYZIK
 
 - [ ] **01c – ForgotPassword** képernyő
-- [ ] **10 – OCRFlow** (5 lépés: Camera → Preview → Processing → ReviewItems → SaveConfirm)
+- [x] **10 – OCRFlow** (5 lépés: Camera → Preview → Processing → ReviewItems → SaveConfirm) – `src/app/ocr/`
+  - ✅ Szerver oldali vision: `ocr-receipt` Edge Function (gpt-4o-mini, `EXPO_PUBLIC_OCR_ENDPOINT`)
+  - ✅ **Prompt finomítás** (2026-05-31): ÁFA-kódok (C00/B00…) és cikkszámok kiszűrése a névből, betét-/visszaváltási díj + összesítő sorok kihagyása, `qty × egységár` minták (magyar tizedesvessző, kg/db), sor-összeg vs egységár szétválasztása, RÉSZÖSSZESEN≠ÖSSZESEN, bolt-márka normalizálás, magyar→ISO dátum, `response_format: json_object`
+  - ✅ **Per-tétel confidence**: a modell soronként ad 0–1 megbízhatóságot → a borostyán „bizonytalan felismerés” jelzés végre valós (eddig fix 0.9 volt)
+  - ✅ **Tanuló réteg**: `ocr_corrections` tábla + `record_ocr_correction` RPC (migráció: `supabase/migrations/20260531120000_ocr_corrections.sql`). A ReviewItems mentésekor a (nyers OCR-név → javított név) párokat rögzítjük; az Edge Function a felhasználó leggyakoribb javításait glosszáriumként visszainjektálja a promptba → idővel pontosabb felismerés.
+  - ⚠️ **Deploy szükséges**: `supabase functions deploy ocr-receipt` + a migráció futtatása (`supabase db push`). A repo `supabase/functions/ocr/` mappája elavult/használaton kívüli (régi shape) — a kliens a `ocr-receipt`-et hívja.
 - [ ] **12 – FamilySettings** (családtagok, megosztás)
 - [ ] **PickerScreen** (generikus: bolt / kategória / egység)
 
@@ -131,6 +136,7 @@
 
 ## Ship előtt
 
+- [x] **Natív iOS build setup (Xcode, ingyenes / 7 napos aláírás)** — `ios.bundleIdentifier: com.kacsorzsolt.familyshopping` + `buildNumber: "1"` (app.json + `project.pbxproj` Debug/Release; a `com.familyshopping.app` foglalt volt az Apple-nél). `npx expo prebuild -p ios --clean` → `ios/familyshopping.xcworkspace` + CocoaPods. Boltban Mac nélküli, önálló teszteléshez **Release** scheme kell. (Megj.: a prebuild a package.json `ios`/`android` scriptjeit `expo run:*`-ra állította. A gép lemeze szűkös — build előtt cache-takarítás kellhet: DerivedData, ios/build, CocoaPods cache.)
 - [ ] Teljes primary flow tesztelése éles eszközön (lista → bolt mód → pipálás)
 - [ ] Bolt mód boltban, valós körülmények közt tesztelve
 - [ ] Edge case-ek: üres lista, hosszú magyar terméknév, nincs net, lassú OCR

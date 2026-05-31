@@ -35,6 +35,7 @@ export const useOcrStore = create<OCRState>((set, get) => ({
     const reviewItems: ReviewItem[] = response.items.map((item) => ({
       ...item,
       id: generateId(),
+      rawName: item.name,
       isDuplicate: existingProductIds[item.name] !== undefined,
       existingProductId: existingProductIds[item.name] ?? null,
       matchedProductName: matchedProductNames[item.name] ?? null,

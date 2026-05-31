@@ -14,6 +14,7 @@ import { MoreHorizontal, Plus, ScanLine, ShoppingBag, ShoppingCart } from 'lucid
 import { ListCard } from '@/components/lista/ListCard'
 import ListCreateSheet from '@/components/lista/ListCreateSheet'
 import { useListStore } from '@/store/listStore'
+import { useToastStore } from '@/store/toastStore'
 import { colors } from '@/constants/colors'
 import { formatHuf } from '@/lib/format'
 import type { ShoppingList } from '@/types'
@@ -44,7 +45,7 @@ interface PastListRowProps {
 function PastListRow({ list, onOpen, onRestore, onDelete }: PastListRowProps) {
   function handleMenu() {
     Alert.alert(list.name, formatPastDate(list.date), [
-      { text: 'Betöltés', onPress: onRestore },
+      { text: 'Újraaktiválás', onPress: onRestore },
       { text: 'Törlés', style: 'destructive', onPress: onDelete },
       { text: 'Mégse', style: 'cancel' },
     ])
@@ -152,8 +153,14 @@ export default function ListsScreen() {
   const createList = useListStore((s) => s.createList)
   const deleteList = useListStore((s) => s.deleteList)
   const restoreList = useListStore((s) => s.restoreList)
+  const showToast = useToastStore((s) => s.showToast)
 
   useEffect(() => { loadLists() }, [loadLists])
+
+  async function handleRestore(list: ShoppingList) {
+    await restoreList(list.id)
+    showToast(`„${list.name}" újra aktív`, 'success')
+  }
 
   const activeLists = lists.filter((l) => !l.completed)
   const pastLists = lists.filter((l) => l.completed)
@@ -223,7 +230,7 @@ export default function ListsScreen() {
                     <PastListRow
                       list={list}
                       onOpen={() => router.push(`/lista/${list.id}`)}
-                      onRestore={() => restoreList(list.id)}
+                      onRestore={() => handleRestore(list)}
                       onDelete={() =>
                         Alert.alert(
                           'Lista törlése',
