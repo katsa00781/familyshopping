@@ -1,3 +1,4 @@
+/// <reference path="./deno.d.ts" />
 // ocr-receipt Edge Function
 // Proxies OpenAI GPT-4o-mini Vision API for receipt OCR.
 // The client sends a base64-encoded JPEG image; this function returns structured item data.

@@ -1,5 +1,5 @@
 import { readAsStringAsync } from 'expo-file-system/legacy'
-import { supabase } from '@/lib/supabase'
+import { getSessionSafe } from '@/lib/supabase'
 import type { OCRItem, OCRResponse } from '@/types'
 
 const OCR_ENDPOINT = process.env.EXPO_PUBLIC_OCR_ENDPOINT ?? ''
@@ -70,7 +70,7 @@ export async function sendOCRRequest(imageUri: string): Promise<OCRResponse> {
 
   const base64 = await readAsStringAsync(imageUri, { encoding: 'base64' })
 
-  const { data: { session } } = await supabase.auth.getSession()
+  const session = await getSessionSafe()
   if (!session) throw new Error('Jelentkezz be az OCR használatához.')
 
   const response = await fetch(OCR_ENDPOINT, {

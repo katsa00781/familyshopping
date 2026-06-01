@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionSafe } from '@/lib/supabase'
 import { mockLists } from '@/data/mockLists'
 import type { ShoppingList, ShoppingItem } from '@/types'
 
@@ -66,7 +66,7 @@ export const useListStore = create<ListState>((set, get) => ({
   loadLists: async () => {
     set({ isLoading: true, error: null })
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
 
     if (!user) {
@@ -104,7 +104,7 @@ export const useListStore = create<ListState>((set, get) => ({
   },
 
   createList: async (name, date) => {
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     const userId = user?.id ?? 'mock-user'
     const now = new Date().toISOString()
@@ -143,7 +143,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === id)
@@ -163,7 +163,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const { error } = await supabase.from('shopping_lists').delete().eq('id', id)
@@ -183,7 +183,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === id)
@@ -243,7 +243,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === id)
@@ -267,7 +267,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
@@ -291,7 +291,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
@@ -315,7 +315,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)
@@ -341,7 +341,7 @@ export const useListStore = create<ListState>((set, get) => ({
     set({ lists: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const list = next.find((l) => l.id === listId)

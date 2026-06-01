@@ -11,7 +11,7 @@ import {
 import { useColorScheme } from 'nativewind'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { useRouter } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { Grid3X3, List, Plus } from 'lucide-react-native'
 
 import { useProductStore } from '@/store/productStore'
@@ -69,14 +69,21 @@ export default function TermekekScreen() {
   const [minDone, setMinDone] = useState(false)
   const mountedAt = useRef(Date.now())
 
-  // Load products on mount
+  // Frissítés minden fókuszáláskor — így az OCR-rel létrehozott termékek
+  // azonnal megjelennek, amikor visszatérünk a fülre (ki-/bejelentkezés nélkül).
+  useFocusEffect(
+    useCallback(() => {
+      void loadProducts()
+    }, [loadProducts])
+  )
+
+  // Skeleton minimum-idő mount-kor
   useEffect(() => {
-    loadProducts()
     const elapsed = Date.now() - mountedAt.current
     const remaining = Math.max(0, MIN_SKELETON_MS - elapsed)
     const timer = setTimeout(() => setMinDone(true), remaining)
     return () => clearTimeout(timer)
-  }, [loadProducts])
+  }, [])
 
   // Persist view mode
   useEffect(() => {

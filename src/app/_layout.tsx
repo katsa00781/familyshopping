@@ -9,7 +9,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AnimatedSplashOverlay } from '@/components/animated-icon'
 import { ToastContainer } from '@/components/ui/Toast'
 import { AppThemeProvider } from '@/lib/theme'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionSafe } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
 export default function RootLayout() {
@@ -18,7 +18,7 @@ export default function RootLayout() {
   const setSession = useAuthStore((s) => s.setSession)
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => setSession(data.session))
+    void getSessionSafe().then((session) => setSession(session))
 
     const {
       data: { subscription },
@@ -45,6 +45,8 @@ export default function RootLayout() {
               <Stack.Screen name="(tabs)" />
               <Stack.Screen name="(auth)" />
               <Stack.Screen name="lista/[id]" />
+              <Stack.Screen name="vasarlasok/index" />
+              <Stack.Screen name="vasarlasok/[id]" />
               <Stack.Screen name="termekek/[id]" />
               <Stack.Screen name="termekek/uj" />
               <Stack.Screen

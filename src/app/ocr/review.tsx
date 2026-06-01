@@ -25,10 +25,11 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionSafe } from '@/lib/supabase'
 import { formatHuf } from '@/lib/format'
 import { useOcrStore } from '@/store/ocrStore'
 import { useProductStore } from '@/store/productStore'
+import { usePriceStore } from '@/store/priceStore'
 import type { Product, ReviewItem, ProductPriceHistory, ShoppingStatistic } from '@/types'
 
 const LOW_CONF = 0.78
@@ -95,9 +96,7 @@ export default function OCRReviewScreen() {
   }
 
   async function doSave() {
-    const {
-      data: { session },
-    } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     if (!session) throw new Error('Nincs aktív munkamenet.')
 
     const userId = session.user.id
@@ -182,6 +181,11 @@ export default function OCRReviewScreen() {
     // Tanuló réteg: ahol a felhasználó javította az OCR által kiolvasott nevet,
     // rögzítjük a (nyers → javított) párt. Fire-and-forget — sosem blokkolja a mentést.
     void recordCorrections(activeItems).catch(() => {})
+
+    // Frissítsük a globális store-okat a friss DB-adatokkal, hogy az Árak és a
+    // Termékek képernyő azonnal lássa az új tételeket (ki-/bejelentkezés nélkül).
+    void useProductStore.getState().loadProducts()
+    void usePriceStore.getState().loadPriceData()
 
     router.push({
       pathname: '/ocr/confirm',
@@ -343,26 +347,7 @@ function ReviewRow({ item, onUpdate, onSkip, onSearchProduct }: ReviewRowProps) 
       )}
 
       <View style={styles.rowBody}>
-        {/* Qty + Unit */}
-        <View style={styles.qtyBlock}>
-          <TextInput
-            style={[styles.qtyInput, item.skip && styles.inputSkipped]}
-            value={String(item.qty)}
-            onChangeText={(t) => onUpdate({ qty: parseFloat(t) || 0 })}
-            keyboardType="decimal-pad"
-            editable={!item.skip}
-            accessibilityLabel="Mennyiség"
-          />
-          <TextInput
-            style={[styles.unitInput, item.skip && styles.inputSkipped]}
-            value={item.unit ?? 'db'}
-            onChangeText={(t) => onUpdate({ unit: t })}
-            editable={!item.skip}
-            accessibilityLabel="Egység"
-          />
-        </View>
-
-        {/* Name */}
+        {/* Name — teljes szélességű saját sor, hogy a hosszú magyar terméknevek elférjenek */}
         <TextInput
           style={[styles.nameInput, item.skip && styles.inputSkipped]}
           value={item.name}
@@ -381,34 +366,54 @@ function ReviewRow({ item, onUpdate, onSkip, onSearchProduct }: ReviewRowProps) 
           accessibilityLabel="Terméknév"
         />
 
-        {/* Price + Actions */}
-        <View style={styles.rightBlock}>
-          <TextInput
-            style={[styles.priceInput, item.skip && styles.inputSkipped]}
-            value={String(item.price)}
-            onChangeText={(t) => onUpdate({ price: parseInt(t, 10) || 0 })}
-            keyboardType="number-pad"
-            editable={!item.skip}
-            accessibilityLabel="Ár"
-          />
-          {!item.skip && (
+        {/* Vezérlők sora: mennyiség + egység balra, ár + műveletek jobbra */}
+        <View style={styles.controlsRow}>
+          <View style={styles.qtyBlock}>
+            <TextInput
+              style={[styles.qtyInput, item.skip && styles.inputSkipped]}
+              value={String(item.qty)}
+              onChangeText={(t) => onUpdate({ qty: parseFloat(t) || 0 })}
+              keyboardType="decimal-pad"
+              editable={!item.skip}
+              accessibilityLabel="Mennyiség"
+            />
+            <TextInput
+              style={[styles.unitInput, item.skip && styles.inputSkipped]}
+              value={item.unit ?? 'db'}
+              onChangeText={(t) => onUpdate({ unit: t })}
+              editable={!item.skip}
+              accessibilityLabel="Egység"
+            />
+          </View>
+
+          <View style={styles.rightBlock}>
+            <TextInput
+              style={[styles.priceInput, item.skip && styles.inputSkipped]}
+              value={String(item.price)}
+              onChangeText={(t) => onUpdate({ price: parseInt(t, 10) || 0 })}
+              keyboardType="number-pad"
+              editable={!item.skip}
+              accessibilityLabel="Ár"
+            />
+            {!item.skip && (
+              <Pressable
+                style={styles.searchBtn}
+                onPress={onSearchProduct}
+                hitSlop={8}
+                accessibilityLabel="Katalógustermék keresése"
+              >
+                <Search size={16} color="#60A5FA" />
+              </Pressable>
+            )}
             <Pressable
-              style={styles.searchBtn}
-              onPress={onSearchProduct}
+              style={styles.skipBtn}
+              onPress={onSkip}
               hitSlop={8}
-              accessibilityLabel="Katalógustermék keresése"
+              accessibilityLabel={item.skip ? 'Visszaállítás' : 'Kihagyás'}
             >
-              <Search size={16} color="#60A5FA" />
+              <Trash2 size={18} color={item.skip ? '#6B7280' : '#EF4444'} />
             </Pressable>
-          )}
-          <Pressable
-            style={styles.skipBtn}
-            onPress={onSkip}
-            hitSlop={8}
-            accessibilityLabel={item.skip ? 'Visszaállítás' : 'Kihagyás'}
-          >
-            <Trash2 size={18} color={item.skip ? '#6B7280' : '#EF4444'} />
-          </Pressable>
+          </View>
         </View>
       </View>
     </View>
@@ -606,8 +611,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   rowBody: {
+    gap: 10,
+  },
+  controlsRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
   qtyBlock: {
@@ -638,13 +647,13 @@ const styles = StyleSheet.create({
     borderColor: '#374151',
   },
   nameInput: {
-    flex: 1,
-    height: 40,
+    width: '100%',
+    height: 48,
     backgroundColor: '#111827',
     borderRadius: 8,
     color: '#fff',
-    fontSize: 15,
-    paddingHorizontal: 10,
+    fontSize: 16,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: '#374151',
   },

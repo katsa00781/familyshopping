@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionSafe } from '@/lib/supabase'
 import type {
   ProductPriceHistory,
   ShoppingStatistic,
@@ -49,9 +49,38 @@ async function loadCache(): Promise<CacheData | null> {
 const VALID_CATEGORIES = new Set<ItemCategory>(['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb'])
 const ALL_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
 
+// A tárolt product_category gyakran nem a kanonikus 5 kategória egyike: a régi
+// `import` adat és néhány lista/kézi tétel saját nevet használ (pl. "Tejtermékek",
+// "Húsáruk", "Zöldség-gyümölcs", "Zöldség és gyümölcs"). Ezeket a közeli variánsokat
+// az 5 kategóriába normalizáljuk, különben minden az "Egyéb"-be esne és a személyes
+// infláció kategória-bontása értelmetlen lenne. Ami valóban nem fér bele (Édesség,
+// Élelmiszer, Ital, Snack, Tojás, Háztartás, Gyógyszer…) az marad "Egyéb".
+const CATEGORY_ALIASES: Record<string, ItemCategory> = {
+  'zöldség': 'Zöldség',
+  'zöldség-gyümölcs': 'Zöldség',
+  'zöldség és gyümölcs': 'Zöldség',
+  'zöldség/gyümölcs': 'Zöldség',
+  'gyümölcs': 'Zöldség',
+  'tejtermék': 'Tejtermék',
+  'tejtermékek': 'Tejtermék',
+  'tej': 'Tejtermék',
+  'hús': 'Hús',
+  'húsáru': 'Hús',
+  'húsáruk': 'Hús',
+  'húskészítmény': 'Hús',
+  'felvágott': 'Hús',
+  'pékáru': 'Pékáru',
+  'pékárú': 'Pékáru',
+  'pékáruk': 'Pékáru',
+  'péksütemény': 'Pékáru',
+  'kenyér': 'Pékáru',
+}
+
 function toCategory(raw: string | null): ItemCategory {
-  if (raw && VALID_CATEGORIES.has(raw as ItemCategory)) return raw as ItemCategory
-  return 'Egyéb'
+  if (!raw) return 'Egyéb'
+  const trimmed = raw.trim()
+  if (VALID_CATEGORIES.has(trimmed as ItemCategory)) return trimmed as ItemCategory
+  return CATEGORY_ALIASES[trimmed.toLowerCase()] ?? 'Egyéb'
 }
 
 export const usePriceStore = create<PriceState>((set, get) => ({
@@ -73,7 +102,7 @@ export const usePriceStore = create<PriceState>((set, get) => ({
     // getSession() a tárolt session-t adja vissza és lejárt access token esetén
     // frissíti azt. A getUser() ezzel szemben friss hálózati kérést indít, és lejárt
     // token mellett null usert ad — ettől nem töltődtek be az árak.
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
 
     if (!user) {
@@ -177,44 +206,45 @@ export const usePriceStore = create<PriceState>((set, get) => ({
       catMap.set(entry.product_name, list)
     }
 
-    let totalSpendAll = 0
-    const catResults = new Map<ItemCategory, { changes: number[]; totalSpend: number }>()
+    // Költés-súlyozott árindex. Termékenként árváltozás (legrégebbi→legújabb
+    // egységár), súlyozva a termékre költött összeggel. Csak a ≥2 áradatú
+    // termékek adnak súlyt — ezekhez van mérhető változás. Ugyanaz a súlybázis
+    // adja a kategória százalékos változását ÉS a donut-szeletek méretét (share),
+    // így a középső headline = Σ(change_pct × share) a valódi személyes infláció.
+    const catResults = new Map<ItemCategory, { weightedChange: number; weight: number }>()
+    let totalWeight = 0
 
     for (const [cat, products] of grouped) {
-      let catSpend = 0
-      const catChanges: number[] = []
+      let weightedChange = 0
+      let weight = 0
 
       for (const [, entries] of products) {
-        catSpend += entries.reduce((s, e) => s + e.total_price, 0)
-        if (entries.length >= 2) {
-          const sorted = [...entries].sort((a, b) => a.price_date.localeCompare(b.price_date))
-          const oldest = sorted[0]!
-          const newest = sorted[sorted.length - 1]!
-          if (oldest.unit_price > 0) {
-            catChanges.push(((newest.unit_price - oldest.unit_price) / oldest.unit_price) * 100)
-          }
-        }
+        if (entries.length < 2) continue
+        const sorted = [...entries].sort((a, b) => a.price_date.localeCompare(b.price_date))
+        const oldest = sorted[0]!
+        const newest = sorted[sorted.length - 1]!
+        if (oldest.unit_price <= 0) continue
+        const change = ((newest.unit_price - oldest.unit_price) / oldest.unit_price) * 100
+        const spend = entries.reduce((s, e) => s + e.total_price, 0)
+        weightedChange += change * spend
+        weight += spend
       }
 
-      totalSpendAll += catSpend
-      catResults.set(cat, { changes: catChanges, totalSpend: catSpend })
+      catResults.set(cat, { weightedChange, weight })
+      totalWeight += weight
     }
 
-    if (totalSpendAll === 0) {
-      return ALL_CATEGORIES.map((category) => ({
-        category,
-        change_pct: 0,
-        share: 0.2,
-      }))
+    if (totalWeight === 0) {
+      return ALL_CATEGORIES.map((category) => ({ category, change_pct: 0, share: 0 }))
     }
 
     return ALL_CATEGORIES.map((category) => {
-      const data = catResults.get(category)!
-      const change_pct =
-        data.changes.length > 0
-          ? data.changes.reduce((s, c) => s + c, 0) / data.changes.length
-          : 0
-      return { category, change_pct, share: data.totalSpend / totalSpendAll }
+      const { weightedChange, weight } = catResults.get(category)!
+      return {
+        category,
+        change_pct: weight > 0 ? weightedChange / weight : 0,
+        share: weight / totalWeight,
+      }
     })
   },
 

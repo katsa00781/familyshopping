@@ -9,7 +9,7 @@ import {
 } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { MoreHorizontal, Plus, ScanLine, ShoppingBag, ShoppingCart } from 'lucide-react-native'
+import { ChevronRight, MoreHorizontal, Plus, Receipt, ScanLine, ShoppingBag, ShoppingCart } from 'lucide-react-native'
 
 import { ListCard } from '@/components/lista/ListCard'
 import ListCreateSheet from '@/components/lista/ListCreateSheet'
@@ -82,6 +82,32 @@ function PastListRow({ list, onOpen, onRestore, onDelete }: PastListRowProps) {
           <MoreHorizontal size={18} color={colors.muted} strokeWidth={1.75} />
         </Pressable>
       </View>
+    </Pressable>
+  )
+}
+
+function PurchasesEntryRow({ onPress }: { onPress: () => void }) {
+  return (
+    <Pressable
+      className="mx-screen-x mt-3 flex-row items-center gap-3 rounded-card border border-border dark:border-dark-border bg-card dark:bg-dark-card px-4 py-3.5"
+      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
+      onPress={onPress}
+      accessibilityLabel="Vásárlások megtekintése"
+      accessibilityRole="button"
+    >
+      <View
+        className="items-center justify-center rounded-full bg-primary/10"
+        style={{ width: 36, height: 36 }}
+      >
+        <Receipt size={20} color={colors.primary} strokeWidth={1.75} />
+      </View>
+      <View style={{ flex: 1, gap: 2 }}>
+        <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
+          Vásárlások
+        </Text>
+        <Text className="text-body-sm text-muted">Beolvasott blokkok és befejezett listák</Text>
+      </View>
+      <ChevronRight size={20} color={colors.muted} strokeWidth={1.75} />
     </Pressable>
   )
 }
@@ -201,6 +227,8 @@ export default function ListsScreen() {
           </View>
         </View>
       </View>
+
+      <PurchasesEntryRow onPress={() => router.push('/vasarlasok')} />
 
       {isEmpty ? (
         <EmptyState />

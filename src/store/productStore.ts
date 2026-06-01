@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionSafe } from '@/lib/supabase'
 import { mockProducts } from '@/data/mockProducts'
 import type { Product, PriceHistoryEntry } from '@/types'
 
@@ -65,7 +65,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
   loadProducts: async () => {
     set({ isLoading: true, error: null })
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
 
     if (!user) {
@@ -106,7 +106,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
   },
 
   upsertProduct: async (draft) => {
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     const userId = user?.id ?? 'mock-user'
     const now = new Date().toISOString()
@@ -178,7 +178,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
     set({ products: next })
     await saveCache(next)
 
-    const { data: { session } } = await supabase.auth.getSession()
+    const session = await getSessionSafe()
     const user = session?.user
     if (user) {
       const { error } = await supabase.from('products').delete().eq('id', id)

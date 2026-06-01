@@ -97,6 +97,19 @@ export interface ShoppingStatistic {
   created_at: string
 }
 
+// ─── Vásárlások ───────────────────────────────────────────────────────────────
+// Egy vásárlás = a shopping_statistics sorok egy csoportja (egy blokk vagy egy
+// befejezett lista). Származtatott típus, nem külön tábla.
+export interface Purchase {
+  id: string
+  store_name: string | null
+  date: string
+  source: ShoppingStatistic['source']
+  item_count: number
+  total: number
+  items: ShoppingStatistic[]
+}
+
 // ─── OCR ─────────────────────────────────────────────────────────────────────
 export interface OCRItem {
   name: string

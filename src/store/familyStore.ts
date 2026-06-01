@@ -1,5 +1,5 @@
 import { create } from 'zustand'
-import { supabase } from '@/lib/supabase'
+import { supabase, getSessionSafe } from '@/lib/supabase'
 import type { Family, FamilyMember, FamilyRole } from '@/types'
 
 interface FamilyState {
@@ -22,7 +22,7 @@ export const useFamilyStore = create<FamilyState>((set, get) => ({
   loadFamily: async () => {
     set({ isLoading: true, error: null })
     try {
-      const { data: { session } } = await supabase.auth.getSession()
+      const session = await getSessionSafe()
       const user = session?.user
       if (!user) {
         set({ isLoading: false })
