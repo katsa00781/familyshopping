@@ -1,6 +1,6 @@
 import type { Product } from '@/types'
 
-// Levenshtein távolság
+// Levenshtein távolság (OCR-elgépelés tűréshez)
 function levenshtein(a: string, b: string): number {
   const m = a.length
   const n = b.length
@@ -19,48 +19,84 @@ function levenshtein(a: string, b: string): number {
   return dp[m]![n]!
 }
 
-// Alap normalizálás: kisbetű + szóközök
-function normalize(s: string): string {
-  return s.trim().toLowerCase().replace(/\s+/g, ' ')
-}
-
 // Erős normalizálás: ékezetek eltávolítása, tizedespont egységesítése,
 // felesleges írásjelek törlése — az OCR sok variációt produkál ugyanarra a névre
 function normalizeStrong(s: string): string {
   return s
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')     // ékezetek (á→a, é→e, stb.)
-    .replace(/[.,;:!?()%]/g, ' ')        // írásjelek szóközzé
-    .replace(/(\d),(\d)/g, '$1.$2')      // "2,8" → "2.8"
+    .replace(/[̀-ͯ]/g, '') // ékezetek (á→a, é→e, stb.)
+    .replace(/[.,;:!?()%/*]/g, ' ') // írásjelek szóközzé
+    .replace(/(\d),(\d)/g, '$1.$2') // "2,8" → "2.8"
     .replace(/\s+/g, ' ')
     .trim()
 }
 
-// Tokenizálás: legalább 2 karakteres szavak halmaza
-function tokenSet(s: string): Set<string> {
-  return new Set(normalizeStrong(s).split(' ').filter((t) => t.length >= 2))
+// Tokenizálás: legalább 2 karakteres szavak
+function tokenize(s: string): string[] {
+  return normalizeStrong(s)
+    .split(' ')
+    .filter((t) => t.length >= 2)
 }
 
-// Token-hasonlóság: a közös tokenek aránya a nagyobb halmazhoz képest (Jaccard)
-function tokenSimilarity(a: string, b: string): number {
-  const ta = tokenSet(a)
-  const tb = tokenSet(b)
-  if (ta.size === 0 || tb.size === 0) return 0
-  let common = 0
-  for (const t of ta) {
-    if (tb.has(t)) common++
+// Egy token "jelentős", ha legalább 3 betűt tartalmaz — így a méret-/mennyiségzaj
+// ("330g", "20", "1l", "kg", "db") nem visz be hamis egyezést.
+function letterCount(t: string): number {
+  let c = 0
+  for (const ch of t) {
+    if (ch >= 'a' && ch <= 'z') c++
   }
-  return common / Math.max(ta.size, tb.size)
+  return c
+}
+function isSignificant(t: string): boolean {
+  return letterCount(t) >= 3
 }
 
-// Dinamikus Levenshtein-küszöb: rövidebb nevekre szigorúbb, hosszabbakra lazább
-function levThreshold(name: string): number {
-  const len = name.length
-  if (len <= 5) return 1
-  if (len <= 10) return 2
-  return 3
+// Két token egyezik-e — OCR-toleranciával:
+// - pontos egyezés
+// - hosszabb tokeneknél 1 karakter eltérés (elgépelés/rossz felismerés)
+// - prefix egyezés (a katalógusnév rövidebb, az OCR ragozott/összevont alak)
+function tokenEq(a: string, b: string): boolean {
+  if (a === b) return true
+  const minLen = Math.min(a.length, b.length)
+  if (minLen < 5) return false
+  if (Math.abs(a.length - b.length) <= 1 && levenshtein(a, b) <= 1) return true
+  if (a.startsWith(b) || b.startsWith(a)) return true
+  return false
 }
+
+// Pontszám 0..1: mennyire fedi a katalógusnév jelentős tokenjeit a blokk-szöveg.
+// A blokk-név jellemzően a tiszta katalógusnév + méret/márka zaj, ezért a
+// "containment" (a katalógusnév benne van-e a blokkban) jobb jelzés, mint a Jaccard.
+function matchScore(query: string, product: Product): number {
+  const qNorm = normalizeStrong(query)
+  const pNorm = normalizeStrong(product.name)
+  if (!qNorm || !pNorm) return 0
+  if (qNorm === pNorm) return 1
+
+  const qTokens = tokenize(query)
+  const pTokens = tokenize(`${product.name} ${product.brand ?? ''}`)
+  if (qTokens.length === 0 || pTokens.length === 0) return 0
+
+  // Jelentős tokenekre szűkítünk; ha nincs ilyen, az összesre esünk vissza.
+  const pSig = pTokens.filter(isSignificant)
+  const base = pSig.length > 0 ? pSig : pTokens
+
+  let shared = 0
+  for (const pt of base) {
+    if (qTokens.some((qt) => tokenEq(pt, qt))) shared++
+  }
+  if (shared === 0) return 0
+
+  const coverage = shared / base.length
+  // kis bónusz, ha a katalógusnév teljes substringként megjelenik (jobb rangsor)
+  const bonus = qNorm.includes(pNorm) ? 0.1 : 0
+  return Math.min(1, coverage + bonus)
+}
+
+// Auto-egyeztetéshez használt küszöb: a katalógusnév jelentős tokenjeinek
+// legalább 60%-a megjelenik a blokk-szövegben.
+const AUTO_MATCH_THRESHOLD = 0.6
 
 export function findMatchingProduct(
   name: string,
@@ -69,40 +105,44 @@ export function findMatchingProduct(
 ): Product | null {
   if (products.length === 0) return null
 
-  const normName = normalize(name)
-  const normKey = `${normName}|${normalize(brand ?? '')}`
+  const query = brand ? `${name} ${brand}` : name
 
-  // 1. Pontos egyezés (name + brand)
-  const exact = products.find((p) => {
-    const key = `${normalize(p.name)}|${normalize(p.brand ?? '')}`
-    return key === normKey
-  })
-  if (exact) return exact
-
-  // 2. Erősen normalizált pontos egyezés (vesszők, írásjelek, ékezetek)
-  const normStrong = normalizeStrong(name)
-  const strongExact = products.find((p) => normalizeStrong(p.name) === normStrong)
-  if (strongExact) return strongExact
-
-  // 3. Tokenalapú egyezés: legalább 70%-os Jaccard-hasonlóság
-  let bestTokenScore = 0
-  let bestTokenMatch: Product | null = null
+  let best: Product | null = null
+  let bestScore = 0
   for (const p of products) {
-    const score = tokenSimilarity(name, p.name)
-    if (score > bestTokenScore) {
-      bestTokenScore = score
-      bestTokenMatch = p
+    const score = matchScore(query, p)
+    if (score > bestScore) {
+      bestScore = score
+      best = p
     }
   }
-  if (bestTokenScore >= 0.7) return bestTokenMatch
 
-  // 4. Levenshtein az erősen normalizált neveken (dinamikus küszöb)
-  const threshold = levThreshold(normStrong)
-  for (const p of products) {
-    if (levenshtein(normalizeStrong(p.name), normStrong) <= threshold) return p
-  }
+  return bestScore >= AUTO_MATCH_THRESHOLD ? best : null
+}
 
-  return null
+// A kézi kereső (ReviewItems ProductPicker) számára: ékezet-érzéketlen, rangsorolt
+// találati lista. Üres lekérdezésre minden terméket ad. Beépíti a gyors gépelést
+// (substring / prefix), és a fuzzy token-pontszámot is, hogy a blokkból kiolvasott
+// nevet beírva azonnal a releváns katalógustermékek jelenjenek meg elöl.
+export function searchProducts(query: string, products: Product[]): Product[] {
+  const q = normalizeStrong(query)
+  if (q.length === 0) return products
+
+  const scored = products
+    .map((p) => {
+      const pNorm = normalizeStrong(p.name)
+      const bNorm = normalizeStrong(p.brand ?? '')
+      const startsWith = pNorm.startsWith(q) || bNorm.startsWith(q)
+      const substring = pNorm.includes(q) || bNorm.includes(q)
+      let rank = matchScore(query, p)
+      if (substring) rank = Math.max(rank, 0.7)
+      if (startsWith) rank = Math.max(rank, 0.95)
+      return { product: p, rank }
+    })
+    .filter((x) => x.rank > 0)
+    .sort((a, b) => b.rank - a.rank)
+
+  return scored.map((x) => x.product)
 }
 
 export function deduplicateOCRItems(

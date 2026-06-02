@@ -15,6 +15,7 @@ import { useFocusEffect, useRouter } from 'expo-router'
 import { Grid3X3, List, Plus } from 'lucide-react-native'
 
 import { useProductStore } from '@/store/productStore'
+import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
 import ProductCard from '@/components/termekek/ProductCard'
 import ProductRow from '@/components/termekek/ProductRow'
 import EmptyState from '@/components/ui/EmptyState'
@@ -24,7 +25,7 @@ import Input from '@/components/ui/Input'
 import type { ItemCategory, Product } from '@/types'
 
 const VIEW_KEY = 'bevasarlo_products_view'
-const CATEGORIES: (ItemCategory | 'Összes')[] = ['Összes', 'Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const CATEGORIES: (ItemCategory | 'Összes')[] = ['Összes', ...ALL_CATEGORIES]
 const MIN_SKELETON_MS = 600
 
 type ViewMode = 'grid' | 'list'
@@ -99,7 +100,10 @@ export default function TermekekScreen() {
   }
 
   const filteredProducts = products.filter((p) => {
-    const matchesCategory = activeCategory === 'Összes' || p.category === activeCategory
+    // A tárolt category sokféle szabad szöveg (Tejtermékek, Húsáruk, OCR='Egyéb'…),
+    // ezért normalizálva hasonlítjuk a kanonikus 5 chiphez — különben a variánsok
+    // és az OCR-termékek rejtve maradnának a kategória-szűrésnél.
+    const matchesCategory = activeCategory === 'Összes' || toCategory(p.category) === activeCategory
     const q = searchQuery.trim().toLowerCase()
     const matchesSearch =
       !q ||

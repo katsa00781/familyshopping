@@ -77,29 +77,47 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
       return
     }
 
-    try {
-      const { data, error } = await supabase
-        .from('shopping_statistics')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('shopping_date', { ascending: false })
+    // A bejelentkezés / cold start utáni ELSŐ authentikált lekérés gyakran némán
+    // ÜRESEN tér vissza: a frissen kiállított JWT-t a szerver pár másodpercig még nem
+    // fogadja el (vagy a token épp lejárt), így az RLS `auth.uid()` null → 0 sor, HIBA
+    // NÉLKÜL. A második próbálkozás (eddig: kézi újrafókusz) már működik. Ezért hibára
+    // ÉS üres eredményre is egyszer újrapróbálunk rövid késleltetéssel — automatikusan.
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        const { data, error } = await supabase
+          .from('shopping_statistics')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('shopping_date', { ascending: false })
 
-      if (error) throw error
+        if (error) throw error
 
-      const statistics = ((data ?? []) as ShoppingStatistic[]).map((r) => ({
-        ...r,
-        unit_price: Number(r.unit_price),
-        quantity: Number(r.quantity),
-        total_price: Number(r.total_price),
-      }))
-      await saveCache(statistics)
-      set({ statistics, isLoading: false })
-    } catch {
-      const cached = await loadCache()
-      if (cached) {
-        set({ statistics: cached, isLoading: false, error: 'Offline – tárolt adatok' })
-      } else {
-        set({ statistics: [], isLoading: false, error: 'Adatok betöltése sikertelen' })
+        const statistics = ((data ?? []) as ShoppingStatistic[]).map((r) => ({
+          ...r,
+          unit_price: Number(r.unit_price),
+          quantity: Number(r.quantity),
+          total_price: Number(r.total_price),
+        }))
+
+        if (statistics.length === 0 && attempt === 0) {
+          await new Promise((r) => setTimeout(r, 600))
+          continue
+        }
+
+        await saveCache(statistics)
+        set({ statistics, isLoading: false })
+        return
+      } catch {
+        if (attempt === 0) {
+          await new Promise((r) => setTimeout(r, 500))
+          continue
+        }
+        const cached = await loadCache()
+        if (cached) {
+          set({ statistics: cached, isLoading: false, error: 'Offline – tárolt adatok' })
+        } else {
+          set({ statistics: [], isLoading: false, error: 'Adatok betöltése sikertelen' })
+        }
       }
     }
   },

@@ -9,7 +9,7 @@ import {
   Trash2,
   X,
 } from 'lucide-react-native'
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Alert,
   FlatList,
@@ -27,6 +27,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { supabase, getSessionSafe } from '@/lib/supabase'
 import { formatHuf } from '@/lib/format'
+import { searchProducts } from '@/lib/productMatcher'
+import { inferCategory } from '@/lib/categories'
 import { useOcrStore } from '@/store/ocrStore'
 import { useProductStore } from '@/store/productStore'
 import { usePriceStore } from '@/store/priceStore'
@@ -109,12 +111,17 @@ export default function OCRReviewScreen() {
 
     for (const item of activeItems) {
       let productId = item.existingProductId
+      // Katalógus-párnál örököljük a meglévő termék kategóriáját; új terméknél
+      // névből következtetünk (kulcsszó-heurisztika, fallback 'Egyéb'). Így az OCR
+      // tételek a megfelelő kategória-chip alá kerülnek, nem mind az 'Egyéb'-be.
+      let category: string
 
       if (!productId) {
+        category = inferCategory(item.name)
         await upsertProduct({
           name: item.name,
           brand: null,
-          category: 'Egyéb',
+          category,
           store_name: store,
           price: item.price,
           unit: item.unit ?? 'db',
@@ -125,6 +132,7 @@ export default function OCRReviewScreen() {
         newProductCount++
       } else {
         const existing = useProductStore.getState().products.find((p) => p.id === productId)
+        category = existing?.category ?? 'Egyéb'
         if (existing) {
           await upsertProduct({
             id: productId,
@@ -143,7 +151,7 @@ export default function OCRReviewScreen() {
         user_id: userId,
         product_id: productId,
         product_name: item.name,
-        product_category: 'Egyéb',
+        product_category: category,
         store_name: store,
         unit: item.unit ?? 'db',
         unit_price: item.price,
@@ -157,7 +165,7 @@ export default function OCRReviewScreen() {
         user_id: userId,
         shopping_list_id: null,
         product_name: item.name,
-        product_category: 'Egyéb',
+        product_category: category,
         store_name: store,
         unit: item.unit ?? 'db',
         unit_price: item.price,
@@ -302,6 +310,7 @@ export default function OCRReviewScreen() {
 
       <ProductPickerSheet
         visible={pickerItemId !== null}
+        initialQuery={reviewItems.find((i) => i.id === pickerItemId)?.name ?? ''}
         products={products}
         onSelect={handlePickProduct}
         onClose={() => setPickerItemId(null)}
@@ -426,21 +435,29 @@ function ReviewRow({ item, onUpdate, onSkip, onSearchProduct }: ReviewRowProps) 
 
 interface ProductPickerSheetProps {
   visible: boolean
+  initialQuery: string
   products: Product[]
   onSelect: (product: Product) => void
   onClose: () => void
 }
 
-function ProductPickerSheet({ visible, products, onSelect, onClose }: ProductPickerSheetProps) {
+function ProductPickerSheet({
+  visible,
+  initialQuery,
+  products,
+  onSelect,
+  onClose,
+}: ProductPickerSheetProps) {
   const insets = useSafeAreaInsets()
   const [query, setQuery] = useState('')
 
-  const filtered =
-    query.trim().length === 0
-      ? products
-      : products.filter((p) =>
-          `${p.name} ${p.brand ?? ''}`.toLowerCase().includes(query.toLowerCase())
-        )
+  // Nyitáskor előtöltjük a tétel nevével, hogy a blokkból kiolvasott névhez
+  // azonnal megjelenjenek a releváns katalógustermékek.
+  useEffect(() => {
+    if (visible) setQuery(initialQuery)
+  }, [visible, initialQuery])
+
+  const filtered = searchProducts(query, products)
 
   function handleClose() {
     setQuery('')
