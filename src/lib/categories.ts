@@ -47,7 +47,7 @@ export function toCategory(raw: string | null | undefined): ItemCategory {
 // termék, amihez nem találtunk katalógus-párt). Konzervatív: bizonytalan esetben
 // inkább "Egyéb"-be esik, mintsem hibásan soroljon. A sorrend számít — az összetett
 // pékáruk (sajtos pogácsa, túrós táska) a Pékáru-nál akadnak fenn, nem a tej/hús-nál.
-const CATEGORY_KEYWORDS: Array<[ItemCategory, string[]]> = [
+const CATEGORY_KEYWORDS: [ItemCategory, string[]][] = [
   [
     'Pékáru',
     ['kenyer', 'kifli', 'zsemle', 'pekaru', 'bagett', 'peksut', 'croissant', 'pogacsa',

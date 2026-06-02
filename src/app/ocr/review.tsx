@@ -72,6 +72,15 @@ export default function OCRReviewScreen() {
   const [pickerItemId, setPickerItemId] = useState<string | null>(null)
   const scrollRef = useRef<ScrollView>(null)
 
+  // Biztosítsuk, hogy a katalógus be van töltve a kézi termékkereséshez és a
+  // duplikátum-jelzéshez — kézi bevitelnél a feldolgozó képernyő (ami egyébként
+  // betölti) kimaradhat, és az OCR flow magától nem tölti a termékeket.
+  useEffect(() => {
+    if (useProductStore.getState().products.length === 0) {
+      void useProductStore.getState().loadProducts()
+    }
+  }, [])
+
   const activeItems = reviewItems.filter((i) => !i.skip)
   const total = activeItems.reduce((sum, i) => sum + i.price * i.qty, 0)
 

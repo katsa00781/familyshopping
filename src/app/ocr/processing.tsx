@@ -18,7 +18,6 @@ export default function OCRProcessingScreen() {
   const insets = useSafeAreaInsets()
   const capturedImageUri = useOcrStore((s) => s.capturedImageUri)
   const setOcrResponse = useOcrStore((s) => s.setOcrResponse)
-  const products = useProductStore((s) => s.products)
 
   const [currentStep, setCurrentStep] = useState<Step>(0)
   const [error, setError] = useState<string | null>(null)
@@ -56,10 +55,19 @@ export default function OCRProcessingScreen() {
       setCurrentStep(2)
       await new Promise((r) => setTimeout(r, 300))
 
+      // A katalógus kell az auto-egyeztetéshez. Az OCR flow önálló stack — ide a
+      // Termékek fül megnyitása nélkül is el lehet jutni, ilyenkor a store üres,
+      // ezért egyetlen tétel sem találna katalógus-párt. Töltsük be, ha üres.
+      let catalog = useProductStore.getState().products
+      if (catalog.length === 0) {
+        await useProductStore.getState().loadProducts()
+        catalog = useProductStore.getState().products
+      }
+
       const existingProductIds: Record<string, string | null> = {}
       const matchedProductNames: Record<string, string | null> = {}
       for (const item of response.items) {
-        const match = findMatchingProduct(item.name, null, products)
+        const match = findMatchingProduct(item.name, null, catalog)
         if (match) {
           existingProductIds[item.name] = match.id
           matchedProductNames[item.name] = match.name
