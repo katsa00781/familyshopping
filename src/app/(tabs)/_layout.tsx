@@ -1,6 +1,6 @@
 import { Redirect, Tabs } from 'expo-router'
-import { Package, ShoppingBag, ShoppingCart, TrendingUp, User } from 'lucide-react-native'
-import { StyleSheet, useColorScheme } from 'react-native'
+import { Calendar, Home, ShoppingCart, UtensilsCrossed, Wallet } from 'lucide-react-native'
+import { useColorScheme } from 'react-native'
 
 import { useAuthStore } from '@/store/authStore'
 import { colors } from '@/constants/colors'
@@ -27,45 +27,44 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: 'Lista',
-          tabBarIcon: ({ color }) => <ShoppingCart size={28} color={color} />,
+          title: 'Kezdőlap',
+          tabBarIcon: ({ color }) => <Home size={26} color={color} strokeWidth={1.75} />,
         }}
       />
       <Tabs.Screen
-        name="termekek"
+        name="naptar"
         options={{
-          title: 'Termékek',
-          tabBarIcon: ({ color }) => <Package size={28} color={color} />,
+          title: 'Naptár',
+          tabBarIcon: ({ color }) => <Calendar size={26} color={color} strokeWidth={1.75} />,
         }}
       />
       <Tabs.Screen
-        name="arak"
+        name="bevasarlas"
         options={{
-          title: 'Árak',
-          tabBarIcon: ({ color }) => <TrendingUp size={28} color={color} />,
+          title: 'Bevásárlás',
+          tabBarIcon: ({ color }) => <ShoppingCart size={26} color={color} strokeWidth={1.75} />,
         }}
       />
       <Tabs.Screen
-        name="bolt"
+        name="etrend"
         options={{
-          title: 'Bolt',
-          tabBarIcon: ({ color }) => <ShoppingBag size={28} color={color} />,
-          tabBarStyle: {
-            backgroundColor: colors.boltBar,
-            borderTopWidth: StyleSheet.hairlineWidth,
-            borderTopColor: colors.boltBorder,
-          },
-          tabBarActiveTintColor: colors.primaryLight,
-          tabBarInactiveTintColor: '#6B7280',
+          title: 'Étrend',
+          tabBarIcon: ({ color }) => <UtensilsCrossed size={26} color={color} strokeWidth={1.75} />,
         }}
       />
       <Tabs.Screen
-        name="profil"
+        name="kassza"
         options={{
-          title: 'Profil',
-          tabBarIcon: ({ color }) => <User size={28} color={color} />,
+          title: 'Kassza',
+          tabBarIcon: ({ color }) => <Wallet size={26} color={color} strokeWidth={1.75} />,
         }}
       />
+
+      {/* Rejtett route-ok – nem külön tab, a Bevásárlás / Kezdőlap fejléc alól érhetők el */}
+      <Tabs.Screen name="termekek" options={{ href: null }} />
+      <Tabs.Screen name="arak" options={{ href: null }} />
+      <Tabs.Screen name="bolt" options={{ href: null }} />
+      <Tabs.Screen name="profil" options={{ href: null }} />
       <Tabs.Screen name="lists" options={{ href: null }} />
       <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>

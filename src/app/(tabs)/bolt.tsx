@@ -70,7 +70,7 @@ export default function BoltScreen() {
       <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
         <StatusBar style="light" />
         <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-          <Text style={{ fontSize: 17, lineHeight: 22, color: '#94A3B8', textAlign: 'center' }}>
+          <Text style={{ fontSize: 17, lineHeight: 22, color: colors.muted, textAlign: 'center' }}>
             Nincs aktív lista
           </Text>
         </View>
@@ -150,7 +150,7 @@ export default function BoltScreen() {
                     styles.pickerCard,
                     {
                       backgroundColor: isActive
-                        ? '#EFF6FF'
+                        ? colors.primary + '1A'
                         : dark ? colors.darkBackground : colors.background,
                       borderColor: isActive ? colors.primary : 'transparent',
                       opacity: pressed ? 0.75 : 1,
@@ -161,7 +161,7 @@ export default function BoltScreen() {
                     <Text
                       style={[
                         styles.pickerCardName,
-                        { color: isActive ? '#1D4ED8' : dark ? colors.darkForeground : colors.foreground },
+                        { color: isActive ? colors.primary : dark ? colors.darkForeground : colors.foreground },
                       ]}
                       numberOfLines={1}
                     >
@@ -278,7 +278,7 @@ const styles = StyleSheet.create({
   cta: {
     height: 50,
     borderRadius: 12,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,

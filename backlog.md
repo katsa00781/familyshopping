@@ -1,174 +1,221 @@
-# Backlog – Bevásárló v0.1
+# Backlog – FamilyHub
 
 > Sorrend = fejlesztési sorrend. Minden feature előtt: *"Olvasd el a CLAUDE.md-et és kövesd szigorúan."*
 >
-> **Utolsó frissítés:** 2026-06-02
+> Ez a **FamilyHub** (családi szervező) egyesített backlogja: a `familyshopping` → FamilyHub v2 továbbfejlesztés aktív feladatai + a v0.1 (Bevásárló) **visszamaradt, még nyitott** feladatai. A kész v0.1 munkák összevontan lentebb (`✅ ALAP KÉSZ`).
+>
+> **Döntések (rögzített):**
+> - Platform: mobil (Expo + RN), a meglévő appra építünk
+> - **Bevásárlólista igazság forrása: a familyshopping `shopping_lists` táblája.** A familybudget shopping/products tábláit NEM használjuk.
+> - **familybudget = ugyanaz a Supabase projekt, CSAK olvasás** → Kassza (`budget_plans`, `annual_budget_plans`, `savings_goals`) + receptek (`recipes`, `recipe_ingredients`).
+> - Dizájn: teljes redesign FamilyWall-stílusban (teal/korall/meleg törtfehér), Bolt mód marad (lágyított háttér).
+> - v1 funkciók: Kezdőlap dashboard, Naptár, Kassza, Étkezéstervező.
+> - **v1 adatmodell:** `user_id`-scoped (NEM family_id, profiles üres). Naptár = saját hónap-grid (nincs react-native-calendars).
+>
+> **Utolsó frissítés:** 2026-06-21
 
 ---
 
-## Setup (egyszeri) — ✅ KÉSZ
+## ✅ ALAP KÉSZ (familyshopping v0.1 – öröklött)
 
-- [x] Expo TS projekt (expo-router alapú, SDK ~54)
-- [x] Git init, első commit
-- [x] `.env` + `.gitignore`
-- [x] NativeWind v4 + reanimated v4 + safe-area
-- [x] Navigáció (expo-router Tabs + Stack)
-- [x] Ikonok (lucide-react-native) / keep-awake (expo-keep-awake telepítve)
-- [x] AsyncStorage
-- [x] `tailwind.config.js` + tokens, path alias `@/*` → `src/*`
-- [x] `tsconfig.json` strict
-- [x] Mappastruktúra (részleges – hiányzik `screens/`, `navigation/`)
-- [x] CLAUDE.md a projekt gyökerébe
-- [x] `typecheck` script (`tsc --noEmit`) – package.json-ba bekötve
-- [x] `format` script (prettier) – package.json-ba bekötve
+- [x] Expo + RN (SDK ~54) + TS strict + expo-router + NativeWind v4 + reanimated v4
+- [x] Supabase Auth + kliens (`src/lib/supabase.ts`), session-timing javítások (`getSessionSafe`, AppState/autoRefresh, halott-session takarítás)
+- [x] UI primitívek: Button, Input, Card, Badge, Checkbox, BottomSheet, EmptyState, Skeleton, Toast
+- [x] Bevásárlólisták (`shopping_lists`), ListOverview, ListDetail, ItemAdd/Edit, **Bolt mód** (keep-awake, medium haptika)
+- [x] Termékkatalógus + árelőzmény (`products`, `product_price_history`), Árfigyelés, Vásárlások (`shopping_statistics`)
+- [x] Személyes infláció: kategória-normalizálás (`lib/categories.ts`), költés-súlyozott árindex
+- [x] OCR blokk-szkennelés (kamera + `ocr-receipt` Edge Function), per-tétel confidence, tanuló réteg (`ocr_corrections`), okos kategória-besorolás + termék-egyeztetés
+- [x] Profil (iOS grouped list), format/storage/haptics helperek, token-alapú színek
+- [x] Natív iOS build setup (bundle id `com.kacsorzsolt.familyshopping`, prebuild)
+
+> Részletek: a korábbi v0.1 backlog-bejegyzések (git history). Ezek **nem** változnak, csak a redesign érinti a megjelenésüket.
 
 ---
 
-## Alaprétegek (foundation) — ⚠️ RÉSZLEGES
+## 0. Előkészítés — ✅ KÉSZ
 
-- [x] **Theme layer** – `AppThemeProvider`, `useAppearance`, AsyncStorage `appearance`, NativeWind `dark:` flip
-  - Van: `src/hooks/use-theme.ts`, `src/hooks/use-color-scheme.ts`, `src/constants/theme.ts`
-  - Kész: `src/lib/theme.tsx` (`AppThemeProvider`, `useAppearance`), `tailwind.config.js` `darkMode: 'class'`
-- [x] **Format helperek** – `formatHuf`, `formatHuDate` (`lib/format.ts`) — **KÉSZ**
-- [x] **Storage helperek** – typed `StorageKeys` (`lib/storage.ts`) — **KÉSZ**
-- [x] **Haptics wrapper** – `lib/haptics.ts` — **KÉSZ**, `expo-haptics` telepítve
-- [x] **Megosztott típusok** – `src/types/index.ts` (Profile, ShoppingList, ShoppingItem, Product, PriceHistoryEntry, PriceChange, InflationByCategory, ShoppingStatistic, ProductPriceHistory)
-- [x] **Provider stack** – GestureHandlerRootView → ThemeProvider (react-navigation) → Stack → ToastContainer
-- [x] **Supabase kliens** – `src/lib/supabase.ts`
+- [x] **Verifikáció (2026-06-21):** közös projekt megerősítve (`familyBudget`, ref `eguhipjgnhbajbmnrskm`). **Egyetlen** `shopping_lists` (21 sor) és `products` (423 sor) tábla — nincs duplikáció/ütközés.
+  - **Finding:** a `profiles` tábla üres (0 sor), minden adattábla `user_id`-scoped → a `family_id` modell jelenleg NEM él. **Döntés: v1 = user_id-scoped**, az új táblák is.
+  - **Finding:** `recipes`/`recipe_ingredients` üres (0 sor) → Étkezéstervezőnél üres állapot kell (7. pont).
+- [x] Új `CLAUDE.md` a gyökérbe (a v0.1-es `CLAUDE.v0.1.md`-be mentve, gyökér felülírva FamilyHub v2-vel, v1 döntésekkel)
+- [x] `react-native-calendars` → **NEM** telepítjük; saját hónap-grid (reanimated) lesz
+- [x] Branch: `feature/familyhub-v2` létrehozva
 
 ---
 
-## Komponens primitívek (UI library) — ⚠️ RÉSZLEGES
+## 1. Dizájn-tokenek (alap minden máshoz) — ✅ KÉSZ (2026-06-21)
 
-- [x] Button (`primary | secondary | ghost | destructive` × `sm | md | lg`) – `src/components/ui/Button.tsx`
-- [x] Input (label fölötte, search variant) – `src/components/ui/Input.tsx`
-- [x] Card (`Card`, `CardHeader`, `CardContent`, `CardFooter`, `SwipeableCard`) – `src/components/ui/Card.tsx`
-- [x] Badge (`CategoryBadge`, `PriceBadge`) – `src/components/ui/Badge.tsx`
-- [x] Checkbox (`list` + `bolt` variant, animált, haptika) – `src/components/ui/Checkbox.tsx`
-- [x] BottomSheet (half / full, drag-to-dismiss) – `src/components/ui/BottomSheet.tsx`
-- [x] EmptyState (preset: emptyList, noResults, offline) – `src/components/ui/EmptyState.tsx`
-- [x] Skeleton (card + listRow variant, 600 ms minimum) – `src/components/ui/Skeleton.tsx`
-- [x] Toast + ToastContainer (store: `src/store/toastStore.ts`) – `src/components/ui/Toast.tsx`
+- [x] `handoff/tokens/tokens.json` + `src/constants/colors.ts` átírva az új palettára:
+  - primary `#14B8A6`, accent `#FB7185` (új), success `#22C55E`, warning `#F59E0B`, destructive `#EF4444`
+  - light: background `#F8F7F4`, card `#FFFFFF`, foreground `#1C2B2A`, muted `#8A8F8E`, border `#E9E7E1`
+  - dark: háttér `#13201F`, card `#1B2B29`, border `#2A3B39`
+- [x] `tailwind.config.js` szinkron a tokenekkel (+ `accent`, `primary-foreground`, `member-*` osztályok)
+- [x] Tagszín-készlet: `memberColors` + `memberColorAt(index)` (teal/korall/lila/sárga/kék/zöld) → `constants/colors.ts`; `member.*` a tokens.json-ban
+- [x] Füstteszt: typecheck nem hozott új hibát (a meglévők előző template-hibák); `colors.primaryLight` kulcs megtartva (új teal-300 érték) a tab tint miatt
 
 ---
 
-## Navigáció — ✅ KÉSZ (expo-router alapú)
+## 2. Bolt mód finomítás — ✅ KÉSZ (2026-06-21)
 
-> **Megjegyzés:** A projekt expo-router-t használ, nem @react-navigation direktben. Ez eltérés a CLAUDE.md-től, de konzisztensen van végigvezetve.
-
-- [x] Auth ↔ App switch – `src/app/_layout.tsx` (session check → redirect)
-- [x] AppTabs (5 tab: Lista, Termékek, Árak, Bolt, Profil) – `src/app/(tabs)/_layout.tsx`
-- [x] Auth stack – `src/app/(auth)/` (login, register)
-- [x] Lista stack – `src/app/lista/[id].tsx`
-- [x] Termék stack – `src/app/termekek/[id].tsx`, `src/app/termekek/uj.tsx`
-- [x] OCRFlow modál – `src/app/ocr/` (index/preview/processing/review/confirm)
-- [ ] Typed ParamList-ek (`navigation/types.ts`) – **HIÁNYZIK**
+- [x] Bolt háttér `#000000` → `#13201F`, sticky bar `#0E1817`, hairline `#2A3B39` (token-értékek frissítve: `colors.boltBg/boltBar/boltBorder` + tokens.json + tailwind `bolt-*`)
+- [x] Accent (korall `#FB7185`) a sticky bar CTA-ján (`styles.cta` → `colors.accent`)
+- [x] Minden más változatlan (72/56 pt méretek, medium haptika, keep-awake, nem-átrendeződés)
 
 ---
 
-## Feature-ek — állapot
+## 3. Navigáció átállítása (5 tab) — ✅ KÉSZ (2026-06-21)
 
-### ✅ KÉSZ
+- [x] `src/app/(tabs)/_layout.tsx`: új tabok → `Kezdőlap` (index) · `Naptár` · `Bevásárlás` · `Étrend` · `Kassza`; lucide ikonok (Home/Calendar/ShoppingCart/UtensilsCrossed/Wallet), aktív = primary
+- [x] Termékek + Árak a Bevásárlás alá: `bevasarlas.tsx` QuickLinks-szel (Termékek/Árak/Vásárlások), `termekek`/`arak` route-ok `href:null` + vissza-gomb a fejlécükben
+- [x] A régi ListOverview (`index.tsx`) → `bevasarlas.tsx`-be áthelyezve (Bolt FAB token színre: `colors.primary`)
+- [x] Kezdőlap (`index.tsx`): köszöntés + avatar → Profil push (Profil `href:null` + vissza-gomb)
+- [x] Naptár/Étrend/Kassza placeholder screenek (tartalom: 5–7. feladat)
+- [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 error az érintett fájlokon
+- [x] **Bevásárlás UI redesign a kanonikus `desing/familyhub-listak.html` szerint (2026-06-21):**
+  - Fejléc: keret nélkül, „Bevásárlás" (30/900, ls -0.6) + kör alakú gomb (42 pt, card bg, 2 pt keret, lágy árnyék). **Eltérés a mockuptól:** a kör a design „keresés" ikonja helyett az **OCR-szkennert** hordozza (felhasználói döntés) — a lista-keresés nem v1 funkció, az OCR megtartja a belépőjét
+  - Szegmens-vezérlő (`ListSegment`): Listák (aktív) / Termékek / Árak; bg `surface-sunken`, aktív szegmens card bg + árnyék. Termékek/Árak koppintásra a `termekek`/`arak` route-ra navigál (a régi QuickLinks-et leváltja)
+  - `ListCardActive` (lcard): színes ikon-chip (teal/korall/lila index szerint), név + meta (dátum · bolt), menü, haladássáv, lábrész (tételszám + „Becsült ~Ft") + kártyánkénti **Bolt mód** gomb (`setActiveListId` → bolt tab). **Eltérés:** a mockup „dátum · Anna" sorából a tag-név elmarad (v1 single-user, nincs per-lista tulajdonos)
+  - `ListCardPast` (pcard): pipa-chip (`surface-muted`), név + „Befejezve · dátum · N tétel", összeg + menü (újraaktiválás/törlés). A „Korábbi listák" szekció kiváltja a régi Vásárlások-belépőt
+  - FAB → korall „+" új lista (a globális Bolt FAB-ot a kártyánkénti Bolt mód gomb váltja le)
+  - Új tokenek: `surface-sunken` (#EFEDE7) + `surface-muted` (#F2F0EA) → tokens.json + tailwind + colors.ts
+  - Stílus-érvényesülés: a kártya statikus stílusai belső View-n (objektum-style + className), a Pressable függvény-style csak `opacity` — a NativeWind v4 gotcha elkerülve (lásd dashboard/Naptár fix)
+  - Füstteszt: tsc nem hozott új hibát, lint 0 az érintett fájlokon
 
-- [x] **01 – Login** – `src/app/(auth)/login.tsx` (email/jelszó, animált shake, Supabase auth)
-- [x] **01b – Register** – `src/app/(auth)/register.tsx`
-- [x] **02 – ListOverview** – `src/app/(tabs)/index.tsx` (aktív + korábbi listák, FAB, ListCreateSheet, scroll-hide FAB, korábbi lista **újraaktiválás** `...` menüből → átkerül az Aktív listák közé + toast visszajelzés)
-- [x] **03 – ListDetail** – `src/app/lista/[id].tsx` (kategória filter chips, ItemAdd + ItemEdit sheet, complete + delete, pulse animáció, összesítő sáv)
-- [x] **04 – ItemAddSheet** – `src/components/lista/ItemAddSheet.tsx` (barcode scan scope-on kívül)
-- [x] **05 – ShopMode / Bolt mód** – `src/app/(tabs)/bolt.tsx` + `BoltRow` + `BoltCheckbox` ⚠️ (hiányok lejjebb)
-- [x] **06 – ProductList** – `src/app/(tabs)/termekek.tsx` (grid/list toggle + AsyncStorage perzisztencia, keresés, kategória filter, skeleton 600 ms minimum)
-- [x] **07 – ProductDetail** – `src/app/termekek/[id].tsx` (area chart SVG, árnapló, periódus selector)
-- [x] **08 – ProductAdd/Edit** – `src/app/termekek/uj.tsx` (barcode scan scope-on kívül)
-- [x] **09 – PriceOverview** – `src/app/(tabs)/arak.tsx` (KPI kártyák, DonutChart, ChangeRow, periódus + irány filter)
-- [x] **Vásárlások nézet** (2026-05-31) – `src/app/vasarlasok/index.tsx` + `[id].tsx` + `src/store/purchaseStore.ts`. A `shopping_statistics` sorokat vásárlásokká csoportosítja (befejezett lista = `shopping_list_id` szerint; OCR/kézi = bolt+dátum+forrás szerint), forrás-jelzéssel (Blokk/Lista/Kézi). Az eddig sehol meg nem jelenő **OCR-blokk-vásárlások** végre láthatók. Belépés a főoldalon a „Vásárlások" sorral; részletnézet a tételekkel + összesítővel. Route-ok regisztrálva a `_layout.tsx`-ben. Új `Purchase` típus (`types/index.ts`).
+---
 
-### 🔧 RÉSZLEGES
+## 4. Kezdőlap / dashboard — ✅ KÉSZ (2026-06-21)
 
-- [x] **05 – Bolt mód hiányok:**
-  - ~~`useKeepAwake()` bekapcsolása~~ ✅ (aktív a képernyőn)
-  - ~~`expo-haptics` telepítése~~ ✅ + ~~Medium haptika bekapcsolása pipálásnál~~ ✅ (`haptics.medium()` minden toggle-nél)
-- [x] **11 – Profile** – `src/app/(tabs)/profil.tsx` – teljes iOS grouped list UI
-  - ✅ Avatar blokk (inicálék, uid-seeded szín, szerepkör chip)
-  - ✅ Családi beállítások szekció (Csatlakozási link + Tagok kezelése)
-  - ✅ App beállítások szekció (Megjelenés segmented ☀◐☾, Valuta, Bolt, Értesítések)
-  - ✅ Fiók szekció (Profil szerkesztése, Jelszó módosítása, Kijelentkezés confirm)
-  - ✅ Rólunk szekció (App verzió, Adatvédelem, Felhasználási feltételek)
-  - ⚠️ Push célok (EditProfile, ChangePassword, NotificationSettings, Privacy, Terms) – placeholder Alert, sub-screens HIÁNYZIK
+- [x] Új `src/app/(tabs)/index.tsx` (a régi ListOverview a Bevásárlás alatt; a Kezdőlap most a dashboard)
+- [x] Köszöntés + családtag-avatarok (tagszínes gyűrű): `MemberAvatar` (2 pt gyűrű, `memberColorAt`); v1 single-user → a bejelentkezett felhasználó az egyetlen tag, `familyStore.loadFamily()` betöltve (family bővülésre kész)
+- [x] Aktív bevásárlólista kártya + gyors „Bolt mód" gomb (`ActiveListCard`, `listStore`: `activeListId` vagy a legutóbbi befejezetlen lista; progress sáv, `formatHuf`)
+- [x] „Ma" kártya (`TodayCard`) — váz + korall dátum + üres állapot; **az események a 6. (Naptár) feladat után élesednek**
+- [x] Kassza kártya (`BudgetCard`) — váz + üres állapot; **az összegek az 5. (Kassza) feladat után élesednek**
+- [x] Üres állapotok minden kártyához (aktív lista hiányában CTA új listához; „Ma"/Kassza üres szöveg)
+- [x] Komponensek: `src/components/dashboard/` (`MemberAvatar`, `DashboardCard`, `TodayCard`, `ActiveListCard`, `BudgetCard`)
+- [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
+- [x] **Pontosítás a kanonikus HTML mockuphoz** (`desing/familyhub-kezdolap.html`, 2026-06-21):
+  - Fejléc: scrollon belül, keret nélkül — „Szia, {keresztnév}!" (27/800) + dátum (`2026. június 19., péntek`); jobbra **átfedő** tag-avatarok (40 pt, fehér 2.5 pt keret) + beállítás-fogaskerék → Profil (a régi külön avatar-sor megszűnt)
+  - Kártya-alap (`DashboardCard`): keret helyett lágy árnyék, radius 24, 18 pt padding, 44 pt ikon-chip (radius 15, teal/korall tint), cím (18/800) + alcím; chevron eltávolítva. A „Ma" kártya korall glow árnyékot kap (`accentShadow`)
+  - `TodayCard`: végleges eseménysor-layout (tagszínes pötty · idő · cím · név, elválasztó vonallal), `TodayEvent[]` prop a 6. feladathoz; v1 üres állapot
+  - `ActiveListCard`: cím = lista neve, alcím „Aktív lista"; haladássáv + lábrész (`{kész} / {össz} tétel kész` + inline „Bolt mód" gomb Play-ikonnal, teal árnyék)
+  - `BudgetCard`: nagy szám = szabad keret (38/900) + „Ft" + „szabad keret"; sáv + lábrész. **Eltérés a mockuptól:** a HTML „Elköltve" felirata → **„Betervezve"**, mert v1-ben nincs valós elköltött adat (Wallet külön rendszer, 5. feladat döntése). Túltervezés → `warning`
+  - Füstteszt: tsc/lint tiszta az érintett fájlokon
+- [x] **Dashboard padding/radius fix** (`desing/FamilyHub – Kezdőlap.pdf` alapján, 2026-06-21): a kártyák és a „Bolt mód" gomb stílusa nem érvényesült. Gyökérok: NativeWind v4-ben a `Pressable` **függvény-formájú `style`-jából a statikus property-k** (`padding`, `borderRadius`, `marginLeft`) **eldobódnak**, ha `className` is van rajta (a `bg-*`/`rounded-*` className-ek viszont megmaradnak). Javítás (a működő `ListCard` mintát követve): a statikus stílusok belső `View`-ra kerültek (objektum-style + className), a `Pressable` függvény-style-ja csak `opacity`-t kezel — `DashboardCard`, `ActiveListCard` (Bolt gomb), `index.tsx` (beállítás-gomb átfedés)
 
-### ❌ HIÁNYZIK
+---
+
+## 5. Kassza – familybudget olvasás — ✅ KÉSZ (2026-06-21)
+
+> **Döntés (felhasználói):** a familybudget Supabase táblákban **nincs valós „elköltött"** adat — a tényleges tranzakciók a külön **Wallet** rendszerben élnek (`walletCategories` UUID-k), amit a mobilapp nem ér el. v1 = **tervezési nézet**: keret + kategória-allokáció, valós költés nélkül. (Wallet-integráció elhalasztva.)
+>
+> **Adat-finding:** nincs `is_active = true` terv → az aktív tervet a `user_preferences.active_budget_plan_id` adja (fallback: `is_active`, majd legutóbbi). A `budget_data` élesben mind `{version:"v2", categories:[{name, items:[{amount,…}]}]}` formátumú; `total_amount` == Σ allokáció (zero-based), `actual_income` jelenleg NULL.
+
+- [x] `src/lib/budget.ts`:
+  - `getCurrentBudgetPlan()` → pref `active_budget_plan_id` → `is_active=true` → legutóbbi
+  - `normalizeBudgetData()` → mind a 3 `budget_data` formátum (`BudgetItem[]` | `BudgetCategory[]` | `{categories}`) egységesítése `BudgetCategorySummary[]`-vé (any-mentes, biztonságos parserek)
+  - `getSavingsGoals()` → `savings_goals` (numeric → number)
+  - `summarizeBudget()` → keret = `actual_income ?? total_amount`, allocated = Σ kategória, remaining, hasIncome
+- [x] Típusok: `BudgetPlan`, `BudgetCategory`, `BudgetItem`, `BudgetStorageV2`, `BudgetCategorySummary`, `BudgetSummary`, `SavingsGoal` → `src/types/index.ts`
+- [x] `src/store/budgetStore.ts` (zustand): cache + `getSessionSafe` + üres/hiba retry (priceStore-minta), `loadBudget()`, `getSummary()`
+- [x] Kezdőlap Kassza-kártya bekötve (`BudgetCard` summary prop): havi keret + kategóriaszám; rögzített bevétel esetén szabad keret (negatív → `warning`)
+- [x] Kassza tab (`src/app/(tabs)/kassza.tsx`): összegző kártya + kategória-bontás (`BudgetCategoryRow`, arány-sáv) + megtakarítási célok progress (`SavingsGoalRow`, cél saját színe); pull-to-refresh, loading/üres állapot
+- [x] Túlköltés/túltervezés → `warning` szín; `formatHuf` mindenhol
+- [x] Csak olvasás — a Kassza nem ír a budget táblákba
+- [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
+
+---
+
+## 6. Naptár — ✅ KÉSZ (2026-06-21)
+
+- [x] Migráció: `calendar_events` (`user_id`, `created_by`, `title`, `description`, `location`, `starts_at`, `ends_at`, `all_day`, `member_id`, `color`, `rrule`) + RLS `user_id = auth.uid()` (select/insert/update/delete own) + `updated_at` trigger → `supabase/migrations/20260621120000_calendar_events.sql` (alkalmazva a közös projektre)
+- [x] Típus `CalendarEvent` + `CalendarEventInput` → `src/types/index.ts`
+- [x] `src/lib/calendar.ts`: dátum-helperek (helyi idő, `buildMonthMatrix`, `dayKey`/`eventDayKey`, `monthTitle`, `agendaDayLabel`, `eventTimeLabel`, `shortDateLabel`, `combineDateTime`) + CRUD (`fetchEvents`/`insertEvent`/`patchEvent`/`removeEvent`)
+- [x] `src/store/calendarStore.ts` (zustand): cache + `getSessionSafe` + üres/hiba retry (budgetStore-minta), optimista create/update/delete
+- [x] `src/app/(tabs)/naptar.tsx`: saját hónap nézet (`MonthGrid`, reanimated fade hónapváltáskor, tagszínes pöttyök max 3) + hónap-navigáció + „Ma" gomb + napi agenda (`AgendaEvent`, üres állapot) + FAB
+- [x] Esemény létrehozó/szerkesztő sheet (`EventSheet`): cím, egész napos toggle, kezdet/vég dátum+idő (saját `DateTimePickerModal` — nincs új dependency), színválasztó, hely, jegyzet; szerkesztésnél törlés (Alert megerősítéssel)
+- [x] Kezdőlap „Ma" kártya bekötve (mai események a `calendarStore`-ból)
+- [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
+- [x] **Eltérés a mockuptól (v1 döntés):** az esemény-sheet „családtag chip" választója helyett **közvetlen színválasztó** (6 tagszín). Indok: v1 = single-user (`profiles` üres, nincs több valós családtag) — a `member_id` NULL marad, az esemény színét a `color` mező adja. A tag-hozzárendelés a család-megosztással együtt jön (v2.x). Az agenda „who" chip emiatt v1-ben nem jelenik meg.
+- [x] **Esemény-kártya stílus fix** (`AgendaEvent`, 2026-06-21): a kártya stílusai nem érvényesültek. Gyökérok ugyanaz a NativeWind v4 gotcha, mint a dashboardnál — a `Pressable` **függvény-formájú `style`-jának statikus property-jei** (`borderRadius`, `paddingVertical`, `marginBottom`, shadow) **eldobódnak** `className` mellett. Javítás: a kártya-stílusok belső `View`-ra kerültek (objektum-style + `bg-card` className), a `Pressable` függvény-style-ja csak `opacity`-t kezel
+- [ ] Ismétlődés (`rrule`) — **elhalasztva** (v2.1, a push-emlékeztetőkkel együtt); az oszlop és típusmező létrehozva, de a UI nem kezeli
+
+---
+
+## 7. Étkezéstervező — ✅ KÉSZ (2026-06-21)
+
+- [x] Migráció: `meal_plan_entries` (`user_id`, `created_by`, `date`, `meal_type` check `reggeli|ebéd|vacsora`, `recipe_id`, `servings`) + unique `(user_id, date, meal_type)` + RLS `user_id = auth.uid()` (select/insert/update/delete own) → `supabase/migrations/20260621130000_meal_plan_entries.sql` (alkalmazva a közös projektre)
+- [x] Típusok `MealType`, `Recipe`, `RecipeIngredient`, `MealPlanEntry`, `MealPlanEntryInput` → `src/types/index.ts`
+- [x] `src/lib/recipes.ts` — hét-helperek (`startOfWeek`/`weekDays`/`weekRangeLabel`/`isoWeekNumber`/`weekdayFull`/`dayDateLabel`), `MEAL_TYPES`, recept+hozzávaló olvasás (`fetchRecipes`/`fetchIngredients`), entry CRUD (`fetchMealPlanEntries`/`upsertMealPlanEntry`/`deleteMealPlanEntry`), `buildShoppingItems` aggregálás (üres állapot kezelve). RLS-finding: `recipe_ingredients` olvasható a saját recept tulajdonjogán keresztül (nincs `user_id` oszlopa)
+- [x] `src/store/mealPlanStore.ts` (zustand): cache + `getSessionSafe` + üres/hiba retry (calendarStore-minta), optimista `assignRecipe` (upsert a sloton) / `removeEntry`
+- [x] `src/app/(tabs)/etrend.tsx`: heti nézet (H–V, `DayCard`/`MealRow`), hét-váltó + ISO hétszám, recept napra/étkezésre rendelése slot-koppintással (`RecipePickerSheet`), napi kijelölő checkbox (alapból a tervezett napok kijelölve, kizárás-alapú)
+- [x] **Bevásárlólista generálás:** kiválasztott napok `recipe_ingredients`-einek összevonása (név+egység szerint, `servings` arányosítással a recept alap-adagjához) → **új `ShoppingList` a familyshopping `shopping_lists` táblájába** (`listStore.createListWithItems`, kategória `inferCategory`-val)
+- [x] Generált lista aktívvá tétele + megnyitása (`/lista/[id]`) + success toast/haptika; üres kijelölésnél figyelmeztetés
+- [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
+- [x] **Eltérés a mockuptól (v1 döntés):** a recept-hozzárendelés **drag-and-drop helyett slot-koppintással** történik (koppints egy étkezésre → `RecipePickerSheet` → recept kiválasztása). Indok: minimális működő verzió, nincs új gesztus-dependency. A „Receptkönyv" chip a recepteket böngésző (read-only) módban nyitja. Az adagszám-szerkesztő elhalasztva (a recept alap `servings` értékét vesszük) — a `buildShoppingItems` az arányosítást már kezeli.
+
+---
+
+## Visszamaradt v0.1 feladatok (nyitott, beolvasztva)
+
+> A Bevásárló v0.1-ből át nem fejlesztett, még nyitott tételek. Prioritás a v2 funkciók (1–7) után, hacsak nem blokkolnak.
+
+**Auth / Profil:**
 
 - [ ] **01c – ForgotPassword** képernyő
-- [x] **10 – OCRFlow** (5 lépés: Camera → Preview → Processing → ReviewItems → SaveConfirm) – `src/app/ocr/`
-  - ✅ Szerver oldali vision: `ocr-receipt` Edge Function (gpt-4o-mini, `EXPO_PUBLIC_OCR_ENDPOINT`)
-  - ✅ **Prompt finomítás** (2026-05-31): ÁFA-kódok (C00/B00…) és cikkszámok kiszűrése a névből, betét-/visszaváltási díj + összesítő sorok kihagyása, `qty × egységár` minták (magyar tizedesvessző, kg/db), sor-összeg vs egységár szétválasztása, RÉSZÖSSZESEN≠ÖSSZESEN, bolt-márka normalizálás, magyar→ISO dátum, `response_format: json_object`
-  - ✅ **Per-tétel confidence**: a modell soronként ad 0–1 megbízhatóságot → a borostyán „bizonytalan felismerés” jelzés végre valós (eddig fix 0.9 volt)
-  - ✅ **Tanuló réteg**: `ocr_corrections` tábla + `record_ocr_correction` RPC (migráció: `supabase/migrations/20260531120000_ocr_corrections.sql`). A ReviewItems mentésekor a (nyers OCR-név → javított név) párokat rögzítjük; az Edge Function a felhasználó leggyakoribb javításait glosszáriumként visszainjektálja a promptba → idővel pontosabb felismerés.
-  - ⚠️ **Deploy szükséges**: `supabase functions deploy ocr-receipt` + a migráció futtatása (`supabase db push`). A repo `supabase/functions/ocr/` mappája elavult/használaton kívüli (régi shape) — a kliens a `ocr-receipt`-et hívja.
-- [ ] **12 – FamilySettings** (családtagok, megosztás)
+- [ ] Profil push-célok valódi sub-screenjei (EditProfile, ChangePassword, NotificationSettings, Privacy, Terms) — jelenleg placeholder Alert
+- [ ] **12 – FamilySettings** (családtagok, megosztás) — v1-ben user_id-scoped, a valódi megosztás v2.x
+
+**Általános UI:**
+
 - [ ] **PickerScreen** (generikus: bolt / kategória / egység)
+- [ ] Typed ParamList-ek (`navigation/types.ts`)
 
----
+**OCR deploy (függőben):**
 
-## Adatbázis (Supabase) — ✅ BEKÖTVE
+- [ ] `supabase functions deploy ocr-receipt` + migráció futtatása (`supabase db push`) — a kliens az `ocr-receipt`-et hívja; a régi `supabase/functions/ocr/` mappa elavult
 
-- [x] `shopping_lists` tábla (JSONB items mező)
-- [x] `products` tábla (JSONB price_history mező)
-- [x] `product_price_history` tábla
-- [x] `shopping_statistics` tábla
-- [x] Auth (Supabase Auth, session kezelés)
-- [x] Offline fallback: AsyncStorage cache minden store-ban
-- [x] Mock adatok fejlesztéshez: `src/data/mockLists.ts`, `src/data/mockProducts.ts`
+**Tech adósság (alacsony prioritás):**
 
----
-
-## Technikai adósság
-
-- [x] `lib/format.ts` létrehozása (`formatHuf`, `formatHuDate`) és direkten írt `.toLocaleString()` hívások cseréje — **KÉSZ**
-- [x] `lib/storage.ts` létrehozása (typed StorageKeys: `appearance`, `product.viewMode`, `price.period`, `list.lastActive`, `auth.token`) — **KÉSZ**
-- [x] `lib/haptics.ts` létrehozása + `expo-haptics` telepítése — **KÉSZ**
 - [ ] `screens/` mappa szerkezet bevezetése (jelenleg az üzleti logika az `app/` mappában van)
-- [x] Hardcoded hex színek cseréje token-alapú osztályokra (`colors.*` konstansok, `catBg`/`catAbbr` exportok) — **KÉSZ**
-- [x] `package.json` `typecheck` és `format` script hozzáadása — **KÉSZ**
-- [x] `priceStore` auth bug javítva: `useAuthStore.getState().user` → `await supabase.auth.getUser()` + cache v3 (időzítési hiba: store néha null-t adott vissza, régi cache v2 data jelent meg) — **KÉSZ**
-- [x] `priceStore` árak nem töltődtek: `getUser()` lejárt access token mellett null usert adott → cache fallback ("Még nincs adat"). Javítva `getSession()`-re (tárolt session + auto token refresh). DB-ben az adat megvolt (732 ár / 1135 stat sor a userhez, RLS rendben) — **KÉSZ**
-- [x] Ugyanez a `getUser()` → `getSession()` csere a `listStore` (11 hely), `productStore` (3 hely) és `familyStore` (1 hely) store-okban is megtörtént (azonos látens token-lejárati hiba megelőzése) — **KÉSZ**
-- [x] OCR mentés utáni élő frissítés (2026-05-31): az árak és termékek eddig csak ki-/bejelentkezésre frissültek. Most a `review.tsx` `doSave()` a mentés után fire-and-forget meghívja `useProductStore.loadProducts()` + `usePriceStore.loadPriceData()` hívásokat, a `termekek.tsx` pedig `useEffect` (mount-only) helyett `useFocusEffect`-et használ (mint az `arak.tsx`) — visszatéréskor mindig frissül — **KÉSZ**
-- [x] OCR ellenőrzés (ReviewItems) név-input javítása (2026-05-31): a terméknév mező eddig egy sorban osztozott a mennyiség/egység/ár mezőkkel (`flex:1`, összenyomódott). Most saját teljes szélességű sorba került (height 48, fontSize 16), a mennyiség/egység + ár/műveletek alá `controlsRow`-ba — a hosszú magyar nevek olvashatók — **KÉSZ**
-- [x] Személyes infláció kategória-normalizálás (2026-05-31): a valós adatban a `product_category` 10+ szabad szöveges értéket vesz fel (főleg a régi `import` forrásból: Élelmiszer, Édesség, Ital, Snack, Gyógyszer…, plusz lista/kézi variánsok: `Tejtermékek`, `Húsáruk`, `Zöldség-gyümölcs`, `Zöldség és gyümölcs`). A `toCategory` (`priceStore.ts`) eddig **pontos egyezést** várt az 5 kanonikus névre → minden más az „Egyéb"-be esett, ezért a `Zöldség`/`Tejtermék` mindig 0%-ot mutatott és az egész személyes-infláció bontás torz volt. Hozzáadva `CATEGORY_ALIASES` map: a közeli variánsokat (többes számok, kötőjeles/ékezetes formák) az 5 kategóriába normalizálja. A taxonómiailag nem besorolható import-kategóriák (Élelmiszer, Édesség, Ital, Snack, Tojás, Háztartás) szándékosan maradnak „Egyéb". — **KÉSZ**
-- [x] Személyes infláció számítás javítása (2026-05-31): a `computeInflation` (`priceStore.ts`) eddig **kevert súlyozást** használt — kategórián belül a termékek %-változásának *súlyozatlan* átlaga, kategóriák között viszont *költés-alapú* `share`. Fő hiba: a `share` MINDEN termék költését tartalmazta (1-bejegyzésűeket is), míg a `change_pct` csak a ≥2 áradatú termékekből számolt → egy ritka, nagyot ugró termék eltorzította a headline inflációt, miközben a tényleg sokat vásárolt alaptermék ára nem változott. Javítva **konzisztens költés-súlyozott árindexre**: termékenként árváltozás × a termékre költött összeg, és ugyanaz a súlybázis (csak ≥2 áradatú termékek) adja a kategória `change_pct`-jét ÉS a donut `share`-ét. Így a középső headline `Σ(change×share)` matematikailag a valódi személyes infláció. A DonutChart/legend UI változatlan. — **KÉSZ**
-- [x] OCR Edge Function IDE-típushibák javítása (2026-05-31): a `supabase/functions/ocr-receipt/index.ts` 7 hibát mutatott a szerkesztőben (5× `Cannot find name 'Deno'`, 2× `Cannot find module 'https://esm.sh/@supabase/supabase-js@2'`), mert a megnyitott Deno fájlt a VS Code TS-szervere a fő (Node) konfigurációval ellenőrizte, ami nem ismeri a Deno globálokat / távoli URL-importokat. A fő `tsconfig.json` már kizárja a `supabase/functions`-t (így az app typecheckjébe nem szivárogtak), de a szerkesztő ettől még jelzte őket. Megoldás: új `supabase/functions/ocr-receipt/deno.d.ts` ambient deklarációkkal (`Deno.serve`, `Deno.env`, valamint az esm.sh `createClient` minimális, `any`-mentes típusfelülete) + `/// <reference path="./deno.d.ts" />` az `index.ts` tetején. Mind a 7 hiba eltűnt, az éles Deno futás változatlan. — **KÉSZ**
-- [x] Adat (Vásárlások / Árfigyelés) üres a bejelentkezés utáni első belépéskor (2026-06-02): tünet — login után a Vásárlások és az Árfigyelés képernyő üres, de a tabból ki-belépve (újrafókusz) megjelenik az adat. Kizárva a token-propagáció: a supabase-js (v2.105) `fetchWithAuth`-ja **per-request** `getSession()`-ből veszi a tokent. A valódi ok kettős: **(1) hiányzott az `AppState` ↔ `startAutoRefresh` bekötés** (a Supabase hivatalos RN-setupjának kötelező eleme) → az `autoRefreshToken` időzítője nem ketyegett, a token némán lejárt; **(2) a bejelentkezés / cold start utáni első authentikált lekérés gyakran némán ÜRESEN tér vissza** — a frissen kiállított/épp lejárt JWT-t a szerver pár másodpercig nem fogadja el, így az RLS `auth.uid()` null → 0 sor HIBA NÉLKÜL (ezért a korábbi, csak hibára újrapróbáló fix nem segített). Javítás: (a) `lib/supabase.ts` — `AppState` listener `startAutoRefresh`/`stopAutoRefresh`-sel + `getSession()` újrapróba 250 ms múlva null session esetén; (b) `purchaseStore.loadPurchases` és `priceStore.loadPriceData` — hibára ÉS üres eredményre is **egyszer némán újrapróbál** (~600 ms) a friss DB-lekérésnél, mielőtt cache-re esne. Így az első betöltés determinisztikus. (Megj.: a teszt-telefonon Expo Go **SDK 53** fut az SDK 54-es projekttel — a JS-rétegbeli fix ettől függetlenül hat.) — **KÉSZ**
-- [x] „Invalid Refresh Token" halott session takarítása (2026-06-02): visszatérő hiba — `[AuthApiError: Invalid Refresh Token: Refresh Token Not Found]`. Ok: a tárolt session refresh tokenje véglegesen érvénytelen (visszavont/törölt session), de a `getSessionSafe()` eddig ilyenkor is a *lejárt* sessiont adta vissza (sosem `null`-t, ha volt tárolt session). Így a háttérben futó `autoRefreshToken` időzítő újra meg újra megpróbálta frissíteni a halott tokennel → kezeletlen rejectionként felbukkant a hiba. Javítás a `getSessionSafe()`-ben (`lib/supabase.ts`): ha a session lejárt ÉS a refresh **kifejezetten** „Invalid Refresh Token" miatt bukik (új `isInvalidRefreshToken()` üzenet-ellenőrzés, hálózati hibától megkülönböztetve), akkor `signOut({ scope: 'local' })` törli a halott tokent a tárolóból (az időzítő leáll) és `null` tér vissza → login képernyő. Átmeneti (hálózati) refresh-hiba esetén a meglévő session **megmarad** (nem ismételjük meg a korábbi „érvényes session eldobása" bugot). — **KÉSZ**
-- [x] OCR termék-egyeztetés finomítása (2026-06-02): a `findMatchingProduct` (`lib/productMatcher.ts`) eddig Jaccard-hasonlóságot számolt `common / max(halmaz)`-ra, ezért a tipikus blokk-név (tiszta katalógusnév + méret-/márkazaj, pl. „Tejföl 20% 330g") sosem érte el a 70%-ot a tiszta katalógusnévhez („Tejföl") képest → a meglévő termékek nagy része kimaradt az auto-egyeztetésből. Átírva **containment-alapú pontozásra**: mennyire fedik a katalógusnév *jelentős* tokenjeit (≥3 betű, így a „330g"/„20"/„1l"/„kg"/„db" zaj kiesik) a blokk-szöveg tokenjei, OCR-toleranciával (pontos egyezés, ≥5 hosszú tokeneknél 1 Levenshtein-eltérés, illetve prefix-egyezés a ragozott/összevont alakokra, pl. „teliszalami"↔„teliszal"). Küszöb 60% lefedettség. Plusz új `searchProducts()` ranglistás, ékezet-érzéketlen kereső a ReviewItems kézi termékválasztójához (substring/prefix + fuzzy pontszám), és a `ProductPickerSheet` mostantól **a tétel nevével előtöltve nyílik** → a blokkból kiolvasott névhez azonnal megjelennek a releváns katalógustermékek (`ocr/review.tsx`). — **KÉSZ**
-- [x] OCR ReviewItems nem talált katalógus-terméket (2026-06-03): tünet — sem az auto-egyeztetés („katalógusban van" jelzés), sem a kézi katalógus-kereső nem adott találatot, pedig már feldolgozott blokkon tesztelve. Ok: az auto-egyeztetés (`ocr/processing.tsx` `findMatchingProduct`) és a kézi kereső (`ocr/review.tsx` `searchProducts`) is a `productStore.products` tömbből dolgozik, de a **`loadProducts` az egész appban CSAK a Termékek fülön (fókuszkor) és az OCR-mentés UTÁN futott** — az egyeztetés idejére sosem. Az OCR flow önálló modál-stack, így ha a munkamenetben nem nyitottad meg előtte a Termékek fület, a store üres volt → 0 találat mindenhol. Javítás: (a) `processing.tsx` az egyeztetés előtt betölti a katalógust, ha üres (`if (products.length===0) await loadProducts()`), és friss adatból egyeztet; (b) `review.tsx` mountkor betölti, ha üres (fedi a kézi-bevitel útvonalat is, ami kihagyja a feldolgozót). A matcher-logika maga rendben (valós páron 8/10 talál; a rövidebb-blokknév eseteknél a kézi választó a fallback). — **KÉSZ**
-- [x] Meglévő OCR-`Egyéb` termékek visszamenőleges besorolása (2026-06-03): a fenti okos besorolás csak a jövőbeli mentésekre hatott; a DB-ben már ott lévő 30 OCR-`Egyéb` terméket egyszeri migrációval újra-kategorizáltuk az `inferCategory` logikával. 13 termék kapott valódi kategóriát (4 Hús: sertéskara/csirkecombfilé/sült sonka/pulykamell; 3 Pékáru: 2× burg.pogácsa/Pur-Pur vekni; 3 Tejtermék: Görög fetasajt/túró latte/vajkrém; 3 Zöldség: Jégsaláta/Paradicsom/Sárgarépa), a maradék 17 jogosan `Egyéb` (popcorn, rizs, tojás, majonéz, pelenka, ásványvíz, brownie, visszaváltási díj…). A `products` mellett a kapcsolódó OCR `product_price_history` (product_id alapján) és `shopping_statistics` (terméknév alapján) sorok `product_category`-ja is frissült, hogy a személyes infláció konzisztens legyen. — **KÉSZ**
-- [x] OCR-termékek okos kategória-besorolása (2026-06-03): a fenti szűrő-javítás után az OCR-mentés még mindig fixen `'Egyéb'`-be sorolt minden új terméket, és az ár-/statisztika-sorok `product_category`-ja is fix `'Egyéb'` volt — így az OCR-húsok/tejtermékek csak az „Összes"/„Egyéb" chip alatt látszottak, és a személyes infláció bontása is torzult. Javítva (`ocr/review.tsx` `doSave`): **katalógus-párnál örökli a meglévő termék kategóriáját**, új terméknél **névből következtet** (`inferCategory`, `lib/categories.ts` — ékezet-érzéketlen kulcsszó-heurisztika az 5 kanonikus kategóriára, konzervatív fallback `'Egyéb'`; a Pékáru-t előre rangsorolja, hogy a „sajtos pogácsa"/„túrós táska" pékáru legyen, és a `maj` szándékosan kimaradt a majonéz-félrebesorolás miatt). A `product_category` mindkét sortípusban (`product_price_history`, `shopping_statistics`) a kiszámolt kategóriát kapja. Valós OCR-neveken ellenőrizve (pulykamell→Hús, trappista sajt→Tejtermék, vekni→Pékáru, paradicsom→Zöldség, víz/tojás/lé→Egyéb). — **KÉSZ**
-- [x] Termékek kategória-szűrő nem mutatott minden terméket (2026-06-02): tünet — a Termékek képernyőn nem látszott minden termék, főleg az OCR-rel mentettek nem. Diagnózis: az adat hiánytalanul a DB-ben van (389 termék a `katsa007@gmail.com` userhez, mind az 55 OCR-termékkel együtt) — a hiba a **megjelenítésnél** volt. A kategória-chipek (`Zöldség/Tejtermék/Hús/Pékáru/Egyéb`) **pontos string-egyezést** vártak ([termekek.tsx](src/app/(tabs)/termekek.tsx)), de a DB-ben 51 szabad szöveges kategória van (`Tejtermékek`, `Húsáruk`, `Hús és hal`, `Zöldség és gyümölcs`, `Édesség`, `Élelmiszer`…), ráadásul **minden OCR-termék fixen `'Egyéb'`** kategóriát kap ([review.tsx](src/app/ocr/review.tsx)) → egy valódi kategóriára szűrve a variánsok és az OCR-húsok/tejtermékek rejtve maradtak (csak az „Összes" alatt látszottak). Javítás: a `priceStore`-ban már létező `toCategory` + `CATEGORY_ALIASES` normalizálás kiemelve közös `lib/categories.ts`-be (`ALL_CATEGORIES`, `toCategory`); a `priceStore` innen importál (duplikátum törölve), a Termékek chip-szűrő pedig `toCategory(p.category) === activeCategory`-ra vált. Így a változatok és az OCR-termékek a megfelelő chip alatt jelennek meg; az „Összes" változatlan. (Megj.: az OCR-mentés továbbra is fixen `'Egyéb'`-be sorol új terméket — okosabb besorolás külön feladat.) — **KÉSZ**
-- [x] `getSessionSafe()` proaktív token-frissítés (2026-06-01): visszatérő tünet — az Árfigyelés (és más adatvezérelt) oldalon **nem töltődött be semmi**, majd reload után magától megjavult. Diagnosztikával (ideiglenes panel az `arak.tsx`-en) kizárva az adat-/RLS-/időablak-/user-okot: a DB-ben 203 sor van a 30 napos ablakban, az RLS a user JWT-jével 205 sort ad, a user be van jelentkezve. A valódi ok **session-timing** volt: a `getSession()` a tárolt sessiont adja vissza, de az `autoRefreshToken` háttér-időzítője app-induláskor/fókuszkor még nem futott le → a kód *lejárt* access tokennel ment tovább, és az első `loadPriceData` üresen tért vissza. Javítás egyetlen ponton, a `getSessionSafe()`-ben (`lib/supabase.ts`): ha a token lejárt vagy 60 mp-en belül lejár, **explicit** `refreshSession()` a query előtt; a refresh dobását elnyeljük és a meglévő sessiont adjuk vissza (nem-destruktív). Mivel minden store ezen a helperen át kér sessiont (price, list×11, product×3, family, ocr, _layout), a fix az egész hibaosztályt megszünteti — nincs többé store-onkénti foltozás. — **KÉSZ**
-- [x] `getSessionSafe()` helper + crash javítás (2026-05-31): lejárt access token + érvénytelen/hiányzó refresh token esetén a `supabase.auth.getSession()` **dobhat** (`AuthApiError: Invalid Refresh Token`), amit a store-ok `void`-os hívásai kezeletlen promise-elutasításként piros hibaképpé tettek. Új `getSessionSafe()` (`lib/supabase.ts`) **csak elkapja a dobást** (crash-védelem) és visszaadja a sessiont, ha van. **Nem-destruktív**: nem léptet ki és nem dobja el az érvényes sessiont (az első verzió `if (error) throw` + lokális `signOut` hibás volt — eldobta a még érvényes sessiont is és kiléptetett → eltűnt minden adat az Árak oldalon; javítva `data.session ?? null`-ra). Az összes `auth.getSession()` hívás cseréje: `priceStore`, `productStore` (3), `listStore` (11), `familyStore`, `lib/ocr.ts`, `ocr/review.tsx`, `app/_layout.tsx` — **KÉSZ**
+
+---
+
+## Adatbázis (közös Supabase projekt) — állapot
+
+**Megvan (familyshopping, írjuk/olvassuk):**
+- [x] `shopping_lists`, `products`, `product_price_history`, `shopping_statistics`, `ocr_corrections`
+
+**Megvan (familybudget, CSAK olvassuk):**
+- [x] `budget_plans`, `annual_budget_plans`, `savings_goals`, `recipes`, `recipe_ingredients`
+
+**Új (létrehozandó) — v1 RLS: `user_id = auth.uid()` (NEM family_id):**
+- [x] `calendar_events` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21)
+- [x] `meal_plan_entries` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21)
 
 ---
 
 ## Ship előtt
 
-- [x] **Natív iOS build setup (Xcode, ingyenes / 7 napos aláírás)** — `ios.bundleIdentifier: com.kacsorzsolt.familyshopping` + `buildNumber: "1"` (app.json + `project.pbxproj` Debug/Release; a `com.familyshopping.app` foglalt volt az Apple-nél). `npx expo prebuild -p ios --clean` → `ios/familyshopping.xcworkspace` + CocoaPods. Boltban Mac nélküli, önálló teszteléshez **Release** scheme kell. (Megj.: a prebuild a package.json `ios`/`android` scriptjeit `expo run:*`-ra állította. A gép lemeze szűkös — build előtt cache-takarítás kellhet: DerivedData, ios/build, CocoaPods cache.)
-- [ ] Teljes primary flow tesztelése éles eszközön (lista → bolt mód → pipálás)
-- [ ] Bolt mód boltban, valós körülmények közt tesztelve
-- [ ] Edge case-ek: üres lista, hosszú magyar terméknév, nincs net, lassú OCR
-- [ ] iOS és Android tesztelés
-- [ ] Lint + typecheck hibák nélkül
-- [ ] Dev utilities eltávolítása (mock adatok, console.log-ok)
-- [ ] Secrets ellenőrzése (kliens bundle + git history) — OCR endpoint kulcs szerver oldalon
-- [ ] EAS Build production binary + éles eszközön tesztelés
-- [ ] TestFlight (iOS) és Google Play internal testing (Android)
+- [ ] Teljes flow éles iOS eszközön (Kezdőlap → Naptár → lista generálás étrendből → Bolt mód)
+- [ ] Bolt mód boltban, valós körülmények közt (új háttérszín ellenőrzés)
+- [ ] Edge case-ek: üres állapot minden tabon, hosszú magyar szöveg, nincs net, lassú net
+- [ ] `budget_data` 3 formátuma valós adattal tesztelve
+- [ ] Lint + typecheck hibamentes
+- [ ] Dev segédeszközök eltávolítva (mock adat, console.log)
+- [ ] Secrets ellenőrzés (kliens bundle + git history)
+- [ ] `backlog.md` frissítve
+- [ ] EAS Build → TestFlight a családnak (bundle id: `com.kacsorzsolt.familyshopping` — új név esetén frissítendő)
 
 ---
 
-## Out of scope (v0.1)
+## Out of scope (v2)
 
-- Tab badge számok
-- Deep linkek (`bevasarlo://...` — schema rezerválva)
-- i18n setup (hu-HU stringek inline, később `i18n-js`)
-- Teljes backend API spec (csak az OCR kontraktus van leírva)
-- Automatizált tesztek
+- Helymegosztás / safe zone (FamilyWall fő különbsége — későbbi nagy feladat)
+- Fotó/videó megosztás
+- Családi chat / üzenetküldő
+- Több külön csoport (multi-group)
+- Push értesítések (naptár emlékeztetők) — v2.1
+- familybudget-be írás a Kasszából (jelenleg csak olvasás)
+- Recept-szerkesztés a mobilban (a familybudget weben marad v1-ben)
 - Barcode scanner (ItemAdd, ProductAdd)
+- Tab badge számok, deep linkek, i18n setup, automatizált tesztek

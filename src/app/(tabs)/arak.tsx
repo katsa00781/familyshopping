@@ -1,7 +1,8 @@
 import { useCallback, useMemo, useState } from 'react'
 import { ActivityIndicator, Pressable, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { ChevronLeft } from 'lucide-react-native'
 
 import DonutChart from '@/components/arak/DonutChart'
 import KpiCard from '@/components/arak/KpiCard'
@@ -24,6 +25,7 @@ const PERIODS: { label: string; value: Period }[] = [
 const ALL_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
 
 export default function ArakScreen() {
+  const router = useRouter()
   const [direction, setDirection] = useState<Direction>('all')
   const [selectedCategory, setSelectedCategory] = useState<ItemCategory | null>(null)
 
@@ -74,6 +76,16 @@ export default function ArakScreen() {
   function renderHeader() {
     return (
       <View className="px-screen-x border-b border-border dark:border-dark-border" style={{ paddingBottom: 12, paddingTop: 4 }}>
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, flexDirection: 'row', alignItems: 'center', marginLeft: -6, marginBottom: 2, alignSelf: 'flex-start' })}
+          accessibilityLabel="Vissza"
+          accessibilityRole="button"
+        >
+          <ChevronLeft size={22} color={colors.muted} strokeWidth={1.75} />
+          <Text className="text-body-md text-muted">Bevásárlás</Text>
+        </Pressable>
         <Text className="text-heading-xl font-bold text-foreground dark:text-dark-foreground">
           Árfigyelés
         </Text>

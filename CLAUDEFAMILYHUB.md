@@ -2,16 +2,7 @@
 
 > **Claude Code-nak:** ezt olvasd el először, minden prompt előtt. Ez definiálja, mit építünk, hogyan, és mik a nem-alkudható szabályok.
 >
-> **v2 megjegyzés:** Ez a `familyshopping` app továbbfejlesztése egy teljes családi szervezővé (FamilyWall-stílus). A korábbi „Bevásárló" szabályok **érvényben maradnak** (lásd: `CLAUDE.v0.1.md` archív), kivéve ahol ez a fájl felülírja (Dizájn tokenek, Navigáció, Bolt mód). Az új funkciók: **Kezdőlap dashboard, Naptár, Kassza (familybudget integráció), Étkezéstervező.**
-
-## v1 rögzített döntések (2026-06-21)
-
-> Ezek a 0. pont verifikációjából + felhasználói döntésből születtek. **Felülírnak minden ezzel ellentétes specifikációt lentebb.**
-
-1. **Adatmodell v1 = `user_id`-scoped, NEM `family_id`.** A `profiles` tábla jelenleg üres, és minden meglévő adattábla (`shopping_lists`, `products`, `budget_plans`, `recipes`…) `auth.users.id`-hez kötött. Az app ma single-user. **Minden új tábla (`calendar_events`, `meal_plan_entries`) is `user_id` RLS-sel készül**, a meglévő mintát követve. A valódi család-megosztás (`family_id` feltöltés, profiles, meghívók) külön, későbbi feladat (v2.x).
-2. **Naptár hónap-nézet = saját komponens** (`react-native-reanimated`-tel), **nincs** `react-native-calendars` dependency.
-3. **Közös Supabase projekt megerősítve** (`familyBudget` projekt). Egyetlen `shopping_lists` és `products` tábla van — nincs duplikáció. A bevásárlólista forrása ez a familyshopping tábla.
-4. **`recipes`/`recipe_ingredients` jelenleg üres** — az Étkezéstervezőnél üres állapotot kell kezelni (recepteket a familybudget weben visznek fel v1-ben).
+> **v2 megjegyzés:** Ez a `familyshopping` app továbbfejlesztése egy teljes családi szervezővé (FamilyWall-stílus). A korábbi „Bevásárló" CLAUDE.md szabályai **érvényben maradnak**, kivéve ahol ez a fájl felülírja (lásd: Dizájn tokenek, Navigáció, Bolt mód). Az új funkciók: **Kezdőlap dashboard, Naptár, Kassza (familybudget integráció), Étkezéstervező.**
 
 ## Szerepkör
 Tapasztalt Expo + React Native mérnök vagy, aki a **FamilyHub** családi szervezőt építi. Tiszta, egyszerű, karbantartható kód. Világosság > felesleges absztrakció.
@@ -19,10 +10,10 @@ Tapasztalt Expo + React Native mérnök vagy, aki a **FamilyHub** családi szerv
 ---
 
 ## Projekt áttekintés
-**FamilyHub** – magyar családi szervező mobilapp, amely egy helyen hozza össze a család **naptárát, bevásárlását, kasszáját (költségvetését) és étkezéstervezését**. iOS-first. **v1-ben `user_id`-scoped** (single-user); a család-megosztás későbbi fázis.
+**FamilyHub** – magyar családi szervező mobilapp, amely egy helyen hozza össze a család **naptárát, bevásárlását, kasszáját (költségvetését) és étkezéstervezését**. iOS-first. Család szinten megosztott (`family_id` modell).
 
 A `familyshopping` appra épül, amelyben már kész:
-- Közös bevásárlólisták
+- Közös bevásárlólisták (család szinten)
 - **Bolt mód** – nagy kontrasztú, óriás tap-targetes boltban-használt képernyő
 - Termékkatalógus árelőzménnyel + ártrendek
 - OCR blokk-szkennelés (kamera + szerver oldali vision endpoint)
@@ -30,7 +21,7 @@ A `familyshopping` appra épül, amelyben már kész:
 
 **Új v1 funkciók:**
 - **Kezdőlap** – közös dashboard: mai naptáresemények + aktív bevásárlólista + kassza-állapot egy képernyőn
-- **Naptár** – családi naptár, tagonkénti színkóddal
+- **Naptár** – közös családi naptár, tagonkénti színkóddal
 - **Kassza** – havi költségvetés-áttekintés a `familybudget` adataiból (ugyanaz a Supabase projekt)
 - **Étkezéstervező** – receptek heti étrendbe húzása, amiből pontosabb bevásárlólista generálható
 
@@ -50,7 +41,8 @@ Változatlan a `familyshopping` stackhez képest:
 - **Haptika:** `expo-haptics`
 - **Backend/Auth:** `@supabase/supabase-js` v2, Supabase Auth (`src/lib/supabase.ts`)
 
-**Naptár hónap-grid:** saját komponens (reanimated), **nincs** `react-native-calendars`.
+**Új dependency (jóváhagyásra vár):**
+- **`react-native-calendars`** – a Naptár hónap-nézetéhez. Jól dokumentált, bevált. Ha túl nehéznek bizonyul, a hónap-grid saját komponensként is megírható (`react-native-reanimated`-tel). **Telepítés előtt kérdezz rá.**
 
 Új könyvtárat ne adj hozzá engedély nélkül. Max kevés, jól dokumentált dependency.
 
@@ -75,11 +67,9 @@ A hideg kék/slate paletta helyett meleg, családias FamilyWall-stílus.
 | `muted` | `#8A8F8E` | meta, placeholder |
 | `border` (light) | `#E9E7E1` | – |
 | dark háttér | `#13201F` | meleg sötét (nem tiszta fekete) |
-| dark card | `#1B2B29` | – |
-| dark border | `#2A3B39` | – |
 
 ### Tagszínek (ÚJ – kulcselem)
-Minden családtagnak saját szín (avatar-gyűrű, naptáresemény, hozzárendelt feladat). Készlet (`member_color` mező / `memberColors`):
+Minden családtagnak saját szín, ami megjelenik az avatar-gyűrűn, a naptáreseményein és a hozzá rendelt feladatokon. Javasolt készlet (a `member_color` mezőhöz):
 `#14B8A6` (teal) · `#FB7185` (korall) · `#A78BFA` (lila) · `#F59E0B` (sárga) · `#38BDF8` (kék) · `#34D399` (zöld).
 
 ### Forma & típus
@@ -109,10 +99,10 @@ A **Család/Profil** beállítások a Kezdőlap fejlécébe (avatar → beállí
 
 **Ugyanaz a Supabase projekt**, ezért közvetlenül olvassuk a familybudget tábláit. **Csak olvasás** – a Kassza tabról nem írunk a budget táblákba v1-ben.
 
-Releváns táblák (ellenőrzött séma):
-- **`budget_plans`** – havi terv. `user_id`, `total_amount` (INT Ft), `actual_income` (INT, NULL lehet), `budget_data` (JSONB tételek), `is_active` (bool), `description`, `created_at`, `updated_at`. **Aktuális terv:** `is_active = true`, vagy `user_preferences.active_budget_plan_id` által hivatkozott sor.
+Releváns táblák (familybudget sémából):
+- **`budget_plans`** – havi terv. Mezők: `user_id`, `total_amount` (tervezett keret, INT Ft), `actual_income` (tényleges bevétel, INT, lehet NULL), `budget_data` (JSONB tételek), `description`, `created_at`, `updated_at`.
 - **`annual_budget_plans`** – éves terv (havi bevételek, éves/ismétlődő kiadások, megtakarítási terv – mind JSONB).
-- **`savings_goals`** – `name`, `target_amount`, `current_amount`, `category`, `color`, `target_date`.
+- **`savings_goals`** – `name`, `target_amount`, `current_amount`, `category`, `target_date`.
 
 **`budget_data` parser – KRITIKUS:** három formátumot is felvehet, mindet kezelni kell:
 ```ts
@@ -125,36 +115,38 @@ A normalizáló logika már létezik a familybudget `src/components/dashboard.ts
 
 **Implementáció:**
 - `src/lib/budget.ts` – `getCurrentBudgetPlan()`, `normalizeBudgetData()`, `getSavingsGoals()`
-- `src/store/budgetStore.ts` (zustand) vagy `useBudgetSummary()` hook
+- `src/store/budgetStore.ts` (zustand) vagy egy `useBudgetSummary()` hook
 - Kezdőlap Kassza-kártya: tervezett keret, elköltött, hátralévő (token színek, `formatHuf`)
 - Kassza tab: kategória-bontás + megtakarítási célok progress
+
+> ⚠️ **Megerősítendő implementáció előtt:** mindkét repó (familyshopping + familybudget) tartalmaz `shopping_lists` / `products` migrációkat. Ha tényleg egy közös projekt, tisztázni kell, melyik tábla az igazság forrása, hogy ne legyen két párhuzamos bevásárló-rendszer. A Kassza/receptek olvasása előtt ezt ellenőrizd.
 
 ---
 
 ## Étkezéstervező
 
-A familybudget kész tábláit használjuk (közös projekt). **Figyelem: `recipes` és `recipe_ingredients` jelenleg üres** → üres állapot kezelendő.
-- **`recipes`** – `user_id`, `name` (VARCHAR 255), `description`, `prep_time` (perc), `servings`, `image_url`, `instructions`
+A familybudget kész tábláit használjuk (közös projekt):
+- **`recipes`** – `name` (VARCHAR 255), `description`, `prep_time` (perc), `servings`, `image_url`, `instructions`
 - **`recipe_ingredients`** – `recipe_id`, `name`, `quantity` (DECIMAL), `unit` (VARCHAR 50)
 
-**Új tábla a heti tervhez:**
-- **`meal_plan_entries`** – `user_id`, `date`, `meal_type` (`reggeli`|`ebéd`|`vacsora`), `recipe_id`, `servings`, `created_by`.
+**Új tábla a heti tervhez** (lásd Új Supabase táblák):
+- **`meal_plan_entries`** – `family_id`, `date`, `meal_type` (`reggeli`|`ebéd`|`vacsora`), `recipe_id`, `servings`, `created_by`.
 
-**Workflow:** Étrend tabon a felhasználó recepteket húz napokra → „Bevásárlólista generálása" összegzi a kiválasztott napok `recipe_ingredients`-eit (név/mennyiség/egység szerint összevonva, `servings` arányosítással) → létrehoz vagy bővít egy `ShoppingList`-et a familyshopping `shopping_lists` táblájában.
+**Workflow:** Étrend tabon a felhasználó recepteket húz napokra → „Bevásárlólista generálása" összegzi a kiválasztott napok `recipe_ingredients`-eit (név/mennyiség/egység szerint összevonva) → létrehoz vagy bővít egy `ShoppingList`-et (a meglévő lista-rendszerben, `name`/`quantity`/`unit`/`category` mezőkkel). A `servings` arányosít.
 
 ---
 
 ## Új Supabase táblák (a közös projektbe)
 
-**v1-ben `user_id`-vel** RLS-ezve (a meglévő `shopping_lists`/`products` mintát követve), NEM `family_id`-vel. A család-megosztás későbbi fázis.
+Mindkettő **`family_id`-vel** RLS-ezve (a meglévő `profiles.family_id` modellt követve), nem `user_id`-vel, hogy az egész család lássa.
 
 **`calendar_events`**
 ```
-id uuid pk, user_id uuid not null, created_by uuid,
+id uuid pk, family_id uuid, created_by uuid,
 title text not null, description text, location text,
 starts_at timestamptz not null, ends_at timestamptz,
 all_day boolean default false,
-member_id uuid null,            -- melyik családtaghoz tartozik (szín); v1-ben opcionális
+member_id uuid null,            -- melyik családtaghoz tartozik (szín)
 color text null,                -- felülírja a tag színt, ha kell
 rrule text null,                -- ismétlődés (RFC 5545), v1-ben opcionális
 created_at timestamptz, updated_at timestamptz
@@ -162,7 +154,7 @@ created_at timestamptz, updated_at timestamptz
 
 **`meal_plan_entries`** (lásd Étkezéstervező).
 
-Mindkettőhöz migráció a `supabase/migrations/`-be, RLS policy `user_id = auth.uid()` alapján. Típusok a `src/types/index.ts`-be (`CalendarEvent`, `MealPlanEntry`).
+Mindkettőhöz migráció a `supabase/migrations/`-be, RLS policy `family_id` alapján. Típusok a `src/types/index.ts`-be (`CalendarEvent`, `MealPlanEntry`).
 
 ---
 
@@ -198,8 +190,8 @@ A funkció érintetlen, csak a háttérszín lágyul a stílushoz:
 npm run start      # expo start
 npm run ios        # ios simulator
 npm run lint       # expo lint
-npx tsc --noEmit   # typecheck (még nincs npm scriptként)
-npx prettier --write .  # format
+npm run typecheck  # tsc --noEmit
+npm run format     # prettier
 ```
 
 ---

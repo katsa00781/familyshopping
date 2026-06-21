@@ -12,7 +12,7 @@ import { useColorScheme } from 'nativewind'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Grid3X3, List, Plus } from 'lucide-react-native'
+import { ChevronLeft, Grid3X3, List, Plus } from 'lucide-react-native'
 
 import { useProductStore } from '@/store/productStore'
 import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
@@ -142,6 +142,16 @@ export default function TermekekScreen() {
         className="px-screen-x border-b border-border dark:border-dark-border"
         style={{ height: 96, justifyContent: 'flex-end', paddingBottom: 12 }}
       >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, flexDirection: 'row', alignItems: 'center', marginLeft: -6, marginBottom: 2, alignSelf: 'flex-start' })}
+          accessibilityLabel="Vissza"
+          accessibilityRole="button"
+        >
+          <ChevronLeft size={22} color={colors.muted} strokeWidth={1.75} />
+          <Text className="text-body-md text-muted">Bevásárlás</Text>
+        </Pressable>
         <Text className="text-heading-xl font-bold text-foreground dark:text-dark-foreground">
           Termékek
         </Text>

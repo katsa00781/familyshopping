@@ -1,0 +1,554 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FamilyHub – Bevásárlás · Listák</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #14B8A6;
+    --primary-fg: #FFFFFF;
+    --accent: #FB7185;
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --background: #F8F7F4;
+    --card: #FFFFFF;
+    --foreground: #1C2B2A;
+    --muted: #8A8F8E;
+    --border: #E9E7E1;
+    /* tagszínek */
+    --m-teal: #14B8A6;
+    --m-coral: #FB7185;
+    --m-purple: #A78BFA;
+    --m-yellow: #F59E0B;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: #E7E4DD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 0;
+  }
+
+  /* ===== iPhone frame ===== */
+  .device {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    background: var(--background);
+    border-radius: 54px;
+    box-shadow:
+      0 0 0 12px #1b1b1d,
+      0 0 0 14px #2c2c2e,
+      0 40px 80px rgba(0,0,0,0.32);
+    overflow: hidden;
+  }
+
+  .island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 122px;
+    height: 35px;
+    background: #0a0a0b;
+    border-radius: 20px;
+    z-index: 40;
+  }
+
+  .statusbar {
+    position: relative;
+    z-index: 30;
+    height: 59px;
+    padding: 0 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .statusbar .right { display: flex; align-items: center; gap: 6px; }
+  .statusbar svg { display: block; }
+
+  /* ===== Screen ===== */
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+
+  /* ===== Fixed header ===== */
+  .topbar {
+    padding: 6px 20px 12px;
+  }
+  .titlerow {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 4px 2px 0;
+  }
+  .titlerow .h1 {
+    font-size: 30px;
+    font-weight: 900;
+    color: var(--foreground);
+    letter-spacing: -0.6px;
+  }
+  .titlerow .search {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 2px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground);
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+  }
+
+  /* Segment / chip row */
+  .segment {
+    margin-top: 16px;
+    display: flex;
+    gap: 8px;
+    background: #EFEDE7;
+    padding: 5px;
+    border-radius: 16px;
+  }
+  .segment .seg {
+    flex: 1;
+    text-align: center;
+    padding: 9px 0;
+    border-radius: 12px;
+    font-size: 14.5px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: -0.2px;
+    cursor: pointer;
+  }
+  .segment .seg.active {
+    background: var(--card);
+    color: var(--foreground);
+    box-shadow: 0 2px 6px rgba(28,43,42,0.08);
+  }
+
+  /* ===== Scroll area ===== */
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 20px 124px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  .section-label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 4px 2px;
+  }
+  .section-label .lbl {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+  }
+  .section-label .ct {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--muted);
+    background: #EFEDE7;
+    padding: 3px 10px;
+    border-radius: 99px;
+  }
+
+  /* ===== Active list card ===== */
+  .lcard {
+    background: var(--card);
+    border-radius: 22px;
+    padding: 17px 17px 15px;
+    box-shadow: 0 2px 10px rgba(28,43,42,0.05);
+  }
+  .lcard-top {
+    display: flex;
+    align-items: flex-start;
+    gap: 13px;
+  }
+  .lcard .chip {
+    width: 46px;
+    height: 46px;
+    border-radius: 15px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: rgba(20,184,166,0.13);
+    color: var(--primary);
+  }
+  .lcard .chip.coral { background: rgba(251,113,133,0.14); color: var(--accent); }
+  .lcard .chip.purple { background: rgba(167,139,250,0.16); color: var(--m-purple); }
+  .lcard-titles { flex: 1; min-width: 0; padding-top: 1px; }
+  .lcard-name {
+    font-size: 18px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+  }
+  .lcard-meta {
+    margin-top: 2px;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .more {
+    width: 34px;
+    height: 34px;
+    border-radius: 11px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin: -2px -4px 0 0;
+    cursor: pointer;
+  }
+  .more:hover { background: #F2F0EA; }
+
+  .track {
+    height: 8px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 14px;
+  }
+  .track .fill { height: 100%; border-radius: 99px; background: var(--primary); }
+
+  .lcard-foot {
+    margin-top: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .lcard-stats { display: flex; flex-direction: column; gap: 2px; }
+  .count {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .count b { color: var(--foreground); }
+  .est {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+    font-variant-numeric: tabular-nums;
+  }
+  .est .lab { font-size: 12px; font-weight: 700; color: var(--muted); margin-right: 3px; letter-spacing: 0; }
+
+  .btn-shop {
+    background: var(--primary);
+    color: var(--primary-fg);
+    border: none;
+    border-radius: 14px;
+    padding: 11px 17px;
+    font-family: inherit;
+    font-size: 14.5px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(20,184,166,0.30);
+    flex-shrink: 0;
+    letter-spacing: -0.2px;
+  }
+
+  /* ===== Former (compact) cards ===== */
+  .pcard {
+    background: var(--card);
+    border-radius: 18px;
+    padding: 13px 14px;
+    box-shadow: 0 1px 6px rgba(28,43,42,0.04);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .pcard .chip-sm {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    background: #F2F0EA;
+    color: var(--muted);
+  }
+  .pcard-body { flex: 1; min-width: 0; }
+  .pcard-name {
+    font-size: 15.5px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+  }
+  .pcard-meta {
+    margin-top: 1px;
+    font-size: 12.5px;
+    font-weight: 600;
+    color: var(--muted);
+  }
+  .pcard-meta .done {
+    color: var(--success);
+  }
+  .pcard-right {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .pcard-sum {
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.2px;
+  }
+
+  /* ===== FAB ===== */
+  .fab {
+    position: absolute;
+    right: 22px;
+    bottom: 108px;
+    width: 60px;
+    height: 60px;
+    border-radius: 21px;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 22px rgba(251,113,133,0.42);
+    z-index: 25;
+    cursor: pointer;
+  }
+
+  /* ===== Bottom nav ===== */
+  .nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 92px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 8px 26px;
+    z-index: 20;
+  }
+  .nav .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+  }
+  .nav .tab span { font-size: 11px; font-weight: 700; letter-spacing: -0.1px; }
+  .nav .tab.active { color: var(--primary); }
+</style>
+</head>
+<body>
+  <div class="device">
+    <div class="island"></div>
+
+    <div class="statusbar">
+      <div class="time">9:41</div>
+      <div class="right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.5l2.4-3a3.1 3.1 0 00-4.8 0l2.4 3zM3.4 5.2a8 8 0 0110.2 0l1.5-1.9a10.4 10.4 0 00-13.2 0l1.5 1.9zm2 2.5a4.8 4.8 0 016.2 0l1.5-1.9a7.2 7.2 0 00-9.2 0l1.5 1.9z"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M24 4v5a2 2 0 000-5z" fill="currentColor" opacity="0.4"/></svg>
+      </div>
+    </div>
+
+    <div class="screen">
+
+      <!-- ===== Top bar (cím + szegmens) ===== -->
+      <div class="topbar">
+        <div class="titlerow">
+          <div class="h1">Bevásárlás</div>
+          <div class="search" title="Keresés">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
+          </div>
+        </div>
+        <div class="segment">
+          <div class="seg active">Listák</div>
+          <div class="seg">Termékek</div>
+          <div class="seg">Árak</div>
+        </div>
+      </div>
+
+      <!-- ===== Scroll ===== -->
+      <div class="scroll">
+
+        <!-- Aktív listák -->
+        <div class="section-label">
+          <span class="lbl">Aktív listák</span>
+          <span class="ct">2</span>
+        </div>
+
+        <!-- Card 1 -->
+        <div class="lcard">
+          <div class="lcard-top">
+            <div class="chip">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2.5l2.2 12.3a1.5 1.5 0 001.5 1.2h8.8a1.5 1.5 0 001.5-1.2L21.5 7H6"/></svg>
+            </div>
+            <div class="lcard-titles">
+              <div class="lcard-name">Heti nagybevásárlás</div>
+              <div class="lcard-meta">2026.06.19. · Anna</div>
+            </div>
+            <div class="more" title="Műveletek">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+            </div>
+          </div>
+          <div class="track"><div class="fill" style="width:39%"></div></div>
+          <div class="lcard-foot">
+            <div class="lcard-stats">
+              <span class="count"><b>7</b> / 18 tétel</span>
+              <span class="est"><span class="lab">Becsült</span>~14 600 Ft</span>
+            </div>
+            <button class="btn-shop">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+              Bolt mód
+            </button>
+          </div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="lcard">
+          <div class="lcard-top">
+            <div class="chip coral">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 017 7c0 4.2-7 13-7 13S5 13.2 5 9a7 7 0 017-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+            </div>
+            <div class="lcard-titles">
+              <div class="lcard-name">Hétvégi grillezés</div>
+              <div class="lcard-meta">2026.06.21. · Bence</div>
+            </div>
+            <div class="more" title="Műveletek">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+            </div>
+          </div>
+          <div class="track"><div class="fill" style="width:8%"></div></div>
+          <div class="lcard-foot">
+            <div class="lcard-stats">
+              <span class="count"><b>1</b> / 12 tétel</span>
+              <span class="est"><span class="lab">Becsült</span>~9 800 Ft</span>
+            </div>
+            <button class="btn-shop">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3l14 9-14 9V3z"/></svg>
+              Bolt mód
+            </button>
+          </div>
+        </div>
+
+        <!-- Korábbi listák -->
+        <div class="section-label">
+          <span class="lbl">Korábbi listák</span>
+          <span class="ct">3</span>
+        </div>
+
+        <div class="pcard">
+          <div class="chip-sm">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div class="pcard-body">
+            <div class="pcard-name">Heti nagybevásárlás</div>
+            <div class="pcard-meta"><span class="done">Befejezve</span> · 2026.06.12. · 22 tétel</div>
+          </div>
+          <div class="pcard-right">
+            <span class="pcard-sum">18 240 Ft</span>
+            <div class="more" title="Újraaktiválás">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="chip-sm">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div class="pcard-body">
+            <div class="pcard-name">Drogéria</div>
+            <div class="pcard-meta"><span class="done">Befejezve</span> · 2026.06.08. · 9 tétel</div>
+          </div>
+          <div class="pcard-right">
+            <span class="pcard-sum">6 590 Ft</span>
+            <div class="more" title="Újraaktiválás">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+            </div>
+          </div>
+        </div>
+
+        <div class="pcard">
+          <div class="chip-sm">
+            <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          </div>
+          <div class="pcard-body">
+            <div class="pcard-name">Születésnap – Lili</div>
+            <div class="pcard-meta"><span class="done">Befejezve</span> · 2026.05.30. · 14 tétel</div>
+          </div>
+          <div class="pcard-right">
+            <span class="pcard-sum">12 100 Ft</span>
+            <div class="more" title="Újraaktiválás">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><circle cx="5" cy="12" r="1.9"/><circle cx="12" cy="12" r="1.9"/><circle cx="19" cy="12" r="1.9"/></svg>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== FAB ===== -->
+      <button class="fab" title="Új lista">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+
+      <!-- ===== Bottom nav ===== -->
+      <div class="nav">
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9.5"/></svg>
+          <span>Kezdőlap</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          <span>Naptár</span>
+        </div>
+        <div class="tab active">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2.5l2.2 12.3a1.5 1.5 0 001.5 1.2h8.8a1.5 1.5 0 001.5-1.2L21.5 7H6"/></svg>
+          <span>Bevásárlás</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v8a2 2 0 002 2h0a2 2 0 002-2V3M7 13v8M16 3c-1.5 0-2.5 2-2.5 5s1 5 2.5 5M16 13v8"/></svg>
+          <span>Étrend</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13a2 2 0 012 2v2"/><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 01-2-2z"/><circle cx="17" cy="13" r="1.3" fill="currentColor"/></svg>
+          <span>Kassza</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

@@ -6,30 +6,42 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        // Brand
-        primary: '#2563EB',
+        // Brand (FamilyHub v2 – meleg, családias)
+        primary: '#14B8A6',
+        'primary-foreground': '#FFFFFF',
+        accent: '#FB7185',
         destructive: '#EF4444',
         success: '#22C55E',
         warning: '#F59E0B',
-        muted: '#94A3B8',
+        muted: '#8A8F8E',
 
         // Light surfaces
-        background: '#F1F5F9',
+        background: '#F8F7F4',
         card: '#FFFFFF',
-        border: '#E2E8F0',
-        foreground: '#0F172A',
+        border: '#E9E7E1',
+        foreground: '#1C2B2A',
+        'surface-sunken': '#EFEDE7',
+        'surface-muted': '#F2F0EA',
 
-        // Dark surfaces
-        'dark-background': '#0F172A',
-        'dark-card': '#1E293B',
-        'dark-border': '#334155',
+        // Dark surfaces (meleg sötét, nem tiszta fekete)
+        'dark-background': '#13201F',
+        'dark-card': '#1B2B29',
+        'dark-border': '#2A3B39',
         'dark-foreground': '#F8FAFC',
 
-        // Bolt mód – true black, mindig
-        'bolt-bg': '#000000',
-        'bolt-bar': '#111827',
-        'bolt-border': '#1F2937',
+        // Bolt mód – meleg sötét (v2), theme-independent
+        'bolt-bg': '#13201F',
+        'bolt-bar': '#0E1817',
+        'bolt-border': '#2A3B39',
         'bolt-unchecked': '#334155',
+
+        // Tagszínek (családtag-azonosító)
+        'member-teal': '#14B8A6',
+        'member-coral': '#FB7185',
+        'member-purple': '#A78BFA',
+        'member-yellow': '#F59E0B',
+        'member-blue': '#38BDF8',
+        'member-green': '#34D399',
 
         // Kategória tintok (pastel-300)
         'cat-produce': '#86EFAC',

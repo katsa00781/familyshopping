@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FamilyHub – Étrend</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #14B8A6;
+    --primary-fg: #FFFFFF;
+    --accent: #FB7185;
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --background: #F8F7F4;
+    --card: #FFFFFF;
+    --foreground: #1C2B2A;
+    --muted: #8A8F8E;
+    --border: #E9E7E1;
+    --c-teal: #14B8A6;
+    --c-coral: #FB7185;
+    --c-purple: #A78BFA;
+    --c-yellow: #F59E0B;
+    --c-blue: #38BDF8;
+    --c-green: #34D399;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: #E7E4DD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 0;
+  }
+
+  /* ===== iPhone frame ===== */
+  .device {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    background: var(--background);
+    border-radius: 54px;
+    box-shadow:
+      0 0 0 12px #1b1b1d,
+      0 0 0 14px #2c2c2e,
+      0 40px 80px rgba(0,0,0,0.32);
+    overflow: hidden;
+  }
+
+  .island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 122px;
+    height: 35px;
+    background: #0a0a0b;
+    border-radius: 20px;
+    z-index: 40;
+  }
+
+  .statusbar {
+    position: relative;
+    z-index: 30;
+    height: 59px;
+    padding: 0 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .statusbar .right { display: flex; align-items: center; gap: 6px; }
+  .statusbar svg { display: block; }
+
+  /* ===== Layout ===== */
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 20px 210px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ===== Header ===== */
+  .header { padding: 10px 2px 0; }
+  .header .title {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.5px;
+    line-height: 1.05;
+  }
+
+  /* week switcher */
+  .week-switch {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .week-arrow {
+    width: 38px;
+    height: 38px;
+    border-radius: 13px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--foreground);
+    flex-shrink: 0;
+    box-shadow: 0 1px 4px rgba(28,43,42,0.04);
+  }
+  .week-label {
+    flex: 1;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1px;
+  }
+  .week-label .wl-range {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+  }
+  .week-label .wl-sub {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  /* recipe-book chip (sheet trigger) */
+  .toolbar {
+    margin-top: 4px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 38px;
+    padding: 0 15px 0 13px;
+    border-radius: 99px;
+    background: rgba(20,184,166,0.10);
+    color: var(--primary);
+    font-size: 13.5px;
+    font-weight: 800;
+    border: 1px solid rgba(20,184,166,0.18);
+  }
+  .chip svg { display: block; }
+  .chip .caret { opacity: 0.7; margin-left: -1px; }
+  .toolbar .hint {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    line-height: 1.25;
+  }
+
+  /* ===== Day card ===== */
+  .day {
+    background: var(--card);
+    border-radius: 22px;
+    padding: 14px 16px 16px;
+    box-shadow: 0 2px 10px rgba(28,43,42,0.05);
+  }
+  .day.today {
+    border: 1.5px solid rgba(251,113,133,0.55);
+    box-shadow: 0 6px 18px rgba(251,113,133,0.12);
+  }
+
+  .day-head {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 4px;
+  }
+  /* selection checkbox */
+  .day-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    border: 2px solid var(--border);
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+  }
+  .day-check.on {
+    background: var(--primary);
+    border-color: var(--primary);
+  }
+  .day-check.off svg { display: none; }
+  .day-titles { flex: 1; min-width: 0; }
+  .day-name {
+    font-size: 16.5px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .today-pill {
+    font-size: 10.5px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--accent);
+    padding: 2px 8px;
+    border-radius: 99px;
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+  .day-date { font-size: 12.5px; font-weight: 700; color: var(--muted); margin-top: 1px; }
+  .day-meta {
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  /* meal rows */
+  .meals { display: flex; flex-direction: column; }
+  .meal {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 9px 0;
+  }
+  .meal + .meal { border-top: 1px solid var(--border); }
+  .meal-type {
+    width: 58px;
+    flex-shrink: 0;
+    font-size: 11px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.3px;
+    text-transform: uppercase;
+  }
+
+  /* recipe card */
+  .recipe {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 11px;
+  }
+  .thumb {
+    width: 46px;
+    height: 46px;
+    border-radius: 13px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .thumb svg { display: block; }
+  .recipe-info { flex: 1; min-width: 0; }
+  .recipe-name {
+    font-size: 14.5px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .recipe-meta {
+    margin-top: 2px;
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .recipe-meta .m { display: inline-flex; align-items: center; gap: 4px; }
+  .recipe-meta svg { display: block; opacity: 0.85; }
+  .recipe-drag { color: var(--border); flex-shrink: 0; }
+
+  /* empty slot */
+  .add-slot {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 46px;
+    padding: 0 14px;
+    border: 1.5px dashed var(--border);
+    border-radius: 13px;
+    color: var(--muted);
+    font-size: 13.5px;
+    font-weight: 800;
+    background: rgba(138,143,142,0.03);
+  }
+  .add-slot svg { display: block; }
+
+  /* ===== Sticky CTA ===== */
+  .cta-wrap {
+    position: absolute;
+    bottom: 92px;
+    left: 0;
+    right: 0;
+    padding: 14px 20px 16px;
+    background: linear-gradient(to top, var(--background) 62%, rgba(248,247,244,0));
+    z-index: 22;
+  }
+  .cta-btn {
+    height: 56px;
+    border-radius: 18px;
+    background: var(--primary);
+    color: var(--primary-fg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    font-size: 16px;
+    font-weight: 800;
+    letter-spacing: -0.2px;
+    box-shadow: 0 8px 22px rgba(20,184,166,0.32);
+  }
+  .cta-btn svg { display: block; }
+  .cta-sub {
+    margin-top: 8px;
+    text-align: center;
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .cta-sub b { color: var(--foreground); font-weight: 800; }
+
+  /* ===== Bottom nav ===== */
+  .nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 92px;
+    background: rgba(255,255,255,0.94);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 8px 26px;
+    z-index: 24;
+  }
+  .nav .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+  }
+  .nav .tab span { font-size: 11px; font-weight: 700; letter-spacing: -0.1px; }
+  .nav .tab.active { color: var(--primary); }
+</style>
+</head>
+<body>
+  <div class="device">
+    <div class="island"></div>
+
+    <div class="statusbar">
+      <div class="time">9:41</div>
+      <div class="right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.5l2.4-3a3.1 3.1 0 00-4.8 0l2.4 3zM3.4 5.2a8 8 0 0110.2 0l1.5-1.9a10.4 10.4 0 00-13.2 0l1.5 1.9zm2 2.5a4.8 4.8 0 016.2 0l1.5-1.9a7.2 7.2 0 00-9.2 0l1.5 1.9z"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M24 4v5a2 2 0 000-5z" fill="currentColor" opacity="0.4"/></svg>
+      </div>
+    </div>
+
+    <div class="screen">
+      <div class="scroll">
+
+        <!-- ===== Header ===== -->
+        <div class="header">
+          <div class="title">Étrend</div>
+
+          <div class="week-switch">
+            <div class="week-arrow" aria-label="Előző hét">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>
+            </div>
+            <div class="week-label">
+              <div class="wl-range">jún. 16–22.</div>
+              <div class="wl-sub">Ez a hét · 25. hét</div>
+            </div>
+            <div class="week-arrow" aria-label="Következő hét">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg>
+            </div>
+          </div>
+
+          <!-- recipe picker trigger -->
+          <div class="toolbar">
+            <div class="chip">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+              Receptkönyv
+              <svg class="caret" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+            </div>
+            <div class="hint">Húzd a recepteket<br>a napokra</div>
+          </div>
+        </div>
+
+        <!-- ===== Hétfő (filled) ===== -->
+        <div class="day">
+          <div class="day-head">
+            <div class="day-check on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Hétfő</div>
+              <div class="day-date">jún. 16.</div>
+            </div>
+            <div class="day-meta">3 étkezés</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(245,158,11,0.14); color:var(--c-yellow)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18M5 8h4a3 3 0 010 6H5"/><path d="M14 3c2.5 0 4 2 4 5s-1.5 5-4 5"/><path d="M18 13v8"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Zabkása bogyós gyümölccsel</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>10 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(20,184,166,0.13); color:var(--c-teal)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18l-1.2 8.2a2 2 0 01-2 1.8H6.2a2 2 0 01-2-1.8L3 11z"/><path d="M12 11V7a3 3 0 016 0"/><path d="M6 11V8a3 3 0 013-3"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Csirkemell rizzsel, párolt zöldség</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>35 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(167,139,250,0.16); color:var(--c-purple)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.5 0 8 2.5 8 6H4c0-3.5 3.5-6 8-6z"/><path d="M4 9h16M6 13h12M8 17h8"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Görög saláta</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>15 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Kedd (filled) ===== -->
+        <div class="day">
+          <div class="day-head">
+            <div class="day-check on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Kedd</div>
+              <div class="day-date">jún. 17.</div>
+            </div>
+            <div class="day-meta">2 étkezés</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(20,184,166,0.13); color:var(--c-teal)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18l-1.2 8.2a2 2 0 01-2 1.8H6.2a2 2 0 01-2-1.8L3 11z"/><path d="M12 11V7a3 3 0 016 0"/><path d="M6 11V8a3 3 0 013-3"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Bolognai spagetti</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>40 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(167,139,250,0.16); color:var(--c-purple)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.5 0 8 2.5 8 6H4c0-3.5 3.5-6 8-6z"/><path d="M4 9h16M6 13h12M8 17h8"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Grillsajt pirított zöldségekkel</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>3 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>20 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Szerda (filled) ===== -->
+        <div class="day">
+          <div class="day-head">
+            <div class="day-check on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Szerda</div>
+              <div class="day-date">jún. 18.</div>
+            </div>
+            <div class="day-meta">3 étkezés</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(245,158,11,0.14); color:var(--c-yellow)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v18M5 8h4a3 3 0 010 6H5"/><path d="M14 3c2.5 0 4 2 4 5s-1.5 5-4 5"/><path d="M18 13v8"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Rántotta pirítóssal</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>12 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(20,184,166,0.13); color:var(--c-teal)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18l-1.2 8.2a2 2 0 01-2 1.8H6.2a2 2 0 01-2-1.8L3 11z"/><path d="M12 11V7a3 3 0 016 0"/><path d="M6 11V8a3 3 0 013-3"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Lencsefőzelék főtt tojással</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>30 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(167,139,250,0.16); color:var(--c-purple)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3c4.5 0 8 2.5 8 6H4c0-3.5 3.5-6 8-6z"/><path d="M4 9h16M6 13h12M8 17h8"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Pizzaszelet salátával</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>25 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Csütörtök (MA, részben) ===== -->
+        <div class="day today">
+          <div class="day-head">
+            <div class="day-check on"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Csütörtök <span class="today-pill">Ma</span></div>
+              <div class="day-date">jún. 19.</div>
+            </div>
+            <div class="day-meta">1 étkezés</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="recipe">
+                <div class="thumb" style="background:rgba(20,184,166,0.13); color:var(--c-teal)"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11h18l-1.2 8.2a2 2 0 01-2 1.8H6.2a2 2 0 01-2-1.8L3 11z"/><path d="M12 11V7a3 3 0 016 0"/><path d="M6 11V8a3 3 0 013-3"/></svg></div>
+                <div class="recipe-info">
+                  <div class="recipe-name">Gombapaprikás nokedlivel</div>
+                  <div class="recipe-meta"><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 00-4-4H6a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 00-3-3.87"/></svg>4 adag</span><span class="m"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>45 perc</span></div>
+                </div>
+                <svg class="recipe-drag" width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.5"/><circle cx="15" cy="6" r="1.5"/><circle cx="9" cy="12" r="1.5"/><circle cx="15" cy="12" r="1.5"/><circle cx="9" cy="18" r="1.5"/><circle cx="15" cy="18" r="1.5"/></svg>
+              </div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Péntek (üres) ===== -->
+        <div class="day">
+          <div class="day-head">
+            <div class="day-check off"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Péntek</div>
+              <div class="day-date">jún. 20.</div>
+            </div>
+            <div class="day-meta">üres</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Szombat (üres) ===== -->
+        <div class="day">
+          <div class="day-head">
+            <div class="day-check off"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Szombat</div>
+              <div class="day-date">jún. 21.</div>
+            </div>
+            <div class="day-meta">üres</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Vasárnap (üres) ===== -->
+        <div class="day">
+          <div class="day-head">
+            <div class="day-check off"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+            <div class="day-titles">
+              <div class="day-name">Vasárnap</div>
+              <div class="day-date">jún. 22.</div>
+            </div>
+            <div class="day-meta">üres</div>
+          </div>
+          <div class="meals">
+            <div class="meal">
+              <div class="meal-type">Reggeli</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Ebéd</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+            <div class="meal">
+              <div class="meal-type">Vacsora</div>
+              <div class="add-slot"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>recept</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== Sticky CTA ===== -->
+      <div class="cta-wrap">
+        <div class="cta-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2.5l2.2 12.3a1.5 1.5 0 001.5 1.2h8.8a1.5 1.5 0 001.5-1.2L21.5 7H6"/></svg>
+          Bevásárlólista generálása
+        </div>
+        <div class="cta-sub">a <b>4 kijelölt nap</b> hozzávalóiból</div>
+      </div>
+
+      <!-- ===== Bottom nav ===== -->
+      <div class="nav">
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9.5"/></svg>
+          <span>Kezdőlap</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          <span>Naptár</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2.5l2.2 12.3a1.5 1.5 0 001.5 1.2h8.8a1.5 1.5 0 001.5-1.2L21.5 7H6"/></svg>
+          <span>Bevásárlás</span>
+        </div>
+        <div class="tab active">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v8a2 2 0 002 2h0a2 2 0 002-2V3M7 13v8M16 3c-1.5 0-2.5 2-2.5 5s1 5 2.5 5M16 13v8"/></svg>
+          <span>Étrend</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13a2 2 0 012 2v2"/><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 01-2-2z"/><circle cx="17" cy="13" r="1.3" fill="currentColor"/></svg>
+          <span>Kassza</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

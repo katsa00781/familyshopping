@@ -45,6 +45,7 @@ interface ListState {
   setActiveListId: (id: string | null) => void
   loadLists: () => Promise<void>
   createList: (name: string, date: string) => Promise<void>
+  createListWithItems: (name: string, date: string, items: ShoppingItem[]) => Promise<string>
   updateList: (id: string, patch: Partial<Pick<ShoppingList, 'name' | 'date' | 'store_name'>>) => Promise<void>
   deleteList: (id: string) => Promise<void>
   completeList: (id: string) => Promise<void>
@@ -135,6 +136,42 @@ export const useListStore = create<ListState>((set, get) => ({
         await saveCache(prev)
       }
     }
+  },
+
+  createListWithItems: async (name, date, items) => {
+    const session = await getSessionSafe()
+    const user = session?.user
+    const userId = user?.id ?? 'mock-user'
+    const now = new Date().toISOString()
+
+    const newList: ShoppingList = {
+      id: generateId(),
+      user_id: userId,
+      name,
+      date,
+      items,
+      total_amount: calcTotal(items),
+      completed: false,
+      store_name: null,
+      completed_at: null,
+      created_at: now,
+      updated_at: now,
+    }
+
+    const prev = get().lists
+    const next = [newList, ...prev]
+    set({ lists: next })
+    await saveCache(next)
+
+    if (user) {
+      const { error } = await supabase.from('shopping_lists').insert(toPayload(newList))
+      if (error) {
+        set({ lists: prev, error: 'Lista létrehozása sikertelen' })
+        await saveCache(prev)
+      }
+    }
+
+    return newList.id
   },
 
   updateList: async (id, patch) => {

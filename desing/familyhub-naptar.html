@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FamilyHub – Naptár</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #14B8A6;
+    --primary-fg: #FFFFFF;
+    --accent: #FB7185;
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --background: #F8F7F4;
+    --card: #FFFFFF;
+    --foreground: #1C2B2A;
+    --muted: #8A8F8E;
+    --border: #E9E7E1;
+    /* tagszínek */
+    --m-teal: #14B8A6;
+    --m-coral: #FB7185;
+    --m-purple: #A78BFA;
+    --m-yellow: #F59E0B;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: #E7E4DD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 0;
+  }
+
+  /* ===== iPhone frame ===== */
+  .device {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    background: var(--background);
+    border-radius: 54px;
+    box-shadow:
+      0 0 0 12px #1b1b1d,
+      0 0 0 14px #2c2c2e,
+      0 40px 80px rgba(0,0,0,0.32);
+    overflow: hidden;
+  }
+
+  /* Dynamic Island */
+  .island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 122px;
+    height: 35px;
+    background: #0a0a0b;
+    border-radius: 20px;
+    z-index: 40;
+  }
+
+  /* Status bar */
+  .statusbar {
+    position: relative;
+    z-index: 30;
+    height: 59px;
+    padding: 0 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .statusbar .right {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .statusbar svg { display: block; }
+
+  /* ===== Screen ===== */
+  .screen {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* ===== Header ===== */
+  .header {
+    padding: 6px 20px 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .month-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .month-nav .title {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.5px;
+    line-height: 1.1;
+  }
+  .arrow {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    border: none;
+    background: var(--card);
+    color: var(--foreground);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 1px 4px rgba(28,43,42,0.08);
+  }
+  .arrow.next { margin-left: -2px; }
+  .ma-btn {
+    background: rgba(20,184,166,0.12);
+    color: var(--primary);
+    border: none;
+    border-radius: 14px;
+    padding: 9px 16px;
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    letter-spacing: -0.1px;
+    cursor: pointer;
+  }
+
+  /* ===== Calendar card ===== */
+  .cal-card {
+    margin: 0 16px;
+    background: var(--card);
+    border-radius: 24px;
+    padding: 16px 14px 18px;
+    box-shadow: 0 2px 10px rgba(28,43,42,0.05);
+  }
+  .weekdays {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    margin-bottom: 6px;
+  }
+  .weekdays span {
+    text-align: center;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.2px;
+  }
+  .weekdays span.sun { color: var(--accent); }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    row-gap: 2px;
+  }
+  .day {
+    height: 46px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: 3px;
+    cursor: pointer;
+  }
+  .day .num {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--foreground);
+    letter-spacing: -0.3px;
+  }
+  .day.sun .num { color: var(--accent); }
+  .day.muted .num { color: #C7CAC8; font-weight: 600; }
+  .day.today .num {
+    background: var(--primary);
+    color: var(--primary-fg);
+    font-weight: 800;
+    box-shadow: 0 3px 10px rgba(20,184,166,0.4);
+  }
+  .day.today.sun .num { color: var(--primary-fg); }
+  .dots {
+    display: flex;
+    gap: 3px;
+    height: 8px;
+    margin-top: 2px;
+    align-items: center;
+  }
+  .dots i {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    display: block;
+  }
+
+  /* ===== Agenda ===== */
+  .agenda {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px 124px;
+  }
+  .agenda::-webkit-scrollbar { display: none; }
+  .agenda-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    padding: 0 2px;
+  }
+  .agenda-head .day-label {
+    font-size: 17px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.3px;
+  }
+  .agenda-head .count {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+
+  .event {
+    background: var(--card);
+    border-radius: 18px;
+    padding: 14px 16px 14px 0;
+    display: flex;
+    align-items: stretch;
+    gap: 14px;
+    box-shadow: 0 2px 8px rgba(28,43,42,0.05);
+    margin-bottom: 10px;
+    overflow: hidden;
+  }
+  .event .bar {
+    width: 5px;
+    border-radius: 0 99px 99px 0;
+    flex-shrink: 0;
+  }
+  .event .when {
+    width: 58px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    text-align: right;
+  }
+  .event .when .time {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.3px;
+  }
+  .event .when .allday {
+    font-size: 11.5px;
+    font-weight: 800;
+    color: var(--muted);
+    line-height: 1.15;
+  }
+  .event .body {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+  }
+  .event .ev-title {
+    font-size: 15.5px;
+    font-weight: 700;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+  }
+  .event .ev-loc {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .event .who {
+    align-self: center;
+    font-size: 12px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 99px;
+    flex-shrink: 0;
+  }
+
+  /* ===== Empty state (hidden by default) ===== */
+  .empty {
+    display: none;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    padding: 48px 30px;
+    gap: 6px;
+  }
+  .empty .icon {
+    width: 64px;
+    height: 64px;
+    border-radius: 50%;
+    background: rgba(20,184,166,0.10);
+    color: var(--primary);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 8px;
+  }
+  .empty .et { font-size: 16px; font-weight: 800; color: var(--foreground); }
+  .empty .es { font-size: 13.5px; font-weight: 600; color: var(--muted); max-width: 220px; }
+
+  /* ===== FAB ===== */
+  .fab {
+    position: absolute;
+    right: 20px;
+    bottom: 108px;
+    width: 58px;
+    height: 58px;
+    border-radius: 50%;
+    border: none;
+    background: var(--primary);
+    color: var(--primary-fg);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(20,184,166,0.45);
+    z-index: 25;
+  }
+
+  /* ===== Bottom nav ===== */
+  .nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 92px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 8px 26px;
+    z-index: 20;
+  }
+  .nav .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+  }
+  .nav .tab span {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: -0.1px;
+  }
+  .nav .tab.active { color: var(--primary); }
+</style>
+</head>
+<body>
+  <div class="device">
+    <div class="island"></div>
+
+    <div class="statusbar">
+      <div class="time">9:41</div>
+      <div class="right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.5l2.4-3a3.1 3.1 0 00-4.8 0l2.4 3zM3.4 5.2a8 8 0 0110.2 0l1.5-1.9a10.4 10.4 0 00-13.2 0l1.5 1.9zm2 2.5a4.8 4.8 0 016.2 0l1.5-1.9a7.2 7.2 0 00-9.2 0l1.5 1.9z"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M24 4v5a2 2 0 000-5z" fill="currentColor" opacity="0.4"/></svg>
+      </div>
+    </div>
+
+    <div class="screen">
+
+      <!-- ===== Header ===== -->
+      <div class="header">
+        <div class="month-nav">
+          <button class="arrow prev" aria-label="Előző hónap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+          </button>
+          <div class="title">2026. június</div>
+          <button class="arrow next" aria-label="Következő hónap">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+          </button>
+        </div>
+        <button class="ma-btn">Ma</button>
+      </div>
+
+      <!-- ===== Calendar grid ===== -->
+      <div class="cal-card">
+        <div class="weekdays">
+          <span>H</span><span>K</span><span>Sze</span><span>Cs</span><span>P</span><span>Szo</span><span class="sun">V</span>
+        </div>
+        <div class="grid">
+          <!-- 1. hét -->
+          <div class="day"><div class="num">1</div></div>
+          <div class="day"><div class="num">2</div></div>
+          <div class="day"><div class="num">3</div><div class="dots"><i style="background:var(--m-coral)"></i></div></div>
+          <div class="day"><div class="num">4</div></div>
+          <div class="day"><div class="num">5</div><div class="dots"><i style="background:var(--m-teal)"></i></div></div>
+          <div class="day"><div class="num">6</div></div>
+          <div class="day sun"><div class="num">7</div></div>
+          <!-- 2. hét -->
+          <div class="day"><div class="num">8</div><div class="dots"><i style="background:var(--m-purple)"></i><i style="background:var(--m-coral)"></i></div></div>
+          <div class="day"><div class="num">9</div></div>
+          <div class="day"><div class="num">10</div></div>
+          <div class="day"><div class="num">11</div><div class="dots"><i style="background:var(--m-yellow)"></i></div></div>
+          <div class="day"><div class="num">12</div><div class="dots"><i style="background:var(--m-teal)"></i></div></div>
+          <div class="day"><div class="num">13</div></div>
+          <div class="day sun"><div class="num">14</div></div>
+          <!-- 3. hét -->
+          <div class="day"><div class="num">15</div><div class="dots"><i style="background:var(--m-coral)"></i><i style="background:var(--m-purple)"></i></div></div>
+          <div class="day"><div class="num">16</div></div>
+          <div class="day"><div class="num">17</div></div>
+          <div class="day"><div class="num">18</div><div class="dots"><i style="background:var(--m-teal)"></i></div></div>
+          <div class="day today"><div class="num">19</div><div class="dots"><i style="background:var(--m-coral)"></i><i style="background:var(--m-purple)"></i><i style="background:var(--m-teal)"></i></div></div>
+          <div class="day"><div class="num">20</div></div>
+          <div class="day sun"><div class="num">21</div></div>
+          <!-- 4. hét -->
+          <div class="day"><div class="num">22</div><div class="dots"><i style="background:var(--m-yellow)"></i></div></div>
+          <div class="day"><div class="num">23</div></div>
+          <div class="day"><div class="num">24</div><div class="dots"><i style="background:var(--m-purple)"></i></div></div>
+          <div class="day"><div class="num">25</div><div class="dots"><i style="background:var(--m-teal)"></i><i style="background:var(--m-coral)"></i><i style="background:var(--m-yellow)"></i></div></div>
+          <div class="day"><div class="num">26</div></div>
+          <div class="day"><div class="num">27</div><div class="dots"><i style="background:var(--m-coral)"></i></div></div>
+          <div class="day sun"><div class="num">28</div></div>
+          <!-- 5. hét -->
+          <div class="day"><div class="num">29</div><div class="dots"><i style="background:var(--m-purple)"></i></div></div>
+          <div class="day"><div class="num">30</div></div>
+          <div class="day muted"><div class="num">1</div></div>
+          <div class="day muted"><div class="num">2</div></div>
+          <div class="day muted"><div class="num">3</div></div>
+          <div class="day muted"><div class="num">4</div></div>
+          <div class="day muted sun"><div class="num">5</div></div>
+        </div>
+      </div>
+
+      <!-- ===== Agenda ===== -->
+      <div class="agenda">
+        <div class="agenda-head">
+          <div class="day-label">Június 19., péntek</div>
+          <div class="count">4 esemény</div>
+        </div>
+
+        <div class="event">
+          <div class="bar" style="background:var(--m-yellow)"></div>
+          <div class="when"><div class="allday">Egész<br>nap</div></div>
+          <div class="body">
+            <div class="ev-title">Apa szülinapja</div>
+          </div>
+          <div class="who" style="background:rgba(245,158,11,0.14); color:#B7791F">Apa</div>
+        </div>
+
+        <div class="event">
+          <div class="bar" style="background:var(--m-coral)"></div>
+          <div class="when"><div class="time">07:45</div></div>
+          <div class="body">
+            <div class="ev-title">Úszás</div>
+            <div class="ev-loc">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.4-7-11a7 7 0 0114 0c0 5.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+              Sportuszoda
+            </div>
+          </div>
+          <div class="who" style="background:rgba(251,113,133,0.14); color:var(--accent)">Bence</div>
+        </div>
+
+        <div class="event">
+          <div class="bar" style="background:var(--m-purple)"></div>
+          <div class="when"><div class="time">15:00</div></div>
+          <div class="body">
+            <div class="ev-title">Zongoraóra</div>
+            <div class="ev-loc">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.4-7-11a7 7 0 0114 0c0 5.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+              Zeneiskola
+            </div>
+          </div>
+          <div class="who" style="background:rgba(167,139,250,0.16); color:#7C5BD9">Lili</div>
+        </div>
+
+        <div class="event">
+          <div class="bar" style="background:var(--m-teal)"></div>
+          <div class="when"><div class="time">19:00</div></div>
+          <div class="body">
+            <div class="ev-title">Szülői értekezlet</div>
+            <div class="ev-loc">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-7-5.4-7-11a7 7 0 0114 0c0 5.6-7 11-7 11z"/><circle cx="12" cy="10" r="2.4"/></svg>
+              Általános iskola
+            </div>
+          </div>
+          <div class="who" style="background:rgba(20,184,166,0.14); color:var(--primary)">Anna</div>
+        </div>
+
+        <!-- ===== Üres állapot (csak akkor jelenik meg, ha nincs esemény) ===== -->
+        <div class="empty">
+          <div class="icon">
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          </div>
+          <div class="et">Nincs esemény ezen a napon</div>
+          <div class="es">Nyugis nap a családnak. Koppints a + gombra új esemény hozzáadásához.</div>
+        </div>
+      </div>
+
+      <!-- ===== FAB ===== -->
+      <button class="fab" aria-label="Új esemény">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+      </button>
+
+      <!-- ===== Bottom nav ===== -->
+      <div class="nav">
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9.5"/></svg>
+          <span>Kezdőlap</span>
+        </div>
+        <div class="tab active">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          <span>Naptár</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2.5l2.2 12.3a1.5 1.5 0 001.5 1.2h8.8a1.5 1.5 0 001.5-1.2L21.5 7H6"/></svg>
+          <span>Bevásárlás</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v8a2 2 0 002 2h0a2 2 0 002-2V3M7 13v8M16 3c-1.5 0-2.5 2-2.5 5s1 5 2.5 5M16 13v8"/></svg>
+          <span>Étrend</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13a2 2 0 012 2v2"/><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 01-2-2z"/><circle cx="17" cy="13" r="1.3" fill="currentColor"/></svg>
+          <span>Kassza</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</body>
+</html>

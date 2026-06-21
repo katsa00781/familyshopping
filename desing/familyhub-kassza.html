@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>FamilyHub – Kassza</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Nunito:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900&display=swap" rel="stylesheet" />
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --primary: #14B8A6;
+    --primary-fg: #FFFFFF;
+    --accent: #FB7185;
+    --success: #22C55E;
+    --warning: #F59E0B;
+    --background: #F8F7F4;
+    --card: #FFFFFF;
+    --foreground: #1C2B2A;
+    --muted: #8A8F8E;
+    --border: #E9E7E1;
+    /* kategória színek (tagszín-paletta) */
+    --c-teal: #14B8A6;
+    --c-coral: #FB7185;
+    --c-purple: #A78BFA;
+    --c-yellow: #F59E0B;
+    --c-blue: #38BDF8;
+    --c-green: #34D399;
+  }
+
+  html, body {
+    height: 100%;
+    font-family: 'Nunito', -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  body {
+    background: #E7E4DD;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh;
+    padding: 40px 0;
+  }
+
+  /* ===== iPhone frame ===== */
+  .device {
+    position: relative;
+    width: 390px;
+    height: 844px;
+    background: var(--background);
+    border-radius: 54px;
+    box-shadow:
+      0 0 0 12px #1b1b1d,
+      0 0 0 14px #2c2c2e,
+      0 40px 80px rgba(0,0,0,0.32);
+    overflow: hidden;
+  }
+
+  .island {
+    position: absolute;
+    top: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 122px;
+    height: 35px;
+    background: #0a0a0b;
+    border-radius: 20px;
+    z-index: 40;
+  }
+
+  .statusbar {
+    position: relative;
+    z-index: 30;
+    height: 59px;
+    padding: 0 34px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+  }
+  .statusbar .right { display: flex; align-items: center; gap: 6px; }
+  .statusbar svg { display: block; }
+
+  /* ===== Scroll area ===== */
+  .screen { position: absolute; inset: 0; display: flex; flex-direction: column; }
+  .scroll {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 20px 112px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+  .scroll::-webkit-scrollbar { display: none; }
+
+  /* ===== Header ===== */
+  .header { padding: 10px 2px 2px; }
+  .header .title {
+    font-size: 30px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.5px;
+    line-height: 1.05;
+  }
+  .header .month {
+    margin-top: 5px;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: capitalize;
+  }
+
+  /* ===== Section label ===== */
+  .section-label {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    padding: 6px 4px 0;
+    margin-top: 2px;
+  }
+  .section-label .lbl {
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--muted);
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+  .section-label .meta { font-size: 13px; font-weight: 700; color: var(--muted); }
+
+  /* ===== Card base ===== */
+  .card {
+    background: var(--card);
+    border-radius: 24px;
+    padding: 20px;
+    box-shadow: 0 2px 10px rgba(28,43,42,0.05);
+  }
+
+  /* ===== Summary (highlight) card ===== */
+  .summary {
+    box-shadow: 0 10px 28px rgba(20,184,166,0.16);
+    border: 1px solid rgba(20,184,166,0.14);
+  }
+  .summary .top-stats {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .stat .stat-lbl {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    letter-spacing: 0.2px;
+  }
+  .stat .stat-val {
+    margin-top: 3px;
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+  }
+  .stat.right { text-align: right; }
+  .stat.right .stat-val { color: var(--foreground); }
+
+  .summary .divider {
+    height: 1px;
+    background: var(--border);
+    margin: 16px 0;
+  }
+
+  .remaining-lbl {
+    font-size: 13.5px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .remaining-amount {
+    margin-top: 4px;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+  }
+  .remaining-amount .big {
+    font-size: 46px;
+    font-weight: 900;
+    color: var(--primary);
+    letter-spacing: -1.5px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+  .remaining-amount .cur {
+    font-size: 24px;
+    font-weight: 800;
+    color: var(--primary);
+  }
+  .summary.over .remaining-amount .big,
+  .summary.over .remaining-amount .cur { color: var(--warning); }
+
+  .track {
+    height: 10px;
+    background: var(--border);
+    border-radius: 99px;
+    overflow: hidden;
+    margin-top: 18px;
+  }
+  .track .fill {
+    height: 100%;
+    border-radius: 99px;
+    background: var(--primary);
+  }
+  .summary.over .track .fill { background: var(--warning); }
+
+  .progress-meta {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .progress-meta .spent { color: var(--muted); }
+  .progress-meta .pct { color: var(--primary); }
+  .summary.over .progress-meta .pct { color: var(--warning); }
+
+  .note {
+    margin-top: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--muted);
+  }
+  .note svg { flex-shrink: 0; }
+
+  /* ===== Categories card ===== */
+  .donut-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .donut {
+    position: relative;
+    width: 132px;
+    height: 132px;
+    border-radius: 50%;
+  }
+  .donut .hole {
+    position: absolute;
+    inset: 19px;
+    background: var(--card);
+    border-radius: 50%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+  }
+  .donut .hole .dh-lbl { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .donut .hole .dh-val {
+    margin-top: 2px;
+    font-size: 18px;
+    font-weight: 900;
+    color: var(--foreground);
+    letter-spacing: -0.3px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .cat-list { margin-top: 16px; display: flex; flex-direction: column; }
+  .cat-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 11px 0;
+  }
+  .cat-row + .cat-row { border-top: 1px solid var(--border); }
+  .cat-row .dot { width: 12px; height: 12px; border-radius: 4px; flex-shrink: 0; }
+  .cat-row .name {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--foreground);
+    flex: 1;
+    min-width: 0;
+  }
+  .cat-row .pct {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    width: 38px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .cat-row .amt {
+    font-size: 15px;
+    font-weight: 800;
+    color: var(--foreground);
+    font-variant-numeric: tabular-nums;
+    min-width: 74px;
+    text-align: right;
+  }
+
+  /* ===== Savings goals ===== */
+  .goals { display: flex; flex-direction: column; gap: 12px; }
+  .goal { background: var(--card); border-radius: 22px; padding: 18px; box-shadow: 0 2px 10px rgba(28,43,42,0.05); }
+  .goal-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  .goal-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 13px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+  .goal-titles { flex: 1; min-width: 0; }
+  .goal-name {
+    font-size: 16px;
+    font-weight: 800;
+    color: var(--foreground);
+    letter-spacing: -0.2px;
+  }
+  .goal-date {
+    font-size: 12.5px;
+    font-weight: 700;
+    color: var(--muted);
+    margin-top: 1px;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+  }
+  .goal-pct {
+    font-size: 15px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+  .goal .track { margin-top: 0; height: 8px; }
+  .goal-amounts {
+    margin-top: 9px;
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    font-size: 13px;
+    font-weight: 700;
+  }
+  .goal-amounts .cur-amt { color: var(--foreground); }
+  .goal-amounts .tgt-amt { color: var(--muted); }
+  .goal-amounts b { font-weight: 800; }
+
+  /* ===== Bottom nav ===== */
+  .nav {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 92px;
+    background: rgba(255,255,255,0.92);
+    backdrop-filter: blur(14px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding: 10px 8px 26px;
+    z-index: 20;
+  }
+  .nav .tab {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    color: var(--muted);
+  }
+  .nav .tab span { font-size: 11px; font-weight: 700; letter-spacing: -0.1px; }
+  .nav .tab.active { color: var(--primary); }
+</style>
+</head>
+<body>
+  <div class="device">
+    <div class="island"></div>
+
+    <div class="statusbar">
+      <div class="time">9:41</div>
+      <div class="right">
+        <svg width="18" height="12" viewBox="0 0 18 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="5" y="5" width="3" height="7" rx="1"/><rect x="10" y="2.5" width="3" height="9.5" rx="1"/><rect x="15" y="0" width="3" height="12" rx="1"/></svg>
+        <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><path d="M8.5 11.5l2.4-3a3.1 3.1 0 00-4.8 0l2.4 3zM3.4 5.2a8 8 0 0110.2 0l1.5-1.9a10.4 10.4 0 00-13.2 0l1.5 1.9zm2 2.5a4.8 4.8 0 016.2 0l1.5-1.9a7.2 7.2 0 00-9.2 0l1.5 1.9z"/></svg>
+        <svg width="26" height="13" viewBox="0 0 26 13" fill="none"><rect x="0.5" y="0.5" width="22" height="12" rx="3.5" stroke="currentColor" opacity="0.4"/><rect x="2" y="2" width="17" height="9" rx="2" fill="currentColor"/><path d="M24 4v5a2 2 0 000-5z" fill="currentColor" opacity="0.4"/></svg>
+      </div>
+    </div>
+
+    <div class="screen">
+      <div class="scroll">
+
+        <!-- ===== Header ===== -->
+        <div class="header">
+          <div class="title">Kassza</div>
+          <div class="month">2026. június</div>
+        </div>
+
+        <!-- ===== Summary card ===== -->
+        <div class="card summary">
+          <div class="top-stats">
+            <div class="stat">
+              <div class="stat-lbl">Tervezett keret</div>
+              <div class="stat-val">250 000 Ft</div>
+            </div>
+            <div class="stat right">
+              <div class="stat-lbl">Elköltött</div>
+              <div class="stat-val">165 800 Ft</div>
+            </div>
+          </div>
+
+          <div class="divider"></div>
+
+          <div class="remaining-lbl">Hátralévő keret</div>
+          <div class="remaining-amount">
+            <span class="big">84 200</span>
+            <span class="cur">Ft</span>
+          </div>
+
+          <div class="track"><div class="fill" style="width:66%"></div></div>
+          <div class="progress-meta">
+            <span class="spent">66% elköltve</span>
+            <span class="pct">Jól állsz</span>
+          </div>
+
+          <div class="note">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+            11 nap van hátra a hónapból
+          </div>
+        </div>
+
+        <!-- ===== Categories ===== -->
+        <div class="section-label">
+          <span class="lbl">Kategóriák</span>
+          <span class="meta">6 kategória</span>
+        </div>
+
+        <div class="card">
+          <div class="donut-wrap">
+            <div class="donut" style="background: conic-gradient(
+                var(--c-teal)   0deg 135.5deg,
+                var(--c-coral)  135.5deg 239.7deg,
+                var(--c-purple) 239.7deg 279.3deg,
+                var(--c-yellow) 279.3deg 310.7deg,
+                var(--c-blue)   310.7deg 338.3deg,
+                var(--c-green)  338.3deg 360deg);">
+              <div class="hole">
+                <div class="dh-lbl">Elköltve</div>
+                <div class="dh-val">165 800</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="cat-list">
+            <div class="cat-row">
+              <span class="dot" style="background:var(--c-teal)"></span>
+              <span class="name">Élelmiszer</span>
+              <span class="pct">25%</span>
+              <span class="amt">62 400 Ft</span>
+            </div>
+            <div class="cat-row">
+              <span class="dot" style="background:var(--c-coral)"></span>
+              <span class="name">Lakhatás, rezsi</span>
+              <span class="pct">19%</span>
+              <span class="amt">48 000 Ft</span>
+            </div>
+            <div class="cat-row">
+              <span class="dot" style="background:var(--c-purple)"></span>
+              <span class="name">Közlekedés</span>
+              <span class="pct">7%</span>
+              <span class="amt">18 200 Ft</span>
+            </div>
+            <div class="cat-row">
+              <span class="dot" style="background:var(--c-yellow)"></span>
+              <span class="name">Szabadidő</span>
+              <span class="pct">6%</span>
+              <span class="amt">14 500 Ft</span>
+            </div>
+            <div class="cat-row">
+              <span class="dot" style="background:var(--c-blue)"></span>
+              <span class="name">Egészség</span>
+              <span class="pct">5%</span>
+              <span class="amt">12 700 Ft</span>
+            </div>
+            <div class="cat-row">
+              <span class="dot" style="background:var(--c-green)"></span>
+              <span class="name">Egyéb</span>
+              <span class="pct">4%</span>
+              <span class="amt">10 000 Ft</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- ===== Savings goals ===== -->
+        <div class="section-label">
+          <span class="lbl">Megtakarítási célok</span>
+          <span class="meta">3 cél</span>
+        </div>
+
+        <div class="goals">
+          <!-- goal 1 -->
+          <div class="goal">
+            <div class="goal-head">
+              <div class="goal-icon" style="background:rgba(20,184,166,0.13); color:var(--primary)">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a7 7 0 00-7 7c0 3 2 5 3.5 6.5L12 19l3.5-3.5C17 14 19 12 19 9a7 7 0 00-7-7z"/><circle cx="12" cy="9" r="2.5"/></svg>
+              </div>
+              <div class="goal-titles">
+                <div class="goal-name">Nyári nyaralás</div>
+                <div class="goal-date">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                  2026.07.15.
+                </div>
+              </div>
+              <span class="goal-pct" style="color:var(--primary)">65%</span>
+            </div>
+            <div class="track"><div class="fill" style="width:65%"></div></div>
+            <div class="goal-amounts">
+              <span class="cur-amt"><b>260 000 Ft</b></span>
+              <span class="tgt-amt">/ 400 000 Ft</span>
+            </div>
+          </div>
+
+          <!-- goal 2 -->
+          <div class="goal">
+            <div class="goal-head">
+              <div class="goal-icon" style="background:rgba(167,139,250,0.16); color:var(--c-purple)">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2"/><circle cx="12" cy="13" r="4"/><path d="M8 6h4"/></svg>
+              </div>
+              <div class="goal-titles">
+                <div class="goal-name">Új mosógép</div>
+                <div class="goal-date">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                  2026.09.01.
+                </div>
+              </div>
+              <span class="goal-pct" style="color:var(--c-purple)">50%</span>
+            </div>
+            <div class="track"><div class="fill" style="width:50%; background:var(--c-purple)"></div></div>
+            <div class="goal-amounts">
+              <span class="cur-amt"><b>90 000 Ft</b></span>
+              <span class="tgt-amt">/ 180 000 Ft</span>
+            </div>
+          </div>
+
+          <!-- goal 3 -->
+          <div class="goal">
+            <div class="goal-head">
+              <div class="goal-icon" style="background:rgba(56,189,248,0.16); color:var(--c-blue)">
+                <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l8 4v5c0 4.5-3 7.5-8 9-5-1.5-8-4.5-8-9V7l8-4z"/><path d="M9 12l2 2 4-4"/></svg>
+              </div>
+              <div class="goal-titles">
+                <div class="goal-name">Vésztartalék</div>
+                <div class="goal-date">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+                  2026.12.31.
+                </div>
+              </div>
+              <span class="goal-pct" style="color:var(--c-blue)">85%</span>
+            </div>
+            <div class="track"><div class="fill" style="width:85%; background:var(--c-blue)"></div></div>
+            <div class="goal-amounts">
+              <span class="cur-amt"><b>510 000 Ft</b></span>
+              <span class="tgt-amt">/ 600 000 Ft</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ===== Bottom nav ===== -->
+      <div class="nav">
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5L12 3l9 7.5"/><path d="M5 9.5V20a1 1 0 001 1h4v-6h4v6h4a1 1 0 001-1V9.5"/></svg>
+          <span>Kezdőlap</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+          <span>Naptár</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="21" r="1.4"/><circle cx="18" cy="21" r="1.4"/><path d="M2 3h2.5l2.2 12.3a1.5 1.5 0 001.5 1.2h8.8a1.5 1.5 0 001.5-1.2L21.5 7H6"/></svg>
+          <span>Bevásárlás</span>
+        </div>
+        <div class="tab">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3v8a2 2 0 002 2h0a2 2 0 002-2V3M7 13v8M16 3c-1.5 0-2.5 2-2.5 5s1 5 2.5 5M16 13v8"/></svg>
+          <span>Étrend</span>
+        </div>
+        <div class="tab active">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 012-2h13a2 2 0 012 2v2"/><path d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2H5a2 2 0 01-2-2z"/><circle cx="17" cy="13" r="1.3" fill="currentColor"/></svg>
+          <span>Kassza</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

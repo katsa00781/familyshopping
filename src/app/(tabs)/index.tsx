@@ -1,289 +1,173 @@
-import { useEffect, useRef, useState } from 'react'
-import {
-  Alert,
-  Animated,
-  Pressable,
-  ScrollView,
-  Text,
-  View,
-} from 'react-native'
+import { useEffect, useState } from 'react'
+import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
-import { ChevronRight, MoreHorizontal, Plus, Receipt, ScanLine, ShoppingBag, ShoppingCart } from 'lucide-react-native'
+import { Settings } from 'lucide-react-native'
 
-import { ListCard } from '@/components/lista/ListCard'
+import { TodayCard, type TodayEvent } from '@/components/dashboard/TodayCard'
+import { ActiveListCard } from '@/components/dashboard/ActiveListCard'
+import { BudgetCard } from '@/components/dashboard/BudgetCard'
 import ListCreateSheet from '@/components/lista/ListCreateSheet'
+import { useAuthStore } from '@/store/authStore'
+import { useFamilyStore } from '@/store/familyStore'
 import { useListStore } from '@/store/listStore'
-import { useToastStore } from '@/store/toastStore'
-import { colors } from '@/constants/colors'
-import { formatHuf } from '@/lib/format'
-import type { ShoppingList } from '@/types'
+import { useBudgetStore } from '@/store/budgetStore'
+import { useCalendarStore } from '@/store/calendarStore'
+import { summarizeBudget } from '@/lib/budget'
+import { dayKey, eventDayKey, eventTimeLabel } from '@/lib/calendar'
+import { colors, memberColorAt } from '@/constants/colors'
 
-function formatPastDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  const str = date.toLocaleDateString('hu-HU', { month: 'short', day: 'numeric' })
+interface DisplayMember {
+  id: string
+  name: string
+}
+
+function initial(name: string): string {
+  return (name.trim()[0] ?? '?').toUpperCase()
+}
+
+function todayLabel(): string {
+  const str = new Date().toLocaleDateString('hu-HU', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    weekday: 'long',
+  })
   return str.charAt(0).toUpperCase() + str.slice(1)
 }
 
-function SectionHeader({ title }: { title: string }) {
-  return (
-    <View className="px-screen-x pt-2 pb-1" style={{ minHeight: 44, justifyContent: 'flex-end' }}>
-      <Text className="text-body-sm font-semibold text-muted uppercase" style={{ letterSpacing: 0.5 }}>
-        {title}
-      </Text>
-    </View>
-  )
-}
-
-interface PastListRowProps {
-  list: ShoppingList
-  onOpen: () => void
-  onRestore: () => void
-  onDelete: () => void
-}
-
-function PastListRow({ list, onOpen, onRestore, onDelete }: PastListRowProps) {
-  function handleMenu() {
-    Alert.alert(list.name, formatPastDate(list.date), [
-      { text: 'Újraaktiválás', onPress: onRestore },
-      { text: 'Törlés', style: 'destructive', onPress: onDelete },
-      { text: 'Mégse', style: 'cancel' },
-    ])
-  }
-
-  return (
-    <Pressable
-      className="flex-row items-center justify-between px-4 py-3"
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-      onPress={onOpen}
-      accessibilityLabel={`${list.name}, ${formatPastDate(list.date)}, ${formatHuf(list.total_amount)}`}
-    >
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text
-          className="text-body-md text-foreground dark:text-dark-foreground font-medium"
-          numberOfLines={1}
-        >
-          {list.name}
-        </Text>
-        <Text className="text-body-sm text-muted">
-          {formatPastDate(list.date)}
-        </Text>
-      </View>
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-          {formatHuf(list.total_amount)}
-        </Text>
-        <Pressable
-          onPress={handleMenu}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
-          accessibilityLabel="Műveletek"
-        >
-          <MoreHorizontal size={18} color={colors.muted} strokeWidth={1.75} />
-        </Pressable>
-      </View>
-    </Pressable>
-  )
-}
-
-function PurchasesEntryRow({ onPress }: { onPress: () => void }) {
-  return (
-    <Pressable
-      className="mx-screen-x mt-3 flex-row items-center gap-3 rounded-card border border-border dark:border-dark-border bg-card dark:bg-dark-card px-4 py-3.5"
-      style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
-      onPress={onPress}
-      accessibilityLabel="Vásárlások megtekintése"
-      accessibilityRole="button"
-    >
-      <View
-        className="items-center justify-center rounded-full bg-primary/10"
-        style={{ width: 36, height: 36 }}
-      >
-        <Receipt size={20} color={colors.primary} strokeWidth={1.75} />
-      </View>
-      <View style={{ flex: 1, gap: 2 }}>
-        <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
-          Vásárlások
-        </Text>
-        <Text className="text-body-sm text-muted">Beolvasott blokkok és befejezett listák</Text>
-      </View>
-      <ChevronRight size={20} color={colors.muted} strokeWidth={1.75} />
-    </Pressable>
-  )
-}
-
-function EmptyState() {
-  return (
-    <View className="flex-1 items-center justify-center px-screen-x py-16 gap-3">
-      <View
-        className="items-center justify-center rounded-full bg-border dark:bg-dark-border"
-        style={{ width: 72, height: 72 }}
-      >
-        <ShoppingCart size={32} color={colors.muted} />
-      </View>
-      <Text className="text-heading-md font-semibold text-foreground dark:text-dark-foreground text-center">
-        Még nincs listád
-      </Text>
-      <Text className="text-body-md text-muted text-center">
-        Hozz létre egyet a + gombbal
-      </Text>
-    </View>
-  )
-}
-
-function BoltModeButton({ onPress }: { onPress: () => void }) {
-  return (
-    <Animated.View
-      style={{
-        position: 'absolute',
-        right: 24,
-        bottom: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        backgroundColor: '#60A5FA',
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 6,
-      }}
-    >
-      <Pressable
-        onPress={onPress}
-        accessibilityLabel="Bolt mód megnyitása"
-        accessibilityRole="button"
-        style={({ pressed }) => ({
-          width: 56,
-          height: 56,
-          borderRadius: 28,
-          alignItems: 'center',
-          justifyContent: 'center',
-          opacity: pressed ? 0.85 : 1,
-        })}
-      >
-        <ShoppingBag size={24} color="#ffffff" strokeWidth={1.75} />
-      </Pressable>
-    </Animated.View>
-  )
-}
-
-export default function ListsScreen() {
+export default function KezdolapScreen() {
   const router = useRouter()
   const [createVisible, setCreateVisible] = useState(false)
 
+  const user = useAuthStore((s) => s.user)
+  const family = useFamilyStore((s) => s.family)
+  const loadFamily = useFamilyStore((s) => s.loadFamily)
+
   const lists = useListStore((s) => s.lists)
+  const activeListId = useListStore((s) => s.activeListId)
   const loadLists = useListStore((s) => s.loadLists)
   const createList = useListStore((s) => s.createList)
-  const deleteList = useListStore((s) => s.deleteList)
-  const restoreList = useListStore((s) => s.restoreList)
-  const showToast = useToastStore((s) => s.showToast)
 
-  useEffect(() => { loadLists() }, [loadLists])
+  const loadBudget = useBudgetStore((s) => s.loadBudget)
+  const budgetPlan = useBudgetStore((s) => s.plan)
+  const budgetSummary = budgetPlan ? summarizeBudget(budgetPlan) : null
 
-  async function handleRestore(list: ShoppingList) {
-    await restoreList(list.id)
-    showToast(`„${list.name}" újra aktív`, 'success')
-  }
+  const events = useCalendarStore((s) => s.events)
+  const loadEvents = useCalendarStore((s) => s.loadEvents)
 
+  useEffect(() => {
+    loadFamily()
+    loadLists()
+    loadBudget()
+    loadEvents()
+  }, [loadFamily, loadLists, loadBudget, loadEvents])
+
+  // Mai naptáresemények a „Ma" kártyához (egész napos elöl, majd idő szerint).
+  const todayKey = dayKey(new Date())
+  const todayEvents: TodayEvent[] = events
+    .filter((e) => eventDayKey(e) === todayKey)
+    .sort((a, b) => {
+      if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
+      return a.starts_at.localeCompare(b.starts_at)
+    })
+    .map((e) => ({
+      id: e.id,
+      time: e.all_day ? '—' : eventTimeLabel(e.starts_at),
+      title: e.title,
+      who: '',
+      color: e.color ?? colors.primary,
+    }))
+
+  const name = (user?.user_metadata?.['full_name'] as string | undefined) ?? 'Felhasználó'
+  const firstName = name.trim().split(/\s+/)[0] ?? name
+
+  // v1 single-user: ha nincs betöltött család, a bejelentkezett felhasználót mutatjuk.
+  const members: DisplayMember[] =
+    family && family.members.length > 0
+      ? family.members.map((m) => ({ id: m.id, name: m.name }))
+      : [{ id: user?.id ?? 'me', name }]
+
+  // Aktív lista: az explicit kiválasztott, vagy a legutóbbi befejezetlen.
   const activeLists = lists.filter((l) => !l.completed)
-  const pastLists = lists.filter((l) => l.completed)
-  const isEmpty = lists.length === 0
+  const activeList = activeLists.find((l) => l.id === activeListId) ?? activeLists[0] ?? null
 
   return (
-    <SafeAreaView
-      className="flex-1 bg-background dark:bg-dark-background"
-      edges={['top']}
-    >
-      <View
-        className="px-screen-x border-b border-border dark:border-dark-border"
-        style={{ height: 96, justifyContent: 'flex-end', paddingBottom: 12 }}
+    <SafeAreaView className="flex-1 bg-background dark:bg-dark-background" edges={['top']}>
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 4, paddingBottom: 32, gap: 18 }}
       >
-        <View className="flex-row items-end justify-between">
-          <Text className="text-heading-xl font-bold text-foreground dark:text-dark-foreground">
-            Bevásárló listák
-          </Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-            <Pressable
-              onPress={() => router.push('/ocr')}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityLabel="Blokk beolvasása"
-              accessibilityRole="button"
+        {/* Fejléc: köszöntés + dátum, jobbra tag-avatarok + beállítások */}
+        <View
+          style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', paddingHorizontal: 2, paddingTop: 10 }}
+        >
+          <View style={{ flex: 1 }}>
+            <Text
+              className="text-foreground dark:text-dark-foreground"
+              style={{ fontSize: 27, fontWeight: '800', letterSpacing: -0.4, lineHeight: 30 }}
+              numberOfLines={1}
             >
-              <ScanLine size={24} color={colors.muted} strokeWidth={1.75} />
-            </Pressable>
+              Szia, {firstName}!
+            </Text>
+            <Text className="text-muted" style={{ marginTop: 4, fontSize: 14, fontWeight: '600' }}>
+              {todayLabel()}
+            </Text>
+          </View>
+
+          <View className="flex-row items-center">
+            {members.map((m, idx) => (
+              <View
+                key={m.id}
+                className="items-center justify-center rounded-full border-card dark:border-dark-card"
+                style={{
+                  width: 40,
+                  height: 40,
+                  borderWidth: 2.5,
+                  backgroundColor: memberColorAt(idx),
+                  marginLeft: idx === 0 ? 0 : -8,
+                }}
+              >
+                <Text className="text-white" style={{ fontSize: 15, fontWeight: '800' }}>
+                  {initial(m.name)}
+                </Text>
+              </View>
+            ))}
             <Pressable
-              onPress={() => setCreateVisible(true)}
-              style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, padding: 4 })}
-              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              accessibilityLabel="Új lista létrehozása"
+              onPress={() => router.push('/(tabs)/profil')}
+              accessibilityLabel="Család és beállítások"
               accessibilityRole="button"
+              hitSlop={8}
+              style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
             >
-              <Plus size={28} color={colors.primary} strokeWidth={2.5} />
+              <View
+                style={{ marginLeft: -8 }}
+                className="items-center justify-center rounded-full bg-card dark:bg-dark-card border-2 border-border dark:border-dark-border"
+              >
+                <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
+                  <Settings size={20} color={colors.foreground} strokeWidth={1.75} />
+                </View>
+              </View>
             </Pressable>
           </View>
         </View>
-      </View>
 
-      <PurchasesEntryRow onPress={() => router.push('/vasarlasok')} />
+        <TodayCard events={todayEvents} onPress={() => router.navigate('/(tabs)/naptar')} />
 
-      {isEmpty ? (
-        <EmptyState />
-      ) : (
-        <ScrollView
-          showsVerticalScrollIndicator={false}
-          contentContainerStyle={{ paddingBottom: 104 }}
-        >
-          {activeLists.length > 0 && (
-            <>
-              <SectionHeader title="Aktív listák" />
-              <View className="pt-2">
-                {activeLists.map((list) => (
-                  <ListCard key={list.id} list={list} onPress={() => router.push(`/lista/${list.id}`)} />
-                ))}
-              </View>
-            </>
-          )}
+        <ActiveListCard
+          list={activeList}
+          onOpen={() => activeList && router.push(`/lista/${activeList.id}`)}
+          onOpenBolt={() => router.navigate('/(tabs)/bolt')}
+          onCreate={() => setCreateVisible(true)}
+        />
 
-          {pastLists.length > 0 && (
-            <>
-              <SectionHeader title="Korábbi listák" />
-              <View className="mx-screen-x mt-2 rounded-card overflow-hidden border border-border dark:border-dark-border bg-card dark:bg-dark-card">
-                {pastLists.map((list, idx) => (
-                  <View key={list.id}>
-                    {idx > 0 && <View className="h-px bg-border dark:bg-dark-border mx-4" />}
-                    <PastListRow
-                      list={list}
-                      onOpen={() => router.push(`/lista/${list.id}`)}
-                      onRestore={() => handleRestore(list)}
-                      onDelete={() =>
-                        Alert.alert(
-                          'Lista törlése',
-                          `Biztosan törlöd a(z) „${list.name}" listát?`,
-                          [
-                            { text: 'Törlés', style: 'destructive', onPress: () => deleteList(list.id) },
-                            { text: 'Mégse', style: 'cancel' },
-                          ]
-                        )
-                      }
-                    />
-                  </View>
-                ))}
-              </View>
-            </>
-          )}
-        </ScrollView>
-      )}
-
-      <BoltModeButton onPress={() => router.navigate('/(tabs)/bolt')} />
+        <BudgetCard summary={budgetSummary} onPress={() => router.navigate('/(tabs)/kassza')} />
+      </ScrollView>
 
       <ListCreateSheet
         visible={createVisible}
         onClose={() => setCreateVisible(false)}
-        onCreate={(name, date) => createList(name, date)}
+        onCreate={(listName, date) => createList(listName, date)}
       />
     </SafeAreaView>
   )

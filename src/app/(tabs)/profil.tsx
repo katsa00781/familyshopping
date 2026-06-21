@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { ChevronRight, Copy } from 'lucide-react-native'
+import { ChevronLeft, ChevronRight, Copy } from 'lucide-react-native'
 import type { ReactNode } from 'react'
 import { router } from 'expo-router'
 
@@ -130,6 +130,16 @@ export default function ProfilScreen() {
         className="px-screen-x border-b border-border dark:border-dark-border bg-background dark:bg-dark-background"
         style={{ height: 96, justifyContent: 'flex-end', paddingBottom: 12 }}
       >
+        <Pressable
+          onPress={() => router.back()}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, flexDirection: 'row', alignItems: 'center', marginLeft: -6, marginBottom: 2, alignSelf: 'flex-start' })}
+          accessibilityLabel="Vissza"
+          accessibilityRole="button"
+        >
+          <ChevronLeft size={22} color={colors.muted} strokeWidth={1.75} />
+          <Text className="text-body-md text-muted">Kezdőlap</Text>
+        </Pressable>
         <Text className="text-heading-xl font-bold text-foreground dark:text-dark-foreground">
           Profil
         </Text>

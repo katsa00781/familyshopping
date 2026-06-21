@@ -156,6 +156,134 @@ export interface Family {
   members: FamilyMember[]
 }
 
+// ─── Naptár ─────────────────────────────────────────────────────────────────
+// v1: user_id-scoped (NEM family_id). A member_id/color a tagszínes megjelenítést
+// szolgálja; v1-ben az esemény színét közvetlenül a `color` mező adja.
+export interface CalendarEventInput {
+  title: string
+  description: string | null
+  location: string | null
+  starts_at: string // ISO timestamp (UTC)
+  ends_at: string | null
+  all_day: boolean
+  member_id: string | null
+  color: string | null
+}
+
+export interface CalendarEvent extends CalendarEventInput {
+  id: string
+  user_id: string
+  created_by: string | null
+  rrule: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ─── Kassza (familybudget – CSAK olvasás) ─────────────────────────────────────
+// A familybudget `budget_plans.budget_data` JSONB háromféle formátumot vehet fel
+// (régi → új). Mindet a `normalizeBudgetData` egységesíti `BudgetCategorySummary`-vé.
+export interface BudgetItem {
+  category: string
+  subcategory: string
+  amount: number
+}
+
+export interface BudgetCategory {
+  name: string
+  items?: BudgetItem[]
+  amount?: number
+}
+
+export interface BudgetStorageV2 {
+  version?: string
+  categories: BudgetCategory[]
+}
+
+export type BudgetStoragePayload = BudgetCategory[] | BudgetItem[] | BudgetStorageV2
+
+export interface BudgetPlan {
+  id: string
+  user_id: string
+  total_amount: number
+  actual_income: number | null
+  budget_data: BudgetStoragePayload | null
+  is_active: boolean
+  description: string | null
+  created_at: string
+  updated_at: string
+}
+
+// Normalizált kategória-összeg (a 3 formátum bármelyikéből).
+export interface BudgetCategorySummary {
+  name: string
+  amount: number
+}
+
+// Kezdőlap + Kassza tab tervezési nézete (v1: nincs valós „elköltött",
+// csak terv-adat). keret = actual_income ?? total_amount; allocated = Σ kategória.
+export interface BudgetSummary {
+  keret: number
+  allocated: number
+  remaining: number
+  hasIncome: boolean
+  categories: BudgetCategorySummary[]
+}
+
+export interface SavingsGoal {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  target_amount: number
+  current_amount: number
+  target_date: string | null
+  color: string | null
+  category: string | null
+  created_at: string
+  updated_at: string
+}
+
+// ─── Étkezéstervező ───────────────────────────────────────────────────────────
+// recipes/recipe_ingredients: familybudget tábla (CSAK olvasás). A meal_plan_entries
+// új, v1: user_id-scoped (NEM family_id).
+export type MealType = 'reggeli' | 'ebéd' | 'vacsora'
+
+export interface Recipe {
+  id: string
+  user_id: string
+  name: string
+  description: string | null
+  prep_time: number | null // perc
+  servings: number | null
+  image_url: string | null
+  instructions: string | null
+  created_at: string | null
+  updated_at: string | null
+}
+
+export interface RecipeIngredient {
+  id: string
+  recipe_id: string
+  name: string
+  quantity: number
+  unit: string
+  created_at: string | null
+}
+
+export interface MealPlanEntryInput {
+  date: string // helyi YYYY-MM-DD
+  meal_type: MealType
+  recipe_id: string
+  servings: number
+}
+
+export interface MealPlanEntry extends MealPlanEntryInput {
+  id: string
+  user_id: string
+  created_by: string | null
+  created_at: string | null
+}
+
 // ─── UI helper típusok ────────────────────────────────────────────────────────
 export interface PriceChange {
   product_id: string | null
