@@ -84,7 +84,7 @@ export function MemberEditorSheet({ visible, onClose }: MemberEditorSheetProps) 
             </Pressable>
           </View>
           <Text className="text-muted" style={{ paddingHorizontal: 18, paddingBottom: 12, fontSize: 13, fontWeight: '600' }}>
-            A tagokat az étrend tételeihez rendelheted. A színkörre koppintva válts színt.
+            A tagokat az eseményekhez és az étrend tételeihez rendelheted. A színkörre koppintva válts színt.
           </Text>
 
           <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={{ paddingHorizontal: 18, paddingBottom: 8, gap: 8 }} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>

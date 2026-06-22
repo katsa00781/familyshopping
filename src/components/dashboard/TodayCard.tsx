@@ -55,7 +55,8 @@ export function TodayCard({ events = [], onPress }: TodayCardProps) {
               />
               <Text
                 className="text-foreground dark:text-dark-foreground"
-                style={{ width: 46, fontSize: 14.5, fontWeight: '800', fontVariant: ['tabular-nums'] }}
+                style={{ width: 52, fontSize: 14.5, fontWeight: '800', fontVariant: ['tabular-nums'] }}
+                numberOfLines={1}
               >
                 {ev.time}
               </Text>

@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
-import { MapPin } from 'lucide-react-native'
+import { MapPin, Repeat } from 'lucide-react-native'
 
 import { eventTimeLabel } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
@@ -7,10 +7,11 @@ import type { CalendarEvent } from '@/types'
 
 interface AgendaEventProps {
   event: CalendarEvent
+  memberName?: string | null
   onPress: () => void
 }
 
-export function AgendaEvent({ event, onPress }: AgendaEventProps) {
+export function AgendaEvent({ event, memberName, onPress }: AgendaEventProps) {
   const barColor = event.color ?? colors.primary
 
   return (
@@ -56,13 +57,16 @@ export function AgendaEvent({ event, onPress }: AgendaEventProps) {
         </View>
 
         <View style={{ flex: 1, minWidth: 0, justifyContent: 'center', gap: 3 }}>
-          <Text
-            className="text-foreground dark:text-dark-foreground"
-            style={{ fontSize: 15.5, fontWeight: '700', letterSpacing: -0.2 }}
-            numberOfLines={1}
-          >
-            {event.title}
-          </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text
+              className="text-foreground dark:text-dark-foreground"
+              style={{ flexShrink: 1, fontSize: 15.5, fontWeight: '700', letterSpacing: -0.2 }}
+              numberOfLines={1}
+            >
+              {event.title}
+            </Text>
+            {event.rrule ? <Repeat size={13} color={colors.muted} strokeWidth={2.2} /> : null}
+          </View>
           {event.location ? (
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
               <MapPin size={13} color={colors.muted} strokeWidth={2} />
@@ -72,6 +76,17 @@ export function AgendaEvent({ event, onPress }: AgendaEventProps) {
             </View>
           ) : null}
         </View>
+
+        {memberName ? (
+          <View style={{ justifyContent: 'center', paddingLeft: 4 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <View style={{ width: 8, height: 8, borderRadius: 99, backgroundColor: barColor }} />
+              <Text className="text-muted" style={{ fontSize: 12.5, fontWeight: '800' }} numberOfLines={1}>
+                {memberName}
+              </Text>
+            </View>
+          </View>
+        ) : null}
       </View>
     </Pressable>
   )

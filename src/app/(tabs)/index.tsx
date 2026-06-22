@@ -13,8 +13,9 @@ import { useFamilyStore } from '@/store/familyStore'
 import { useListStore } from '@/store/listStore'
 import { useBudgetStore } from '@/store/budgetStore'
 import { useCalendarStore } from '@/store/calendarStore'
+import { useMemberStore } from '@/store/memberStore'
 import { summarizeBudget } from '@/lib/budget'
-import { dayKey, eventDayKey, eventTimeLabel } from '@/lib/calendar'
+import { dayKey, eventDayKey, eventTimeLabel, expandEvents } from '@/lib/calendar'
 import { colors, memberColorAt } from '@/constants/colors'
 
 interface DisplayMember {
@@ -57,16 +58,21 @@ export default function KezdolapScreen() {
   const events = useCalendarStore((s) => s.events)
   const loadEvents = useCalendarStore((s) => s.loadEvents)
 
+  const familyMembers = useMemberStore((s) => s.members)
+  const loadMembers = useMemberStore((s) => s.loadMembers)
+
   useEffect(() => {
     loadFamily()
     loadLists()
     loadBudget()
     loadEvents()
-  }, [loadFamily, loadLists, loadBudget, loadEvents])
+    void loadMembers()
+  }, [loadFamily, loadLists, loadBudget, loadEvents, loadMembers])
 
-  // Mai naptáresemények a „Ma" kártyához (egész napos elöl, majd idő szerint).
-  const todayKey = dayKey(new Date())
-  const todayEvents: TodayEvent[] = events
+  // Mai naptáresemények a „Ma" kártyához (ismétlődő is kibontva, egész napos elöl).
+  const now = new Date()
+  const todayKey = dayKey(now)
+  const todayEvents: TodayEvent[] = expandEvents(events, now, now)
     .filter((e) => eventDayKey(e) === todayKey)
     .sort((a, b) => {
       if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
@@ -76,7 +82,7 @@ export default function KezdolapScreen() {
       id: e.id,
       time: e.all_day ? '—' : eventTimeLabel(e.starts_at),
       title: e.title,
-      who: '',
+      who: e.member_id ? familyMembers.find((m) => m.id === e.member_id)?.name ?? '' : '',
       color: e.color ?? colors.primary,
     }))
 

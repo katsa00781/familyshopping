@@ -1,13 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
-import { Calendar, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
+import { router } from 'expo-router'
+import { Calendar, CalendarClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
 
 import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
 import { EventSheet } from '@/components/naptar/EventSheet'
 import { useCalendarStore } from '@/store/calendarStore'
-import { agendaDayLabel, dayKey, eventDayKey, monthTitle, type CalendarDay } from '@/lib/calendar'
+import { useMemberStore } from '@/store/memberStore'
+import { agendaDayLabel, dayKey, eventDayKey, expandEvents, monthGridRange, monthTitle, type CalendarDay } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
@@ -17,6 +19,9 @@ export default function NaptarScreen() {
   const createEvent = useCalendarStore((s) => s.createEvent)
   const updateEvent = useCalendarStore((s) => s.updateEvent)
   const deleteEvent = useCalendarStore((s) => s.deleteEvent)
+
+  const members = useMemberStore((s) => s.members)
+  const loadMembers = useMemberStore((s) => s.loadMembers)
 
   const today = useMemo(() => new Date(), [])
   const [viewYear, setViewYear] = useState(today.getFullYear())
@@ -28,12 +33,25 @@ export default function NaptarScreen() {
 
   useEffect(() => {
     loadEvents()
-  }, [loadEvents])
+    void loadMembers()
+  }, [loadEvents, loadMembers])
+
+  const memberNameById = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const m of members) map.set(m.id, m.name)
+    return map
+  }, [members])
+
+  // Az ismétlődő eseményeket a látható hónap-ablakra bontjuk ki (egyszeriek változatlanul).
+  const expanded = useMemo(() => {
+    const { start, end } = monthGridRange(viewYear, viewMonth)
+    return expandEvents(events, start, end)
+  }, [events, viewYear, viewMonth])
 
   // Napi pöttyök: kulcs → tagszínek (egyedi, max 3-at mutat a grid)
   const dotsByDay = useMemo(() => {
     const map = new Map<string, string[]>()
-    for (const ev of events) {
+    for (const ev of expanded) {
       const key = eventDayKey(ev)
       const arr = map.get(key) ?? []
       const c = ev.color ?? colors.primary
@@ -41,17 +59,17 @@ export default function NaptarScreen() {
       map.set(key, arr)
     }
     return map
-  }, [events])
+  }, [expanded])
 
   const selectedKey = dayKey(selected)
   const dayEvents = useMemo(() => {
-    return events
+    return expanded
       .filter((e) => eventDayKey(e) === selectedKey)
       .sort((a, b) => {
         if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
         return a.starts_at.localeCompare(b.starts_at)
       })
-  }, [events, selectedKey])
+  }, [expanded, selectedKey])
 
   function shiftMonth(delta: number) {
     const next = new Date(viewYear, viewMonth + delta, 1)
@@ -80,7 +98,9 @@ export default function NaptarScreen() {
   }
 
   function openEdit(ev: CalendarEvent) {
-    setEditing(ev)
+    // Ismétlődő előfordulásnál a mester-eseményt szerkesztjük (eredeti kezdettel).
+    const master = events.find((e) => e.id === ev.id) ?? ev
+    setEditing(master)
     setSheetVisible(true)
   }
 
@@ -104,9 +124,20 @@ export default function NaptarScreen() {
             <ChevronRight size={18} color={colors.foreground} strokeWidth={2.4} />
           </Pressable>
         </View>
-        <Pressable onPress={goToday} accessibilityLabel="Ugrás a mai napra" style={{ borderRadius: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: 'rgba(20,184,166,0.12)' }}>
-          <Text style={{ fontSize: 14, fontWeight: '800', letterSpacing: -0.1, color: colors.primary }}>Ma</Text>
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable
+            onPress={() => router.push('/muszak')}
+            accessibilityLabel="Műszakbeosztás"
+            hitSlop={8}
+            className="bg-card dark:bg-dark-card"
+            style={{ width: 38, height: 38, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <CalendarClock size={19} color={colors.foreground} strokeWidth={2} />
+          </Pressable>
+          <Pressable onPress={goToday} accessibilityLabel="Ugrás a mai napra" style={{ borderRadius: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: 'rgba(20,184,166,0.12)' }}>
+            <Text style={{ fontSize: 14, fontWeight: '800', letterSpacing: -0.1, color: colors.primary }}>Ma</Text>
+          </Pressable>
+        </View>
       </View>
 
       <MonthGrid
@@ -129,7 +160,14 @@ export default function NaptarScreen() {
         </View>
 
         {dayEvents.length > 0 ? (
-          dayEvents.map((ev) => <AgendaEvent key={ev.id} event={ev} onPress={() => openEdit(ev)} />)
+          dayEvents.map((ev) => (
+            <AgendaEvent
+              key={ev.id}
+              event={ev}
+              memberName={ev.member_id ? memberNameById.get(ev.member_id) ?? null : null}
+              onPress={() => openEdit(ev)}
+            />
+          ))
         ) : (
           <View style={{ alignItems: 'center', paddingTop: 40, paddingHorizontal: 30, gap: 6 }}>
             <View style={{ width: 64, height: 64, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(20,184,166,0.10)', marginBottom: 8 }}>

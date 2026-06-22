@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import { getSessionSafe } from '@/lib/supabase'
 import { loadWithSessionRetry } from '@/lib/loadWithRetry'
-import { fetchEvents, insertEvent, patchEvent, removeEvent } from '@/lib/calendar'
+import { fetchEvents, insertEvent, insertEvents, patchEvent, removeEvent, removeEvents } from '@/lib/calendar'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
 const CACHE_KEY = 'familyhub_calendar_v1'
@@ -35,6 +35,8 @@ interface CalendarState {
   createEvent: (input: CalendarEventInput) => Promise<void>
   updateEvent: (id: string, input: CalendarEventInput) => Promise<void>
   deleteEvent: (id: string) => Promise<void>
+  createEventsWithIds: (inputs: CalendarEventInput[]) => Promise<string[]>
+  deleteEvents: (ids: string[]) => Promise<void>
 }
 
 export const useCalendarStore = create<CalendarState>((set, get) => ({
@@ -82,7 +84,6 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       id: generateId(),
       user_id: user?.id ?? 'mock-user',
       created_by: user?.id ?? null,
-      rrule: null,
       created_at: now,
       updated_at: now,
     }
@@ -140,6 +141,59 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
         await removeEvent(id)
       } catch {
         set({ events: prev, error: 'Esemény törlése sikertelen' })
+        await saveCache(prev)
+      }
+    }
+  },
+
+  // Műszak-generálás: stabil, kliens-oldali id-kkel szúr be (a sablon ezeket követi).
+  createEventsWithIds: async (inputs) => {
+    if (inputs.length === 0) return []
+    const session = await getSessionSafe()
+    const user = session?.user
+    const now = new Date().toISOString()
+
+    const rows = inputs.map((input) => ({ ...input, id: generateId() }))
+    const optimistic: CalendarEvent[] = rows.map((r) => ({
+      ...r,
+      user_id: user?.id ?? 'mock-user',
+      created_by: user?.id ?? null,
+      created_at: now,
+      updated_at: now,
+    }))
+
+    const prev = get().events
+    const next = [...prev, ...optimistic].sort((a, b) => a.starts_at.localeCompare(b.starts_at))
+    set({ events: next })
+    await saveCache(next)
+
+    if (user) {
+      try {
+        await insertEvents(user.id, rows)
+      } catch {
+        set({ events: prev, error: 'Beosztás mentése sikertelen' })
+        await saveCache(prev)
+        return []
+      }
+    }
+    return rows.map((r) => r.id)
+  },
+
+  deleteEvents: async (ids) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    const prev = get().events
+    const next = prev.filter((e) => !idSet.has(e.id))
+    set({ events: next })
+    await saveCache(next)
+
+    const session = await getSessionSafe()
+    const user = session?.user
+    if (user) {
+      try {
+        await removeEvents(ids)
+      } catch {
+        set({ events: prev, error: 'Beosztás törlése sikertelen' })
         await saveCache(prev)
       }
     }

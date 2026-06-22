@@ -176,17 +176,38 @@ export interface CalendarEventInput {
   starts_at: string // ISO timestamp (UTC)
   ends_at: string | null
   all_day: boolean
-  member_id: string | null
+  member_id: string | null // a lokális tag-store azonosítója (null = közös/mindenki)
   color: string | null
+  rrule: string | null // ismétlődés (RFC 5545 részhalmaz); null = egyszeri
 }
 
 export interface CalendarEvent extends CalendarEventInput {
   id: string
   user_id: string
   created_by: string | null
-  rrule: string | null
   created_at: string
   updated_at: string
+}
+
+// ─── Műszakbeosztás (lokális sablon → naptáreseményeket generál) ───────────────
+// v1: a sablon lokális (AsyncStorage), a generált események viszont valódi
+// `calendar_events` sorok (heti ismétlődés, INTERVAL = ciklus hossza hétben). A
+// `generatedEventIds` a legutóbbi generálás eseményeit tartja számon (frissítés/
+// törlés ezeket cseréli/törli).
+export interface ShiftType {
+  id: string
+  name: string // pl. „Délelőttös"
+  startMinutes: number // perc éjféltől (pl. 360 = 06:00)
+  endMinutes: number // perc éjféltől; ha <= start → másnap (éjszakai műszak)
+  color: string
+}
+
+export interface ShiftSchedule {
+  cycleWeeks: number // a ciklus hossza hetekben (pl. 6)
+  anchorDate: string // helyi YYYY-MM-DD, a ciklus 1. hetének hétfője
+  memberId: string | null // melyik családtaghoz (szín/hozzárendelés)
+  days: (string | null)[] // hossz = cycleWeeks*7; index → ShiftType.id vagy null (pihenő)
+  generatedEventIds: string[] // a legutóbbi generálás calendar_events id-jei
 }
 
 // ─── Kassza (familybudget – CSAK olvasás) ─────────────────────────────────────

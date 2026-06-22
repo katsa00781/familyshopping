@@ -14,10 +14,22 @@ import {
   View,
 } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
-import { Check, Clock, Trash2, X } from 'lucide-react-native'
+import { Check, Clock, Repeat, Trash2, Users, UsersRound, X } from 'lucide-react-native'
 
 import { DateTimePickerModal } from './DateTimePickerModal'
-import { shortDateLabel } from '@/lib/calendar'
+import { MemberEditorSheet } from '@/components/etrend/MemberEditorSheet'
+import {
+  RECURRENCE_OPTIONS,
+  RECURRENCE_UNITS,
+  buildRRule,
+  freqFromRRule,
+  intervalFromRRule,
+  recurrenceLabel,
+  shortDateLabel,
+  untilFromRRule,
+  type RecurrenceFreq,
+} from '@/lib/calendar'
+import { useMemberStore } from '@/store/memberStore'
 import { colors, memberColors } from '@/constants/colors'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
@@ -34,20 +46,33 @@ function timeLabel(d: Date): string {
   return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
-type PickerTarget = { field: 'start' | 'end'; mode: 'date' | 'time' } | null
+type PickerTarget = { field: 'start' | 'end' | 'until'; mode: 'date' | 'time' } | null
 
 export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDelete }: EventSheetProps) {
   const dark = useColorScheme() === 'dark'
   const isEdit = event !== null
 
+  const members = useMemberStore((s) => s.members)
+  const loadMembers = useMemberStore((s) => s.loadMembers)
+
   const [title, setTitle] = useState('')
   const [allDay, setAllDay] = useState(false)
   const [start, setStart] = useState(new Date())
   const [end, setEnd] = useState(new Date())
+  const [memberId, setMemberId] = useState<string | null>(null)
   const [color, setColor] = useState<string>(memberColors[0])
+  const [freq, setFreq] = useState<RecurrenceFreq>('none')
+  const [customOpen, setCustomOpen] = useState(false)
+  const [customInterval, setCustomInterval] = useState('6')
+  const [until, setUntil] = useState<Date | null>(null)
   const [location, setLocation] = useState('')
   const [note, setNote] = useState('')
   const [picker, setPicker] = useState<PickerTarget>(null)
+  const [membersOpen, setMembersOpen] = useState(false)
+
+  useEffect(() => {
+    void loadMembers()
+  }, [loadMembers])
 
   const translateY = useSharedValue(900)
   useEffect(() => {
@@ -63,7 +88,14 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
       const s = new Date(event.starts_at)
       setStart(s)
       setEnd(event.ends_at ? new Date(event.ends_at) : new Date(s.getTime() + 60 * 60 * 1000))
+      setMemberId(event.member_id)
       setColor(event.color ?? memberColors[0])
+      const f = freqFromRRule(event.rrule)
+      const iv = intervalFromRRule(event.rrule)
+      setFreq(f)
+      setCustomOpen(f !== 'none' && iv > 1)
+      setCustomInterval(String(iv > 1 ? iv : 6))
+      setUntil(untilFromRRule(event.rrule))
       setLocation(event.location ?? '')
       setNote(event.description ?? '')
     } else {
@@ -74,7 +106,12 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
       setAllDay(false)
       setStart(s)
       setEnd(e)
+      setMemberId(null)
       setColor(memberColors[0])
+      setFreq('none')
+      setCustomOpen(false)
+      setCustomInterval('6')
+      setUntil(null)
       setLocation('')
       setNote('')
     }
@@ -94,16 +131,45 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
       starts_at: start.toISOString(),
       ends_at: allDay ? null : safeEnd.toISOString(),
       all_day: allDay,
-      member_id: null,
+      member_id: memberId,
       color,
+      rrule: buildRRule(freq, customOpen ? parseInterval(customInterval) : 1, freq === 'none' ? null : until),
     }
     onSave(input, event?.id ?? null)
     onClose()
   }
 
+  function parseInterval(raw: string): number {
+    const n = parseInt(raw, 10)
+    return Number.isFinite(n) && n > 0 ? n : 1
+  }
+
+  function selectPreset(key: RecurrenceFreq) {
+    setFreq(key)
+    setCustomOpen(false)
+    if (key === 'none') setUntil(null)
+  }
+
+  function openCustom() {
+    setCustomOpen(true)
+    if (freq === 'none') setFreq('weekly') // alapértelmezett egység: hét (műszakciklus)
+  }
+
+  function selectMember(m: { id: string; color: string }) {
+    setMemberId(m.id)
+    setColor(m.color) // a tag színe lesz az alapszín (a színválasztó felülírhatja)
+  }
+
+  // Élő előnézet a custom rrule-ról („6 hetente"), ha érvényes.
+  const customPreview =
+    customOpen && freq !== 'none'
+      ? recurrenceLabel(buildRRule(freq, parseInterval(customInterval), null))
+      : null
+
   function handleDelete() {
     if (!event) return
-    Alert.alert('Esemény törlése', `Biztosan törlöd: „${event.title}"?`, [
+    const recurringNote = event.rrule ? '\n\nEz egy ismétlődő esemény – minden előfordulás törlődik.' : ''
+    Alert.alert('Esemény törlése', `Biztosan törlöd: „${event.title}"?${recurringNote}`, [
       { text: 'Mégse', style: 'cancel' },
       { text: 'Törlés', style: 'destructive', onPress: () => { onDelete(event.id); onClose() } },
     ])
@@ -115,8 +181,10 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
       setStart(value)
       // a vég együtt csúszik, ha a kezdet mögé kerülne
       if (value.getTime() >= end.getTime()) setEnd(new Date(value.getTime() + 60 * 60 * 1000))
-    } else {
+    } else if (picker.field === 'end') {
       setEnd(value)
+    } else {
+      setUntil(value)
     }
     setPicker(null)
   }
@@ -158,6 +226,63 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
                 placeholderTextColor="#C2C6C4"
                 style={[styles.input, { backgroundColor: fieldBg, borderColor: fieldBorder, color: fg, fontSize: 22, fontWeight: '800', letterSpacing: -0.4 }]}
               />
+            </View>
+
+            {/* Kinek – családtag-hozzárendelés (tagszín lesz az esemény színe) */}
+            <View style={{ marginBottom: 18 }}>
+              <Text style={styles.label} className="text-muted">KINEK</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                <Pressable
+                  onPress={() => setMemberId(null)}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: memberId === null }}
+                  accessibilityLabel="Közös esemény"
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, paddingLeft: 8, paddingRight: 14,
+                    borderRadius: 99, borderWidth: 1.5,
+                    borderColor: memberId === null ? colors.muted : fieldBorder,
+                    backgroundColor: memberId === null ? `${colors.muted}1A` : fieldBg,
+                  }}
+                >
+                  <View style={{ width: 22, height: 22, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.muted }}>
+                    <Users size={12} color="#FFFFFF" strokeWidth={2.4} />
+                  </View>
+                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: memberId === null ? colors.muted : colors.muted }}>Közös</Text>
+                </Pressable>
+
+                {members.map((m) => {
+                  const active = memberId === m.id
+                  return (
+                    <Pressable
+                      key={m.id}
+                      onPress={() => selectMember(m)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`${m.name} kiválasztása`}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, paddingLeft: 8, paddingRight: 14,
+                        borderRadius: 99, borderWidth: 1.5,
+                        borderColor: active ? m.color : fieldBorder,
+                        backgroundColor: active ? `${m.color}1A` : fieldBg,
+                      }}
+                    >
+                      <View style={{ width: 22, height: 22, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: m.color }}>
+                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>{m.name.charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <Text style={{ fontSize: 13.5, fontWeight: '800', color: active ? m.color : colors.muted }}>{m.name}</Text>
+                    </Pressable>
+                  )
+                })}
+
+                <Pressable
+                  onPress={() => setMembersOpen(true)}
+                  accessibilityLabel="Tagok kezelése"
+                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 13, borderRadius: 99, borderWidth: 1.5, borderStyle: 'dashed', borderColor: fieldBorder }}
+                >
+                  <UsersRound size={15} color={colors.muted} strokeWidth={2} />
+                  <Text className="text-muted" style={{ fontSize: 13, fontWeight: '800' }}>Tagok</Text>
+                </Pressable>
+              </View>
             </View>
 
             {/* Egész napos */}
@@ -246,6 +371,129 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
               </View>
             </View>
 
+            {/* Ismétlődés */}
+            <View style={{ marginBottom: 18 }}>
+              <Text style={styles.label} className="text-muted">ISMÉTLŐDÉS</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {RECURRENCE_OPTIONS.map((opt) => {
+                  const active = !customOpen && freq === opt.key
+                  return (
+                    <Pressable
+                      key={opt.key}
+                      onPress={() => selectPreset(opt.key)}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected: active }}
+                      accessibilityLabel={`Ismétlődés: ${opt.label}`}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 14,
+                        borderRadius: 99, borderWidth: 1.5,
+                        borderColor: active ? colors.primary : fieldBorder,
+                        backgroundColor: active ? 'rgba(20,184,166,0.12)' : fieldBg,
+                      }}
+                    >
+                      {opt.key !== 'none' ? (
+                        <Repeat size={14} color={active ? colors.primary : colors.muted} strokeWidth={2.2} />
+                      ) : null}
+                      <Text style={{ fontSize: 13.5, fontWeight: '800', color: active ? colors.primary : colors.muted }}>
+                        {opt.label}
+                      </Text>
+                    </Pressable>
+                  )
+                })}
+
+                {/* Egyéni intervallum (pl. 6 hetes műszakciklus) */}
+                <Pressable
+                  onPress={openCustom}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: customOpen }}
+                  accessibilityLabel="Egyéni ismétlődés"
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 14,
+                    borderRadius: 99, borderWidth: 1.5,
+                    borderColor: customOpen ? colors.primary : fieldBorder,
+                    backgroundColor: customOpen ? 'rgba(20,184,166,0.12)' : fieldBg,
+                  }}
+                >
+                  <Repeat size={14} color={customOpen ? colors.primary : colors.muted} strokeWidth={2.2} />
+                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: customOpen ? colors.primary : colors.muted }}>
+                    Egyéni
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Egyéni szerkesztő: „minden N nap/hét/hónap/év" */}
+              {customOpen ? (
+                <View style={{ marginTop: 12 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 14.5, fontWeight: '700' }}>
+                      Minden
+                    </Text>
+                    <TextInput
+                      value={customInterval}
+                      onChangeText={(t) => setCustomInterval(t.replace(/[^0-9]/g, ''))}
+                      keyboardType="number-pad"
+                      maxLength={3}
+                      accessibilityLabel="Ismétlődés intervalluma"
+                      style={{ width: 64, textAlign: 'center', borderWidth: 1.5, borderRadius: 12, paddingVertical: 10, fontSize: 16, fontWeight: '800', backgroundColor: fieldBg, borderColor: fieldBorder, color: fg }}
+                    />
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {RECURRENCE_UNITS.map((u) => {
+                        const active = freq === u.key
+                        return (
+                          <Pressable
+                            key={u.key}
+                            onPress={() => setFreq(u.key)}
+                            accessibilityRole="button"
+                            accessibilityState={{ selected: active }}
+                            accessibilityLabel={`Egység: ${u.label}`}
+                            style={{
+                              height: 38, paddingHorizontal: 13, borderRadius: 11, alignItems: 'center', justifyContent: 'center',
+                              borderWidth: 1.5,
+                              borderColor: active ? colors.primary : fieldBorder,
+                              backgroundColor: active ? 'rgba(20,184,166,0.12)' : fieldBg,
+                            }}
+                          >
+                            <Text style={{ fontSize: 14, fontWeight: '800', color: active ? colors.primary : colors.muted }}>{u.label}</Text>
+                          </Pressable>
+                        )
+                      })}
+                    </View>
+                  </View>
+                  {customPreview ? (
+                    <Text className="text-muted" style={{ marginTop: 8, fontSize: 12.5, fontWeight: '700' }}>
+                      Ismétlődik: {customPreview} · a kezdő dátumtól
+                    </Text>
+                  ) : null}
+                </View>
+              ) : null}
+
+              {freq !== 'none' ? (
+                <View style={{ marginTop: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                  <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 14.5, fontWeight: '700' }}>
+                    Ismétlődés vége
+                  </Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <Pressable
+                      onPress={() => setUntil(null)}
+                      accessibilityLabel="Soha nem ér véget"
+                      style={[styles.pill, { backgroundColor: until === null ? 'rgba(20,184,166,0.12)' : dark ? colors.darkBackground : '#F4F2ED' }]}
+                    >
+                      <Text style={[styles.pillText, { color: until === null ? colors.primary : fg }]}>Soha</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => setPicker({ field: 'until', mode: 'date' })}
+                      accessibilityLabel="Ismétlődés vég-dátuma"
+                      style={[styles.pill, { backgroundColor: until !== null ? 'rgba(20,184,166,0.12)' : dark ? colors.darkBackground : '#F4F2ED' }]}
+                    >
+                      <Text style={[styles.pillText, { color: until !== null ? colors.primary : fg }]}>
+                        {until ? shortDateLabel(until) : 'Dátum'}
+                      </Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : null}
+            </View>
+
             {/* Hely */}
             <View style={{ marginBottom: 18 }}>
               <Text style={styles.label} className="text-muted">HELY · opcionális</Text>
@@ -295,11 +543,13 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
       <DateTimePickerModal
         visible={picker !== null}
         mode={picker?.mode ?? 'date'}
-        value={picker?.field === 'end' ? end : start}
+        value={picker?.field === 'end' ? end : picker?.field === 'until' ? (until ?? end) : start}
         accent={color}
         onConfirm={applyPicked}
         onClose={() => setPicker(null)}
       />
+
+      <MemberEditorSheet visible={membersOpen} onClose={() => setMembersOpen(false)} />
     </Modal>
   )
 }

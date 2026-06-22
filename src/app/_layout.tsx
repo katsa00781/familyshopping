@@ -54,6 +54,7 @@ export default function RootLayout() {
                 options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
               />
               <Stack.Screen name="family-settings" />
+              <Stack.Screen name="muszak" />
             </Stack>
             <ToastContainer />
           </View>
