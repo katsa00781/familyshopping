@@ -9,7 +9,7 @@ import {
   View,
 } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
-import { Clock, NotebookPen, Trash2, UtensilsCrossed, Users, X } from 'lucide-react-native'
+import { Clock, NotebookPen, Pencil, Plus, Trash2, UtensilsCrossed, Users, X } from 'lucide-react-native'
 
 import { MEAL_TYPES } from '@/lib/recipes'
 import { colors } from '@/constants/colors'
@@ -29,6 +29,8 @@ interface RecipePickerSheetProps {
   onClose: () => void
   onPick: (recipeId: string) => void
   onRemove: (entryId: string) => void
+  onNewRecipe: () => void
+  onEditRecipe: (recipe: Recipe) => void
 }
 
 export function RecipePickerSheet({
@@ -38,6 +40,8 @@ export function RecipePickerSheet({
   onClose,
   onPick,
   onRemove,
+  onNewRecipe,
+  onEditRecipe,
 }: RecipePickerSheetProps) {
   const dark = useColorScheme() === 'dark'
 
@@ -93,8 +97,20 @@ export function RecipePickerSheet({
           <Text className="text-muted" style={{ paddingHorizontal: 18, paddingBottom: 10, fontSize: 13, fontWeight: '600' }}>
             {target
               ? 'Válassz receptet ehhez az étkezéshez.'
-              : 'Koppints egy nap étkezésére a recept hozzáadásához.'}
+              : 'Koppints egy receptre a szerkesztéshez, vagy hozz létre újat.'}
           </Text>
+
+          {/* Új recept (mindkét módban elérhető) */}
+          <Pressable
+            onPress={onNewRecipe}
+            accessibilityLabel="Új recept létrehozása"
+            style={{ marginHorizontal: 18, marginBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, height: 48, borderRadius: 16, backgroundColor: colors.primary }}
+          >
+            <Plus size={19} color={colors.primaryForeground} strokeWidth={2.6} />
+            <Text style={{ fontSize: 15.5, fontWeight: '800', color: colors.primaryForeground, letterSpacing: -0.2 }}>
+              Új recept
+            </Text>
+          </Pressable>
 
           {/* Eltávolítás (ha a slothoz már tartozik recept) */}
           {target?.existingEntryId ? (
@@ -119,8 +135,8 @@ export function RecipePickerSheet({
                 Még nincs recepted
               </Text>
               <Text className="text-muted" style={{ fontSize: 13.5, fontWeight: '600', textAlign: 'center' }}>
-                A recepteket a familybudget weben viheted fel. Ha kész, itt megjelennek és
-                napokhoz rendelheted őket.
+                Koppints a fenti „Új recept” gombra az első recept létrehozásához. Hozzávalókkal
+                a bevásárlólista is pontosabb lesz.
               </Text>
             </View>
           ) : (
@@ -150,25 +166,26 @@ export function RecipePickerSheet({
                         ) : null}
                       </View>
                     </View>
+                    {!target ? (
+                      <View style={{ width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center', backgroundColor: dark ? colors.darkBorder : 'rgba(28,43,42,0.06)' }}>
+                        <Pencil size={16} color={colors.muted} strokeWidth={2} />
+                      </View>
+                    ) : null}
                   </View>
                 )
 
-                return target ? (
+                return (
                   <Pressable
                     key={r.id}
-                    onPress={() => handlePick(r.id)}
+                    onPress={() => (target ? handlePick(r.id) : onEditRecipe(r))}
                     accessibilityRole="button"
-                    accessibilityLabel={`${r.name} kiválasztása`}
+                    accessibilityLabel={target ? `${r.name} kiválasztása` : `${r.name} szerkesztése`}
                     style={({ pressed }) => [
                       { borderRadius: 18, padding: 12, borderWidth: 1.5, borderColor: fieldBorder, backgroundColor: fieldBg, opacity: pressed ? 0.7 : 1 },
                     ]}
                   >
                     {row}
                   </Pressable>
-                ) : (
-                  <View key={r.id} style={{ borderRadius: 18, padding: 12, borderWidth: 1.5, borderColor: fieldBorder, backgroundColor: fieldBg }}>
-                    {row}
-                  </View>
                 )
               })}
             </ScrollView>

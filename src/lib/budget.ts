@@ -4,6 +4,8 @@ import type {
   BudgetPlan,
   BudgetSummary,
   SavingsGoal,
+  WalletCategoryDetail,
+  WalletSpending,
 } from '@/types'
 
 // ─── Apró, biztonságos parserek (any tilos) ───────────────────────────────────
@@ -22,6 +24,11 @@ function asNumber(v: unknown): number {
 
 function asString(v: unknown, fallback: string): string {
   return typeof v === 'string' && v.trim().length > 0 ? v : fallback
+}
+
+function asStringArray(v: unknown): string[] {
+  if (!Array.isArray(v)) return []
+  return v.filter((x): x is string => typeof x === 'string' && x.length > 0)
 }
 
 // ─── budget_data normalizálás ─────────────────────────────────────────────────
@@ -64,7 +71,7 @@ function normalizeCategoryArray(cats: unknown[]): BudgetCategorySummary[] {
     } else {
       amount = asNumber(rec['amount'])
     }
-    out.push({ name, amount })
+    out.push({ name, amount, spent: 0, walletCategories: asStringArray(rec['walletCategories']) })
   }
   return out
 }
@@ -77,7 +84,8 @@ function normalizeItemArray(items: unknown[]): BudgetCategorySummary[] {
     const cat = asString(rec['category'], 'Egyéb')
     map.set(cat, (map.get(cat) ?? 0) + asNumber(rec['amount']))
   }
-  return [...map.entries()].map(([name, amount]) => ({ name, amount }))
+  // A tétel-tömb (régi formátum) nem hordoz Wallet-mappinget → nincs valós költés-join.
+  return [...map.entries()].map(([name, amount]) => ({ name, amount, spent: 0, walletCategories: [] }))
 }
 
 // ─── Aktuális havi terv lekérése ──────────────────────────────────────────────
@@ -132,23 +140,92 @@ export async function getSavingsGoals(userId: string): Promise<SavingsGoal[]> {
   }))
 }
 
+// ─── Valós havi költés (Wallet REST proxy) ────────────────────────────────────
+// Az aktuális hónap első napja YYYY-MM-DD (helyi idő szerint).
+export function currentMonthStart(): string {
+  const now = new Date()
+  const y = now.getFullYear()
+  const m = String(now.getMonth() + 1).padStart(2, '0')
+  return `${y}-${m}-01`
+}
+
+// A wallet-spending Edge Function hívása. A token szerver oldalon él; itt csak a
+// Supabase JWT-vel hitelesítünk (a `functions.invoke` automatikusan csatolja).
+export async function getWalletSpending(month: string): Promise<WalletSpending | null> {
+  const { data, error } = await supabase.functions.invoke('wallet-spending', {
+    body: { month },
+  })
+  if (error) throw error
+  if (!data || typeof data !== 'object') return null
+  const d = data as Partial<WalletSpending>
+  if (!d.byCategory || typeof d.byCategory !== 'object') return null
+  return {
+    month: typeof d.month === 'string' ? d.month : month,
+    currency: typeof d.currency === 'string' ? d.currency : 'HUF',
+    byCategory: d.byCategory,
+    totalSpent: asNumber(d.totalSpent),
+    syncedAt: typeof d.syncedAt === 'string' ? d.syncedAt : new Date().toISOString(),
+  }
+}
+
+// Egy terv-kategória lebontása (Wallet-alkategória csoportok + tételek) az adott hónapra.
+export async function getWalletSpendingDetail(
+  month: string,
+  category: string,
+): Promise<WalletCategoryDetail | null> {
+  const { data, error } = await supabase.functions.invoke('wallet-spending', {
+    body: { month, detail: category },
+  })
+  if (error) throw error
+  if (!data || typeof data !== 'object') return null
+  const d = data as Partial<WalletCategoryDetail>
+  if (!Array.isArray(d.groups)) return null
+  return {
+    month: typeof d.month === 'string' ? d.month : month,
+    category: typeof d.category === 'string' ? d.category : category,
+    currency: typeof d.currency === 'string' ? d.currency : 'HUF',
+    total: asNumber(d.total),
+    groups: d.groups,
+    syncedAt: typeof d.syncedAt === 'string' ? d.syncedAt : new Date().toISOString(),
+  }
+}
+
 // ─── Terv → összegzés ─────────────────────────────────────────────────────────
-// v1 tervezési nézet: keret = actual_income ?? total_amount; allocated = Σ kategória.
-// Valós „elköltött" nincs a Supabase táblákban (a Wallet rendszerben él) → nem mutatjuk.
-export function summarizeBudget(plan: BudgetPlan): BudgetSummary {
+// keret = actual_income ?? total_amount; allocated = Σ betervezett kategória.
+// `spending` megadásakor a valós (Wallet) költést is bekötjük: a wallet-spending
+// Edge Function már TERV-KATEGÓRIA NÉV szerint összegzett (Wallet→terv koncepció-
+// mapping, átvezetések kihagyásával), így itt egyszerű név-szerinti join.
+export function summarizeBudget(
+  plan: BudgetPlan,
+  spending?: WalletSpending | null,
+): BudgetSummary {
+  const byCat = spending?.byCategory ?? null
+  const hasSpending = byCat != null
+
   const categories = normalizeBudgetData(plan.budget_data)
     .filter((c) => c.amount > 0)
+    .map((c) => ({
+      ...c,
+      spent: byCat ? (byCat[c.name] ?? 0) : 0,
+    }))
     .sort((a, b) => b.amount - a.amount)
 
   const allocated = categories.reduce((s, c) => s + c.amount, 0)
   const hasIncome = plan.actual_income != null
   const keret = hasIncome ? Number(plan.actual_income) : Number(plan.total_amount)
 
+  // Teljes valós költés = a függvény által számolt összeg (minden nem-átvezetés
+  // kiadás, a térképen kívüli tételek az „Egyéb" alatt). Robusztus a tervtől függetlenül.
+  const totalSpent = hasSpending ? Number(spending?.totalSpent ?? 0) : 0
+
   return {
     keret,
     allocated,
+    totalSpent,
     remaining: keret - allocated,
+    remainingAfterSpent: keret - totalSpent,
     hasIncome,
+    hasSpending,
     categories,
   }
 }

@@ -5,8 +5,13 @@ import { useRouter } from 'expo-router'
 import { BookOpen, ChevronLeft, ChevronRight, ShoppingCart } from 'lucide-react-native'
 
 import { DayCard } from '@/components/etrend/DayCard'
-import { RecipePickerSheet, type PickerTarget } from '@/components/etrend/RecipePickerSheet'
+import { RecipeEditorSheet } from '@/components/etrend/RecipeEditorSheet'
+import { RecipePickerSheet } from '@/components/etrend/RecipePickerSheet'
+import { MealEntrySheet, type MealEntryTarget } from '@/components/etrend/MealEntrySheet'
+import { MemberEditorSheet } from '@/components/etrend/MemberEditorSheet'
 import { useMealPlanStore } from '@/store/mealPlanStore'
+import { useMemberStore } from '@/store/memberStore'
+import { useProductStore } from '@/store/productStore'
 import { useListStore } from '@/store/listStore'
 import { useToastStore } from '@/store/toastStore'
 import { dayKey } from '@/lib/calendar'
@@ -21,7 +26,14 @@ import {
 } from '@/lib/recipes'
 import { haptics } from '@/lib/haptics'
 import { colors } from '@/constants/colors'
-import type { MealPlanEntry, MealType, Recipe, RecipeIngredient } from '@/types'
+import type {
+  FamilyMemberLocal,
+  MealPlanEntry,
+  MealType,
+  Product,
+  Recipe,
+  RecipeIngredient,
+} from '@/types'
 
 export default function EtrendScreen() {
   const router = useRouter()
@@ -30,8 +42,16 @@ export default function EtrendScreen() {
   const ingredients = useMealPlanStore((s) => s.ingredients)
   const entries = useMealPlanStore((s) => s.entries)
   const loadAll = useMealPlanStore((s) => s.loadAll)
-  const assignRecipe = useMealPlanStore((s) => s.assignRecipe)
+  const addEntry = useMealPlanStore((s) => s.addEntry)
   const removeEntry = useMealPlanStore((s) => s.removeEntry)
+  const saveRecipe = useMealPlanStore((s) => s.saveRecipe)
+  const deleteRecipe = useMealPlanStore((s) => s.deleteRecipe)
+
+  const members = useMemberStore((s) => s.members)
+  const loadMembers = useMemberStore((s) => s.loadMembers)
+
+  const products = useProductStore((s) => s.products)
+  const loadProducts = useProductStore((s) => s.loadProducts)
 
   const createListWithItems = useListStore((s) => s.createListWithItems)
   const setActiveListId = useListStore((s) => s.setActiveListId)
@@ -41,12 +61,22 @@ export default function EtrendScreen() {
   const [weekStart, setWeekStart] = useState<Date>(() => startOfWeek(new Date()))
   const [excluded, setExcluded] = useState<Set<string>>(new Set())
 
-  const [sheetVisible, setSheetVisible] = useState(false)
-  const [pickerTarget, setPickerTarget] = useState<PickerTarget | null>(null)
+  // Tétel-hozzáadó sheet (recept/termék)
+  const [mealSheetVisible, setMealSheetVisible] = useState(false)
+  const [mealTarget, setMealTarget] = useState<MealEntryTarget | null>(null)
+
+  // Receptkönyv (böngésző) sheet + tag-szerkesztő
+  const [browseVisible, setBrowseVisible] = useState(false)
+  const [memberSheetVisible, setMemberSheetVisible] = useState(false)
+
+  const [editorVisible, setEditorVisible] = useState(false)
+  const [editorRecipe, setEditorRecipe] = useState<Recipe | null>(null)
 
   useEffect(() => {
     loadAll()
-  }, [loadAll])
+    loadMembers()
+    loadProducts()
+  }, [loadAll, loadMembers, loadProducts])
 
   const days = useMemo(() => weekDays(weekStart), [weekStart])
   const todayKey = dayKey(today)
@@ -67,12 +97,26 @@ export default function EtrendScreen() {
     return m
   }, [ingredients])
 
-  // nap (YYYY-MM-DD) → (étkezés → tétel)
+  const membersById = useMemo(() => {
+    const m = new Map<string, FamilyMemberLocal>()
+    for (const mem of members) m.set(mem.id, mem)
+    return m
+  }, [members])
+
+  const productsById = useMemo(() => {
+    const m = new Map<string, Product>()
+    for (const p of products) m.set(p.id, p)
+    return m
+  }, [products])
+
+  // nap (YYYY-MM-DD) → (étkezés → tételek listája)
   const entriesByDay = useMemo(() => {
-    const m = new Map<string, Map<MealType, MealPlanEntry>>()
+    const m = new Map<string, Map<MealType, MealPlanEntry[]>>()
     for (const e of entries) {
-      const inner = m.get(e.date) ?? new Map<MealType, MealPlanEntry>()
-      inner.set(e.meal_type, e)
+      const inner = m.get(e.date) ?? new Map<MealType, MealPlanEntry[]>()
+      const arr = inner.get(e.meal_type) ?? []
+      arr.push(e)
+      inner.set(e.meal_type, arr)
       m.set(e.date, inner)
     }
     return m
@@ -107,35 +151,75 @@ export default function EtrendScreen() {
     })
   }
 
-  function openSlot(date: Date, mealType: MealType) {
-    const key = dayKey(date)
-    const existing = entriesByDay.get(key)?.get(mealType) ?? null
-    setPickerTarget({
-      date: key,
-      mealType,
-      weekdayLabel: weekdayFull(date),
-      existingEntryId: existing?.id ?? null,
-    })
-    setSheetVisible(true)
+  function openAddEntry(date: Date, mealType: MealType) {
+    setMealTarget({ date: dayKey(date), mealType, weekdayLabel: weekdayFull(date) })
+    setMealSheetVisible(true)
   }
 
   function openBrowse() {
-    setPickerTarget(null)
-    setSheetVisible(true)
+    setBrowseVisible(true)
   }
 
-  function handlePick(recipeId: string) {
-    if (!pickerTarget) return
-    const recipe = recipesById.get(recipeId)
-    const servings = recipe?.servings && recipe.servings > 0 ? recipe.servings : 4
-    void assignRecipe(pickerTarget.date, pickerTarget.mealType, recipeId, servings)
-    haptics.light()
+  function openNewRecipe() {
+    setMealSheetVisible(false)
+    setBrowseVisible(false)
+    setEditorRecipe(null)
+    setEditorVisible(true)
+  }
+
+  function openEditRecipe(recipe: Recipe) {
+    setBrowseVisible(false)
+    setEditorRecipe(recipe)
+    setEditorVisible(true)
+  }
+
+  function openManageMembers() {
+    setMealSheetVisible(false)
+    setMemberSheetVisible(true)
+  }
+
+  const editorIngredients = useMemo(
+    () => (editorRecipe ? (ingredientsByRecipe.get(editorRecipe.id) ?? []) : []),
+    [editorRecipe, ingredientsByRecipe],
+  )
+
+  function handleAddRecipe(memberId: string | null, recipeId: string, servings: number) {
+    if (!mealTarget) return
+    void addEntry({
+      date: mealTarget.date,
+      meal_type: mealTarget.mealType,
+      member_id: memberId,
+      recipe_id: recipeId,
+      servings,
+      item_name: null,
+      product_id: null,
+      quantity: null,
+      unit: null,
+    })
+  }
+
+  function handleAddProduct(
+    memberId: string | null,
+    item: { item_name: string; product_id: string | null; quantity: number; unit: string },
+  ) {
+    if (!mealTarget) return
+    void addEntry({
+      date: mealTarget.date,
+      meal_type: mealTarget.mealType,
+      member_id: memberId,
+      recipe_id: null,
+      servings: 4,
+      item_name: item.item_name,
+      product_id: item.product_id,
+      quantity: item.quantity,
+      unit: item.unit,
+    })
   }
 
   function handleGenerate() {
     const selectedKeys = new Set(selectedDays.map((d) => dayKey(d)))
     const selectedEntries = entries.filter((e) => selectedKeys.has(e.date))
-    const items = buildShoppingItems(selectedEntries, recipesById, ingredientsByRecipe)
+    const items = buildShoppingItems(selectedEntries, recipesById, ingredientsByRecipe, productsById)
 
     if (items.length === 0) {
       haptics.warning()
@@ -225,10 +309,13 @@ export default function EtrendScreen() {
               isToday={key === todayKey}
               entriesByMeal={entriesByDay.get(key) ?? new Map()}
               recipesById={recipesById}
+              membersById={membersById}
+              productsById={productsById}
               selectable={isSelectable(key)}
               selected={isSelected(key)}
               onToggle={() => toggleDay(key)}
-              onSlotPress={(mealType) => openSlot(d, mealType)}
+              onAddEntry={(mealType) => openAddEntry(d, mealType)}
+              onRemoveEntry={(id) => void removeEntry(id)}
             />
           )
         })}
@@ -274,13 +361,44 @@ export default function EtrendScreen() {
         </Text>
       </View>
 
-      <RecipePickerSheet
-        visible={sheetVisible}
+      <MealEntrySheet
+        visible={mealSheetVisible}
+        target={mealTarget}
+        members={members}
         recipes={recipes}
-        target={pickerTarget}
-        onClose={() => setSheetVisible(false)}
-        onPick={handlePick}
-        onRemove={(id) => void removeEntry(id)}
+        products={products}
+        onClose={() => setMealSheetVisible(false)}
+        onAddRecipe={handleAddRecipe}
+        onAddProduct={handleAddProduct}
+        onManageMembers={openManageMembers}
+        onNewRecipe={openNewRecipe}
+      />
+
+      <RecipePickerSheet
+        visible={browseVisible}
+        recipes={recipes}
+        target={null}
+        onClose={() => setBrowseVisible(false)}
+        onPick={() => {}}
+        onRemove={() => {}}
+        onNewRecipe={openNewRecipe}
+        onEditRecipe={openEditRecipe}
+      />
+
+      <MemberEditorSheet
+        visible={memberSheetVisible}
+        onClose={() => setMemberSheetVisible(false)}
+      />
+
+      <RecipeEditorSheet
+        visible={editorVisible}
+        recipe={editorRecipe}
+        ingredients={editorIngredients}
+        onClose={() => setEditorVisible(false)}
+        onSave={async (input, ings, id) => {
+          await saveRecipe(input, ings, id)
+        }}
+        onDelete={(id) => deleteRecipe(id)}
       />
     </SafeAreaView>
   )

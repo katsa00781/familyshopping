@@ -4,17 +4,20 @@ import { Check } from 'lucide-react-native'
 import { MealRow } from './MealRow'
 import { MEAL_TYPES, dayDateLabel, weekdayFull } from '@/lib/recipes'
 import { colors } from '@/constants/colors'
-import type { MealPlanEntry, MealType, Recipe } from '@/types'
+import type { FamilyMemberLocal, MealPlanEntry, MealType, Product, Recipe } from '@/types'
 
 interface DayCardProps {
   date: Date
   isToday: boolean
-  entriesByMeal: Map<MealType, MealPlanEntry>
+  entriesByMeal: Map<MealType, MealPlanEntry[]>
   recipesById: Map<string, Recipe>
+  membersById: Map<string, FamilyMemberLocal>
+  productsById: Map<string, Product>
   selectable: boolean
   selected: boolean
   onToggle: () => void
-  onSlotPress: (mealType: MealType) => void
+  onAddEntry: (mealType: MealType) => void
+  onRemoveEntry: (id: string) => void
 }
 
 const todayShadow = {
@@ -38,10 +41,13 @@ export function DayCard({
   isToday,
   entriesByMeal,
   recipesById,
+  membersById,
+  productsById,
   selectable,
   selected,
   onToggle,
-  onSlotPress,
+  onAddEntry,
+  onRemoveEntry,
 }: DayCardProps) {
   const count = entriesByMeal.size
   const meta = count > 0 ? `${count} étkezés` : 'üres'
@@ -118,21 +124,20 @@ export function DayCard({
 
       {/* Étkezések */}
       <View>
-        {MEAL_TYPES.map((m, i) => {
-          const entry = entriesByMeal.get(m.key) ?? null
-          const recipe = entry ? recipesById.get(entry.recipe_id) ?? null : null
-          return (
-            <MealRow
-              key={m.key}
-              mealType={m.key}
-              label={m.label}
-              recipe={recipe}
-              servings={entry?.servings ?? null}
-              showDivider={i > 0}
-              onPress={() => onSlotPress(m.key)}
-            />
-          )
-        })}
+        {MEAL_TYPES.map((m, i) => (
+          <MealRow
+            key={m.key}
+            mealType={m.key}
+            label={m.label}
+            entries={entriesByMeal.get(m.key) ?? []}
+            recipesById={recipesById}
+            membersById={membersById}
+            productsById={productsById}
+            showDivider={i > 0}
+            onAdd={() => onAddEntry(m.key)}
+            onRemoveEntry={onRemoveEntry}
+          />
+        ))}
       </View>
     </View>
   )

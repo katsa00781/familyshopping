@@ -18,10 +18,10 @@ function currentMonthLabel(): string {
 }
 
 /**
- * Kassza kártya – havi terv áttekintése (v1 tervezési nézet).
- * Nagy szám = szabad keret, alatta vékony sáv a betervezett arányról.
- * v1-ben NINCS valós „elköltött" adat (a tényleges tranzakciók a Wallet
- * rendszerben élnek), ezért a sáv a betervezett allokációt mutatja.
+ * Kassza kártya – havi áttekintés.
+ * Nagy szám = szabad keret. Ha van élő Wallet költés-adat (`hasSpending`), a
+ * szabad keret = keret − valós elköltött, és a sáv az elköltött arányt mutatja;
+ * enélkül a v1 tervezési nézet: szabad keret = keret − betervezett allokáció.
  */
 export function BudgetCard({ summary, onPress }: BudgetCardProps) {
   if (!summary) {
@@ -41,10 +41,15 @@ export function BudgetCard({ summary, onPress }: BudgetCardProps) {
     )
   }
 
-  const { keret, allocated, remaining } = summary
-  const ratio = keret > 0 ? Math.min(allocated / keret, 1) : 0
-  const pct = keret > 0 ? Math.round((allocated / keret) * 100) : 0
-  const over = remaining < 0
+  // Valós (Wallet) költéssel: szabad keret = keret − elköltve, sáv = elköltve / keret.
+  // Enélkül a v1 tervezési nézet: szabad keret = keret − betervezve.
+  const { keret, allocated, remaining, totalSpent, remainingAfterSpent, hasSpending } = summary
+  const used = hasSpending ? totalSpent : allocated
+  const free = hasSpending ? remainingAfterSpent : remaining
+  const usedLabel = hasSpending ? 'Elköltve' : 'Betervezve'
+  const ratio = keret > 0 ? Math.min(used / keret, 1) : 0
+  const pct = keret > 0 ? Math.round((used / keret) * 100) : 0
+  const over = free < 0
 
   return (
     <DashboardCard
@@ -60,7 +65,7 @@ export function BudgetCard({ summary, onPress }: BudgetCardProps) {
           className={over ? 'text-warning' : 'text-foreground dark:text-dark-foreground'}
           style={{ fontSize: 38, fontWeight: '900', letterSpacing: -1, fontVariant: ['tabular-nums'] }}
         >
-          {formatHuNumber(remaining)}
+          {formatHuNumber(free)}
         </Text>
         <Text
           className={over ? 'text-warning' : 'text-foreground dark:text-dark-foreground'}
@@ -87,9 +92,9 @@ export function BudgetCard({ summary, onPress }: BudgetCardProps) {
         style={{ marginTop: 11, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
       >
         <Text className="text-muted" style={{ fontSize: 13, fontWeight: '700' }}>
-          {'Betervezve '}
+          {`${usedLabel} `}
           <Text className="text-foreground dark:text-dark-foreground" style={{ fontWeight: '700' }}>
-            {formatHuNumber(allocated)} Ft
+            {formatHuNumber(used)} Ft
           </Text>
           {` / ${formatHuNumber(keret)} Ft`}
         </Text>

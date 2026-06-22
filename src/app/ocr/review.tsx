@@ -41,12 +41,17 @@ function generateId(): string {
 }
 
 // A felhasználó kézi javításait visszatöltjük a tanuló glosszáriumba (ocr_corrections).
-// Csak ott rögzítünk, ahol volt eredeti OCR-név és a végleges név érdemben eltér tőle.
+// A glosszárium kulcsa a blokkon BETŰHÍVEN szereplő szöveg (rawName) — ez a stabil token,
+// amit a modell a következő blokkokon újra felismer. Csak akkor rögzítünk, ha:
+//  - van nyers (blokkon látható) szöveg ÉS van végleges név,
+//  - a felhasználó ténylegesen JAVÍTOTTA a modell javaslatát (name !== suggestedName),
+//  - a végleges név érdemben eltér a nyers szövegtől (különben nincs mit tanulni).
 async function recordCorrections(items: ReviewItem[]): Promise<void> {
   const corrections = items.filter(
     (item) =>
       item.rawName.trim().length > 0 &&
       item.name.trim().length > 0 &&
+      item.name.trim().toLowerCase() !== item.suggestedName.trim().toLowerCase() &&
       item.rawName.trim().toLowerCase() !== item.name.trim().toLowerCase()
   )
   if (corrections.length === 0) return
@@ -219,6 +224,7 @@ export default function OCRReviewScreen() {
       id: generateId(),
       name: '',
       rawName: '',
+      suggestedName: '',
       qty: 1,
       unit: 'db',
       price: 0,

@@ -12,8 +12,9 @@ import { useColorScheme } from 'nativewind'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { ChevronLeft, Grid3X3, List, Plus } from 'lucide-react-native'
+import { Grid3X3, List, Plus } from 'lucide-react-native'
 
+import { ListSegment, useSegmentNav } from '@/components/lista/ListSegment'
 import { useProductStore } from '@/store/productStore'
 import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
 import ProductCard from '@/components/termekek/ProductCard'
@@ -54,6 +55,7 @@ function ListSkeletons({ count }: { count: number }) {
 
 export default function TermekekScreen() {
   const router = useRouter()
+  const handleSegment = useSegmentNav('termekek')
   const { colorScheme } = useColorScheme()
   const dark = colorScheme === 'dark'
   const { width } = useWindowDimensions()
@@ -137,24 +139,15 @@ export default function TermekekScreen() {
 
   const Header = (
     <>
-      {/* Large title */}
-      <View
-        className="px-screen-x border-b border-border dark:border-dark-border"
-        style={{ height: 96, justifyContent: 'flex-end', paddingBottom: 12 }}
-      >
-        <Pressable
-          onPress={() => router.back()}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1, flexDirection: 'row', alignItems: 'center', marginLeft: -6, marginBottom: 2, alignSelf: 'flex-start' })}
-          accessibilityLabel="Vissza"
-          accessibilityRole="button"
+      {/* Cím + szegmens-vezérlő (Listák / Termékek / Árak) */}
+      <View className="px-screen-x" style={{ paddingTop: 6, paddingBottom: 4 }}>
+        <Text
+          className="text-foreground dark:text-dark-foreground"
+          style={{ fontSize: 30, fontWeight: '900', letterSpacing: -0.6 }}
         >
-          <ChevronLeft size={22} color={colors.muted} strokeWidth={1.75} />
-          <Text className="text-body-md text-muted">Bevásárlás</Text>
-        </Pressable>
-        <Text className="text-heading-xl font-bold text-foreground dark:text-dark-foreground">
-          Termékek
+          Bevásárlás
         </Text>
+        <ListSegment active="termekek" onSelect={handleSegment} />
       </View>
 
       {/* Search + toggle row */}

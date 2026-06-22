@@ -113,6 +113,7 @@ export interface Purchase {
 // ─── OCR ─────────────────────────────────────────────────────────────────────
 export interface OCRItem {
   name: string
+  rawName: string // a blokkon betűhíven szereplő szöveg (tanuló glosszárium kulcsa)
   qty: number
   unit: string | null
   price: number
@@ -130,7 +131,7 @@ export interface OCRResponse {
 
 export interface ReviewItem extends OCRItem {
   id: string
-  rawName: string // amit az OCR eredetileg kiolvasott (tanuló glosszáriumhoz)
+  suggestedName: string // a modell eredeti (tiszta) javaslata — ehhez mérjük, hogy a user javított-e
   isDuplicate: boolean
   existingProductId: string | null
   matchedProductName: string | null
@@ -138,6 +139,15 @@ export interface ReviewItem extends OCRItem {
 }
 
 // ─── Család ───────────────────────────────────────────────────────────────────
+// v1: a családtagok lokálisak (AsyncStorage), nincs DB-oldali tábla. Az étrend +
+// (később) a naptár tagszínes megjelenítését szolgálják. A `color` a memberColors
+// készletből való hex.
+export interface FamilyMemberLocal {
+  id: string
+  name: string
+  color: string
+}
+
 export type FamilyRole = 'admin' | 'member' | 'viewer'
 
 export interface FamilyMember {
@@ -192,6 +202,11 @@ export interface BudgetCategory {
   name: string
   items?: BudgetItem[]
   amount?: number
+  // A familybudget terv-kategóriához rendelt Wallet-kategória UUID-k. (Megjegyzés:
+  // ezek az ID-k elavultak / nem egyeznek az élő Wallet kategóriákkal, ezért a valós
+  // költés-join NEM ezek mentén, hanem terv-kategória NÉV szerint történik — a
+  // Wallet→terv koncepció-mapping a wallet-spending Edge Functionben él.)
+  walletCategories?: string[]
 }
 
 export interface BudgetStorageV2 {
@@ -214,18 +229,64 @@ export interface BudgetPlan {
 }
 
 // Normalizált kategória-összeg (a 3 formátum bármelyikéből).
+// `amount` = betervezett keret; `spent` = valós (Wallet) költés a hónapban
+// (0, ha nincs spending adat); `walletCategories` = a join-hoz használt UUID-k.
 export interface BudgetCategorySummary {
   name: string
   amount: number
+  spent: number
+  walletCategories: string[]
 }
 
-// Kezdőlap + Kassza tab tervezési nézete (v1: nincs valós „elköltött",
-// csak terv-adat). keret = actual_income ?? total_amount; allocated = Σ kategória.
+// A Wallet REST-ből (wallet-spending Edge Function) érkező valós havi költés.
+// A függvény a Wallet→terv koncepció-mapping mentén már TERV-KATEGÓRIA NÉV szerint
+// összegzett (belső átvezetések kihagyva), így a kliens egyszerű név-join-nal köti be.
+export interface WalletSpending {
+  month: string // YYYY-MM-DD, a hónap első napja
+  currency: string // 'HUF'
+  byCategory: Record<string, number> // terv-kategória neve → elköltött (pozitív, Ft)
+  totalSpent: number
+  syncedAt: string
+}
+
+// Egy terv-kategória lebontása (a wallet-spending `detail` módja): Wallet-alkategória
+// csoportok, azon belül a konkrét tételek. A koppintásos részletező nézethez.
+export interface WalletSpendingRecord {
+  label: string // jegyzet / partner / alkategória
+  amount: number // pozitív, Ft
+  date: string // ISO időbélyeg (recordDate)
+}
+
+export interface WalletSpendingGroup {
+  subCategory: string // magyar alkategória-címke
+  total: number
+  records: WalletSpendingRecord[]
+}
+
+export interface WalletCategoryDetail {
+  month: string
+  category: string // terv-kategória neve
+  currency: string
+  total: number
+  groups: WalletSpendingGroup[]
+  syncedAt: string
+}
+
+// Kezdőlap + Kassza tab összegzése.
+//   keret      = actual_income ?? total_amount
+//   allocated  = Σ betervezett kategória
+//   totalSpent = Σ valós költés a terv-kategóriákra (0, ha nincs spending)
+//   remaining  = keret − allocated (tervezési maradék)
+//   remainingAfterSpent = keret − totalSpent (valós szabad keret)
+//   hasSpending = van-e élő Wallet költés-adat ehhez a hónaphoz
 export interface BudgetSummary {
   keret: number
   allocated: number
+  totalSpent: number
   remaining: number
+  remainingAfterSpent: number
   hasIncome: boolean
+  hasSpending: boolean
   categories: BudgetCategorySummary[]
 }
 
@@ -267,14 +328,40 @@ export interface RecipeIngredient {
   name: string
   quantity: number
   unit: string
+  product_id: string | null // a familyshopping `products` katalógus sora (ár a listához)
   created_at: string | null
 }
 
+// Recept létrehozás/szerkesztés bemenete (v1: user_id-scoped, saját receptek írhatók).
+export interface RecipeInput {
+  name: string
+  description: string | null
+  prep_time: number | null // perc
+  servings: number | null
+  instructions: string | null
+}
+
+export interface RecipeIngredientInput {
+  name: string
+  quantity: number
+  unit: string
+  product_id: string | null
+}
+
+// Egy étrend-tétel vagy receptre (recipe_id), vagy nyers termékre (item_name +
+// quantity + unit, opcionálisan product_id-vel a katalógusból) mutat. A member_id a
+// lokális tag-store azonosítója (v1: a tagok appban élnek, nincs DB-családtábla);
+// null = közös/mindenki.
 export interface MealPlanEntryInput {
   date: string // helyi YYYY-MM-DD
   meal_type: MealType
-  recipe_id: string
+  member_id: string | null
+  recipe_id: string | null
   servings: number
+  item_name: string | null
+  product_id: string | null
+  quantity: number | null
+  unit: string | null
 }
 
 export interface MealPlanEntry extends MealPlanEntryInput {

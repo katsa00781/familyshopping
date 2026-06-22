@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { Plus, ScanLine, ShoppingCart } from 'lucide-react-native'
 
-import { ListSegment, type ListSegmentKey } from '@/components/lista/ListSegment'
+import { ListSegment, useSegmentNav } from '@/components/lista/ListSegment'
 import { ListCardActive } from '@/components/lista/ListCardActive'
 import { ListCardPast } from '@/components/lista/ListCardPast'
 import ListCreateSheet from '@/components/lista/ListCreateSheet'
@@ -73,15 +73,11 @@ export default function BevasarlasScreen() {
   const completeList = useListStore((s) => s.completeList)
   const setActiveListId = useListStore((s) => s.setActiveListId)
   const showToast = useToastStore((s) => s.showToast)
+  const handleSegment = useSegmentNav('listak')
 
   useEffect(() => {
     loadLists()
   }, [loadLists])
-
-  function handleSegment(key: ListSegmentKey) {
-    if (key === 'termekek') router.push('/(tabs)/termekek')
-    else if (key === 'arak') router.push('/(tabs)/arak')
-  }
 
   function handleBolt(list: ShoppingList) {
     setActiveListId(list.id)

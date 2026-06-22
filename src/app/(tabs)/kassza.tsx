@@ -1,26 +1,31 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { ActivityIndicator, RefreshControl, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Wallet } from 'lucide-react-native'
 
 import { BudgetCategoryRow } from '@/components/kassza/BudgetCategoryRow'
+import { CategorySpendingSheet } from '@/components/kassza/CategorySpendingSheet'
 import { SavingsGoalRow } from '@/components/kassza/SavingsGoalRow'
 import { useBudgetStore } from '@/store/budgetStore'
-import { summarizeBudget } from '@/lib/budget'
+import { currentMonthStart, summarizeBudget } from '@/lib/budget'
 import { formatHuf } from '@/lib/format'
 import { colors } from '@/constants/colors'
 
 export default function KasszaScreen() {
   const plan = useBudgetStore((s) => s.plan)
   const savingsGoals = useBudgetStore((s) => s.savingsGoals)
+  const spending = useBudgetStore((s) => s.spending)
   const isLoading = useBudgetStore((s) => s.isLoading)
   const loadBudget = useBudgetStore((s) => s.loadBudget)
+
+  const [detailCategory, setDetailCategory] = useState<string | null>(null)
 
   useEffect(() => {
     loadBudget()
   }, [loadBudget])
 
-  const summary = plan ? summarizeBudget(plan) : null
+  const summary = plan ? summarizeBudget(plan, spending) : null
+  const detailPlanned = summary?.categories.find((c) => c.name === detailCategory)?.amount ?? 0
 
   return (
     <SafeAreaView className="flex-1 bg-background dark:bg-dark-background" edges={['top']}>
@@ -68,7 +73,28 @@ export default function KasszaScreen() {
               {formatHuf(summary.keret)}
             </Text>
 
-            {summary.hasIncome ? (
+            {summary.hasSpending ? (
+              <View className="mt-4 flex-row">
+                <View className="flex-1">
+                  <Text className="text-body-sm text-muted">Elköltve</Text>
+                  <Text className="mt-0.5 text-body-lg font-semibold text-foreground dark:text-dark-foreground">
+                    {formatHuf(summary.totalSpent)}
+                  </Text>
+                </View>
+                <View className="flex-1">
+                  <Text className="text-body-sm text-muted">Szabad keret</Text>
+                  <Text
+                    className={`mt-0.5 text-body-lg font-semibold ${
+                      summary.remainingAfterSpent < 0
+                        ? 'text-warning'
+                        : 'text-foreground dark:text-dark-foreground'
+                    }`}
+                  >
+                    {formatHuf(summary.remainingAfterSpent)}
+                  </Text>
+                </View>
+              </View>
+            ) : summary.hasIncome ? (
               <View className="mt-4 flex-row">
                 <View className="flex-1">
                   <Text className="text-body-sm text-muted">Betervezve</Text>
@@ -107,7 +133,10 @@ export default function KasszaScreen() {
                   key={c.name}
                   name={c.name}
                   amount={c.amount}
+                  spent={c.spent}
+                  hasSpending={summary.hasSpending}
                   share={summary.allocated > 0 ? c.amount / summary.allocated : 0}
+                  onPress={summary.hasSpending ? () => setDetailCategory(c.name) : undefined}
                 />
               ))}
             </View>
@@ -126,6 +155,14 @@ export default function KasszaScreen() {
           ) : null}
         </ScrollView>
       )}
+
+      <CategorySpendingSheet
+        visible={detailCategory != null}
+        category={detailCategory}
+        month={currentMonthStart()}
+        planned={detailPlanned}
+        onClose={() => setDetailCategory(null)}
+      />
     </SafeAreaView>
   )
 }

@@ -1,15 +1,22 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
-import { getSessionSafe } from '@/lib/supabase'
-import { getCurrentBudgetPlan, getSavingsGoals, summarizeBudget } from '@/lib/budget'
-import type { BudgetPlan, BudgetSummary, SavingsGoal } from '@/types'
+import { loadWithSessionRetry } from '@/lib/loadWithRetry'
+import {
+  currentMonthStart,
+  getCurrentBudgetPlan,
+  getSavingsGoals,
+  getWalletSpending,
+  summarizeBudget,
+} from '@/lib/budget'
+import type { BudgetPlan, BudgetSummary, SavingsGoal, WalletSpending } from '@/types'
 
 const CACHE_KEY = 'familyhub_budget_v1'
 
 interface BudgetState {
   plan: BudgetPlan | null
   savingsGoals: SavingsGoal[]
+  spending: WalletSpending | null
   isLoading: boolean
   error: string | null
 
@@ -17,7 +24,11 @@ interface BudgetState {
   getSummary: () => BudgetSummary | null
 }
 
-type CacheData = { plan: BudgetPlan | null; savingsGoals: SavingsGoal[] }
+type CacheData = {
+  plan: BudgetPlan | null
+  savingsGoals: SavingsGoal[]
+  spending: WalletSpending | null
+}
 
 async function saveCache(data: CacheData): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(data))
@@ -29,62 +40,88 @@ async function loadCache(): Promise<CacheData | null> {
   return JSON.parse(raw) as CacheData
 }
 
+// Csak az aktuális hónapra szóló spending releváns — a régit eldobjuk.
+function spendingForMonth(s: WalletSpending | null, month: string): WalletSpending | null {
+  return s && s.month === month ? s : null
+}
+
 export const useBudgetStore = create<BudgetState>((set, get) => ({
   plan: null,
   savingsGoals: [],
+  spending: null,
   isLoading: false,
   error: null,
 
   loadBudget: async () => {
     set({ isLoading: true, error: null })
 
-    // A getSession() a tárolt sessiont adja vissza (lejárt access token esetén
-    // frissíti) — szemben a getUser()-rel, ami friss hálózati kérést indít és
-    // cold start után átmenetileg null usert ad. Lásd priceStore.
-    const session = await getSessionSafe()
-    const user = session?.user
+    const month = currentMonthStart()
+    const cached = await loadCache()
+    const cachedSpending = spendingForMonth(cached?.spending ?? null, month)
 
-    if (!user) {
-      const cached = await loadCache()
-      set({ ...(cached ?? { plan: null, savingsGoals: [] }), isLoading: false })
+    // 1. Terv + megtakarítások — cold-start-biztos betöltés (session a retry-cikluson belül).
+    const result = await loadWithSessionRetry(
+      async (userId) => {
+        const [plan, savingsGoals] = await Promise.all([
+          getCurrentBudgetPlan(userId),
+          getSavingsGoals(userId),
+        ])
+        return { plan, savingsGoals }
+      },
+      (d) => !d.plan && d.savingsGoals.length === 0,
+    )
+
+    // 2. Valós Wallet költés — BEST-EFFORT. Sosem blokkolja a tervezési nézetet:
+    //    ha a token nincs beállítva / a Wallet API hibázik / nincs session, a
+    //    korábbi (aktuális hónapra szóló) cache-t tartjuk meg, spending nélkül is
+    //    működik a Kassza.
+    const loadSpending = async (): Promise<WalletSpending | null> => {
+      if (result.status === 'failed') return cachedSpending // nincs élő session
+      try {
+        const fresh = await getWalletSpending(month)
+        return fresh ?? cachedSpending
+      } catch {
+        return cachedSpending
+      }
+    }
+
+    if (result.status === 'data') {
+      const spending = await loadSpending()
+      const data: CacheData = { ...result.data, spending }
+      await saveCache(data)
+      set({ ...data, isLoading: false, error: null })
       return
     }
 
-    // A bejelentkezés utáni első authentikált lekérés némán üresen térhet vissza
-    // (a friss JWT-t a szerver pár másodpercig nem fogadja el → RLS 0 sor). Ezért
-    // hibára és üres tervre is egyszer újrapróbálunk rövid késleltetéssel.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const [plan, savingsGoals] = await Promise.all([
-          getCurrentBudgetPlan(user.id),
-          getSavingsGoals(user.id),
-        ])
-
-        if (!plan && savingsGoals.length === 0 && attempt === 0) {
-          await new Promise((r) => setTimeout(r, 600))
-          continue
-        }
-
-        await saveCache({ plan, savingsGoals })
-        set({ plan, savingsGoals, isLoading: false })
+    if (result.status === 'failed') {
+      if (cached && (cached.plan || cached.savingsGoals.length > 0)) {
+        set({
+          plan: cached.plan,
+          savingsGoals: cached.savingsGoals,
+          spending: cachedSpending,
+          isLoading: false,
+          error: 'Offline – tárolt adatok',
+        })
         return
-      } catch {
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 500))
-          continue
-        }
-        const cached = await loadCache()
-        if (cached) {
-          set({ ...cached, isLoading: false, error: 'Offline – tárolt adatok' })
-        } else {
-          set({ plan: null, savingsGoals: [], isLoading: false, error: 'Kassza betöltése sikertelen' })
-        }
       }
+      set({
+        plan: null,
+        savingsGoals: [],
+        spending: null,
+        isLoading: false,
+        error: 'Kassza betöltése sikertelen',
+      })
+      return
     }
+
+    // `empty`: a szerver megerősítette, hogy nincs aktív terv és megtakarítási cél.
+    const spending = await loadSpending()
+    await saveCache({ plan: null, savingsGoals: [], spending })
+    set({ plan: null, savingsGoals: [], spending, isLoading: false, error: null })
   },
 
   getSummary: () => {
-    const { plan } = get()
-    return plan ? summarizeBudget(plan) : null
+    const { plan, spending } = get()
+    return plan ? summarizeBudget(plan, spending) : null
   },
 }))

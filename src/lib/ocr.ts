@@ -7,11 +7,11 @@ const OCR_ENDPOINT = process.env.EXPO_PUBLIC_OCR_ENDPOINT ?? ''
 const MOCK_RESPONSE: OCRResponse = {
   lines: [],
   items: [
-    { name: 'Tej 2.8%', qty: 2, unit: 'l', price: 449, conf: 0.95 },
-    { name: 'Vaj', qty: 1, unit: 'db', price: 699, conf: 0.91 },
-    { name: 'Kenyér', qty: 1, unit: 'db', price: 389, conf: 0.62 },
-    { name: 'Alma', qty: 1.5, unit: 'kg', price: 520, conf: 0.88 },
-    { name: 'Csirkemell', qty: 0.8, unit: 'kg', price: 1840, conf: 0.79 },
+    { name: 'Tej 2.8%', rawName: 'Tej 2.8%', qty: 2, unit: 'l', price: 449, conf: 0.95 },
+    { name: 'Vaj', rawName: 'Vaj', qty: 1, unit: 'db', price: 699, conf: 0.91 },
+    { name: 'Kenyér', rawName: 'Kenyér', qty: 1, unit: 'db', price: 389, conf: 0.62 },
+    { name: 'Alma', rawName: 'Alma', qty: 1.5, unit: 'kg', price: 520, conf: 0.88 },
+    { name: 'Csirkemell', rawName: 'Csirkemell', qty: 0.8, unit: 'kg', price: 1840, conf: 0.79 },
   ],
   total: 4346,
   store: 'Lidl',
@@ -22,6 +22,7 @@ const MOCK_RESPONSE: OCRResponse = {
 // Raw shape returned by the deployed ocr-receipt Edge Function
 interface RawReceiptItem {
   name: string
+  raw_name?: string | null
   quantity: number | null
   unit: string | null
   unit_price: number | null
@@ -40,6 +41,9 @@ interface RawReceiptResponse {
 function transformResponse(raw: RawReceiptResponse): OCRResponse {
   const items: OCRItem[] = raw.items.map((item) => ({
     name: item.name,
+    // A blokkon látható eredeti szöveg a tanuló glosszárium kulcsa; ha hiányzik
+    // (régi függvény-verzió), a tiszta névre esünk vissza.
+    rawName: item.raw_name?.trim() || item.name,
     qty: item.quantity ?? 1,
     unit: item.unit,
     price: item.unit_price ?? item.total_price ?? 0,

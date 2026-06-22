@@ -80,6 +80,9 @@
   - Új tokenek: `surface-sunken` (#EFEDE7) + `surface-muted` (#F2F0EA) → tokens.json + tailwind + colors.ts
   - Stílus-érvényesülés: a kártya statikus stílusai belső View-n (objektum-style + className), a Pressable függvény-style csak `opacity` — a NativeWind v4 gotcha elkerülve (lásd dashboard/Naptár fix)
   - Füstteszt: tsc nem hozott új hibát, lint 0 az érintett fájlokon
+- [x] **Árfigyelés cold-start betöltési hiba javítva (2026-06-21):** a személyes infláció és árváltozások időnként üresen maradtak („reload után magától megjavul"). Adat- és számítás-ellenőrzés (Supabase): 894 áradat-sor, 30 napos ablakban 40 termék ≥2 adattal, 12 valódi árváltozás — tehát a hiba a **betöltési úton** volt, nem adathiány/számítás. Gyökérok: a `priceStore.loadPriceData` a sessiont a retry-cikluson KÍVÜL, egyszer kérte le → cold start után, ha a GoTrue session-hidratálás még futott, `getSessionSafe()` null → azonnali cache-fallback, cikluson belüli újrapróba nélkül. Másodlagos hiba: üres élő eredmény FELÜLÍRTA a jó cache-t üressel (tartóssá tette a hibát). Javítás: session-lekérés + query a retry-cikluson BELÜL (4 próba, backoff, újra-hidratálásra várva); üres élő eredmény SOSE írja felül a nem-üres cache-t; tiszta üres (új user) megkülönböztetve a tranziens hibától. Önjavító: az első sikeres élő betöltés felülírja a korábban beragadt üres cache-t. tsc/lint tiszta.
+  - **Központosítva + kiterjesztve mind a 4 store-ra (2026-06-21):** a hibára hajlamos retry-logika kiemelve közös `src/lib/loadWithRetry.ts`-be (`loadWithSessionRetry(fetcher, isEmpty)` → `data` | `empty` | `failed`). A `priceStore`, `budgetStore`, `calendarStore`, `mealPlanStore` betöltése mind ezt használja. Kulcs: a `failed` (egyetlen hibamentes olvasás sem) megtartja a nem-üres cache-t (múló hiba ≠ adatvesztés), míg az `empty` (a szerver megerősítette a 0 sort) tisztán felülírja (törlés/valódi üres helyesen kezelve). A naptár/étrend mutációi (`createEvent`/`assignRecipe`…) változatlanok.
+- [x] **Szegmens-vezérlő perzisztálása mindhárom alnézeten (2026-06-21):** a felső tabok (Listák / Termékek / Árak) korábban csak a Bevásárlás (Listák) képernyőn voltak; Termékekre/Árakra lépve eltűntek, csak „Vissza" gomb maradt. Most a `ListSegment` mindhárom nézet fejlécében ott van, közvetlen váltással. A `termekek`/`arak` „Vissza → Bevásárlás" gomb helyét a szegmens vette át (cím egységesen „Bevásárlás"). Közös `useSegmentNav(current)` hook a `ListSegment`-ben: `router.navigate` (nem `push`), hogy ne épüljön duplikált back-stack. tsc/lint tiszta az érintett fájlokon
 
 ---
 
@@ -108,6 +111,8 @@
 
 > **Döntés (felhasználói):** a familybudget Supabase táblákban **nincs valós „elköltött"** adat — a tényleges tranzakciók a külön **Wallet** rendszerben élnek (`walletCategories` UUID-k), amit a mobilapp nem ér el. v1 = **tervezési nézet**: keret + kategória-allokáció, valós költés nélkül. (Wallet-integráció elhalasztva.)
 >
+> **FRISSÍTÉS (2026-06-22): Wallet-integráció KÉSZ — valós havi költés.** Lásd 5b.
+>
 > **Adat-finding:** nincs `is_active = true` terv → az aktív tervet a `user_preferences.active_budget_plan_id` adja (fallback: `is_active`, majd legutóbbi). A `budget_data` élesben mind `{version:"v2", categories:[{name, items:[{amount,…}]}]}` formátumú; `total_amount` == Σ allokáció (zero-based), `actual_income` jelenleg NULL.
 
 - [x] `src/lib/budget.ts`:
@@ -122,6 +127,36 @@
 - [x] Túlköltés/túltervezés → `warning` szín; `formatHuf` mindenhol
 - [x] Csak olvasás — a Kassza nem ír a budget táblákba
 - [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
+
+---
+
+## 5b. Wallet-integráció – valós havi költés a Kasszában — ✅ KÉSZ (2026-06-22)
+
+> **Felhasználói döntések:** (1) adatfolyam = **Edge Function élő proxy** a BudgetBakers Wallet REST API-hoz; (2) nézet = **tervezett vs. valós, kategóriánként**; (3) a Kezdőlap Kassza-kártyája is valós elköltöttre vált; (4) a per-kategória bekötés **név-alapú koncepció-mappinggel** (jóváhagyott térkép).
+
+**Kritikus finding-ok (ellenőrzött, élő Wallet — BudgetBakers, base HUF):**
+- A BudgetBakers Walletnek **van REST API-ja** (`https://rest.budgetbakers.com/wallet/v1/api`, `Authorization: Bearer <token>`, Premium funkció, 300 kérés/óra). **Nincs** aggregáló végpont → a függvény a `GET /records`-ot lapozva (200/lap) maga összegzi.
+- A `budget_data.walletCategories` UUID-jei **ELAVULTAK** — nem egyeznek az élő Wallet kategória-ID-kkel (a Wallet ma ~89 base kategória + 1 custom „Mamci"). Ezért az ID-join nem működik → **stabil, globális base-kategória ID-kre** képezünk (`CATEGORY_MAP`).
+- A nyers havi expense-összeg tartalmazza a **belső átvezetéseket** (Transfer ~2,3M Ft júniusban) → ezeket (Transfer/Debt/Shopping list) **kihagyjuk**; a térképen kívüli tételek az „Egyéb" alá esnek. Júniusi valós költés ≈ 1,37M Ft (3,67M összes − 2,31M átvezetés), reális a ~1,1M tervhez.
+
+**Implementáció:**
+- Edge Function `supabase/functions/wallet-spending/` (deploy-olva, `verify_jwt`): Supabase JWT-hitelesítés → `GET /records` (expense, hónap-ablak, `convertTo=base`, lapozott) → Wallet→terv `CATEGORY_MAP` szerint **terv-kategória NÉV** szerint összegez (átvezetések kihagyva) → `{ month, currency, byCategory, totalSpent, syncedAt }`. A `BUDGETBAKERS_API_TOKEN` Supabase secret (kliensre soha).
+- Típusok (`src/types`): `WalletSpending`; `BudgetCategorySummary.spent`; `BudgetSummary` bővítés (`totalSpent`, `remainingAfterSpent`, `hasSpending`).
+- `src/lib/budget.ts`: `getWalletSpending(month)` (`functions.invoke`), `currentMonthStart()`, `summarizeBudget(plan, spending?)` — egyszerű név-join + valós szabad keret.
+- `src/store/budgetStore.ts`: a spending **best-effort** (sosem blokkolja a tervezési nézetet; token/hiba esetén a tervezési nézet marad), havonkénti cache.
+- UI: `BudgetCategoryRow` (terv vs. valós + felhasználás-sáv, túllépés → `warning`), Kassza fejléc (Elköltve / Szabad keret), `BudgetCard` (valós elköltött), `index.tsx` spending átadás.
+- Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon.
+
+**⚠️ Élesítéshez MANUÁLIS lépés (kívülről kell):** a felhasználó (1) generál egy **személyes Wallet API tokent** a Wallet web Settings → API alatt (Premium), majd (2) beállítja Supabase secretként: `BUDGETBAKERS_API_TOKEN`. Amíg nincs beállítva, a függvény `CONFIGURATION_ERROR`-t ad, és az app **automatikusan a tervezési nézetre esik vissza** (nincs regresszió).
+
+**Kategória-részletező (drill-down, 2026-06-22):** a Kassza kategória-sorára koppintva a tételes költés nyílik. A `wallet-spending` Edge Function `detail` módja (`body: { month, detail: <kategórianév> }`) a hónap tételeit ahhoz a kategóriához szűrve, **Wallet-alkategória szerint csoportosítva** adja vissza (magyar címkék a `SUBCATEGORY_HU` mapből), azon belül a tételek (jegyzet/partner · dátum · összeg, csökkenő sorrend).
+  - Típusok: `WalletCategoryDetail`/`WalletSpendingGroup`/`WalletSpendingRecord`. `getWalletSpendingDetail(month, category)` (`src/lib/budget.ts`).
+  - UI: `CategorySpendingSheet` (BottomSheet full, loading/üres/hiba állapot); `BudgetCategoryRow` koppintható + chevron, ha van valós adat; `kassza.tsx` állapot + sheet bekötés.
+  - Deploy: `supabase functions deploy wallet-spending --use-api` (Docker nélkül, szerveroldali bundling) — a deploy-olt verzió a repo-fájl pontos mása.
+
+**Megjegyzések / korlátok:**
+- A `CATEGORY_MAP` (és a `SUBCATEGORY_HU`) ehhez a konkrét tervhez (és kategória-nevekhez) van hangolva — v1 single-user. Ha a terv kategórianevei változnak, a térképet frissíteni kell.
+- A deploy-olt függvény azonos a repo-fájllal (CLI `--use-api` deploy a forrásból); a repo a kanonikus forrás.
 
 ---
 
@@ -151,7 +186,23 @@
 - [x] **Bevásárlólista generálás:** kiválasztott napok `recipe_ingredients`-einek összevonása (név+egység szerint, `servings` arányosítással a recept alap-adagjához) → **új `ShoppingList` a familyshopping `shopping_lists` táblájába** (`listStore.createListWithItems`, kategória `inferCategory`-val)
 - [x] Generált lista aktívvá tétele + megnyitása (`/lista/[id]`) + success toast/haptika; üres kijelölésnél figyelmeztetés
 - [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
-- [x] **Eltérés a mockuptól (v1 döntés):** a recept-hozzárendelés **drag-and-drop helyett slot-koppintással** történik (koppints egy étkezésre → `RecipePickerSheet` → recept kiválasztása). Indok: minimális működő verzió, nincs új gesztus-dependency. A „Receptkönyv" chip a recepteket böngésző (read-only) módban nyitja. Az adagszám-szerkesztő elhalasztva (a recept alap `servings` értékét vesszük) — a `buildShoppingItems` az arányosítást már kezeli.
+- [x] **Eltérés a mockuptól (v1 döntés):** a recept-hozzárendelés **drag-and-drop helyett slot-koppintással** történik (koppints egy étkezésre → `RecipePickerSheet` → recept kiválasztása). Indok: minimális működő verzió, nincs új gesztus-dependency. A „Receptkönyv" chip a recepteket böngésző módban nyitja. Az adagszám-szerkesztő elhalasztva (a recept alap `servings` értékét vesszük) — a `buildShoppingItems` az arányosítást már kezeli.
+- [x] **Recept létrehozás/szerkesztés a mobilban (2026-06-21, scope-bővítés):** korábban a receptek csak olvashatók voltak (a familybudget weben kellett felvinni őket); a Receptkönyvben most **közvetlenül létrehozható/szerkeszthető/törölhető** recept. Ellenőrzött: a `recipes`/`recipe_ingredients` RLS engedi a saját sorok írását (insert/update/delete `user_id = auth.uid()`), és mindkét FK (`recipe_ingredients`, `meal_plan_entries`) `ON DELETE CASCADE` → migráció nem kellett.
+  - `RecipeInput`/`RecipeIngredientInput` típusok → `src/types/index.ts`
+  - `insertRecipe`/`updateRecipe`/`deleteRecipe`/`replaceIngredients` → `src/lib/recipes.ts` (hozzávaló-csere = régiek törlése + újak beszúrása)
+  - `mealPlanStore`: `saveRecipe(input, ingredients, id)` + `deleteRecipe(id)` — írás session-kötött (a hozzávaló-FK miatt nincs offline-optimista út); törléskor a cache-ből a recept + hozzávalói + étrend-tételei is kikerülnek (szerveroldali CASCADE tükrözése)
+  - `RecipeEditorSheet` (új): név, adag, idő, hozzávaló-szerkesztő (név · mennyiség · egység, sorhozzáadás/-törlés), leírás, elkészítés; mentés/törlés Alert-megerősítéssel; csak a kitöltött (név + pozitív mennyiség + egység) hozzávalósorok mentődnek
+  - `RecipePickerSheet`: „Új recept" gomb mindkét módban; böngésző módban a sorok koppintásra a szerkesztőt nyitják (ceruza-affordancia); üres állapot szövege átírva (már nem a familybudget webre utal)
+  - **Megjegyzés:** ez felülírja a CLAUDE.md „Out of scope (v2) – Recept-szerkesztés a mobilban" tételét (felhasználói döntés). tsc/lint tiszta az érintett fájlokon
+- [x] **Tagonkénti, több tételes étrend + termékár-bekötés (2026-06-21, scope-bővítés):** korábban egy slot (nap+étkezés) = pontosan egy recept; mostantól egy slothoz tetszőleges számú tétel rendelhető, tagonként, és a tétel lehet **recept VAGY nyers termék** (pl. „80g pur-pur vekni"). A recept-hozzávalók termékkatalógushoz köthetők → a generált bevásárlólistába a **termék ára** is bekerül.
+  - **Felhasználói döntések:** (1) tagok = lokális, appban szerkeszthető store; (2) slot = recept ÉS termék, tagonként; (3) migráció a közös DB-re alkalmazva.
+  - Migráció `supabase/migrations/20260621140000_meal_plan_per_member_and_products.sql` (alkalmazva): `recipe_ingredients.product_id` (FK → products, ON DELETE SET NULL); `meal_plan_entries` átalakítás — unique `(user_id,date,meal_type)` eldobva, `recipe_id` nullable, új oszlopok `member_id text`, `item_name text`, `product_id uuid`, `quantity numeric`, `unit text` + check `recipe_id is not null or item_name is not null`
+  - Típusok (`src/types`): `FamilyMemberLocal`; `MealPlanEntry/Input` bővítés (member_id/item_name/product_id/quantity/unit, recipe_id nullable); `RecipeIngredient(+Input).product_id`
+  - `src/store/memberStore.ts` (új): lokális tag-store (zustand + AsyncStorage), seed Apa/Anya/Kevin/Kira (tagszínekkel), add/update/remove. **Eltérés/finding:** v1 single-user, `profiles` üres → a `member_id` a lokális tag-id (nincs DB-családtábla); a család-megosztással szinkronizálható (v2.x)
+  - `src/lib/recipes.ts`: `upsertMealPlanEntry` → `insertMealPlanEntry` (több tétel/slot → nincs onConflict); `buildShoppingItems` bővítve (recept-hozzávaló + nyers termék tétel; `productsById`-ből egységár + product_id a listatételbe); hozzávaló `product_id` olvasás/írás
+  - `src/store/mealPlanStore.ts`: `assignRecipe` → `addEntry(input)` (általános, recept vagy termék); `removeEntry` változatlan
+  - UI: `ProductPickerSheet` (új, kereshető termék-lista árral, újrahasznosított); `MealEntrySheet` (új — tag-választó chipek + Recept/Termék mód; recept-lista vagy katalógus-termék/szabad szöveg + mennyiség/egység; több tétel egymás után); `MealRow` átírva (slotonként tétel-lista tagszínes pöttyel + összegárral + tétel-törlés + „Tétel hozzáadása"); `DayCard` propok (entries lista, membersById, productsById); `MemberEditorSheet` (új — tagok hozzáadás/átnevezés/szín/törlés); `RecipeEditorSheet` hozzávaló-soronkénti termékhez kötés (Tag gomb → ProductPickerSheet, link-chip árral, kötés bontható). Az étrend slot-koppintása mostantól a `MealEntrySheet`-et nyitja; a „Receptkönyv" chip a `RecipePickerSheet`-et böngésző módban (recept-kezelés)
+  - Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
 
 ---
 
@@ -173,6 +224,31 @@
 **OCR deploy (függőben):**
 
 - [ ] `supabase functions deploy ocr-receipt` + migráció futtatása (`supabase db push`) — a kliens az `ocr-receipt`-et hívja; a régi `supabase/functions/ocr/` mappa elavult
+- [x] **OCR ÚJRADEPLOY megtörtént (2026-06-22):** az `ocr-receipt` Edge Function **version 6**-ra deploy-olva (a korábbi élesben futó verzió még a 2026 áprilisi OpenAI-os volt, tanuló réteg nélkül — a CLI deploy sosem ment át; most MCP-n keresztül deploy-olva a repo-tükör). Tartalmazza: Claude Haiku 4.5 + `raw_name` tanulás + structured outputs.
+- [ ] **⚠️ SECRET ellenőrzés:** `ANTHROPIC_API_KEY` Supabase secret beállítva legyen (Anthropic Console + feltöltött kredit). Enélkül `CONFIGURATION_ERROR`; ekkor a kliens a kézi bevitelre vált. A régi `OPENAI_API_KEY` már nem kell.
+
+**OCR modellváltás: GPT-4o-mini → Claude Haiku 4.5 — ✅ KÉSZ (kód), deploy függőben (2026-06-22):**
+
+> **Indok:** a GPT-4o-mini gyenge a magyar, gyűrött blokkokon (a felhasználó panasza). A Claude Haiku 4.5 erősebb víziómodell, kedvező áron (~3,5 Ft/blokk a ~7 Ft/gpt-4o-hoz képest). Felhasználói döntés.
+
+- [x] `supabase/functions/ocr-receipt/index.ts`: az OpenAI `chat/completions` hívás lecserélve az Anthropic Messages API-ra (`https://api.anthropic.com/v1/messages`, `x-api-key` + `anthropic-version` header), modell `claude-haiku-4-5`, `temperature: 0`. Nyers `fetch` (nincs új dependency, a meglévő OpenAI-hívás mintáját követi).
+- [x] **Structured outputs** (`output_config.format` json_schema-val) → garantáltan valid JSON, kiesik a `PARSE_ERROR` ág. A séma a `raw_name`/`name`/mennyiség/ár/kategória/confidence mezőket kényszeríti (nullable mezőkkel, `additionalProperties: false`).
+- [x] Válasz-feldolgozás átírva az Anthropic `content[]` (text blokk) alakjára; `stop_reason === "refusal"` kezelve. A normalizálás (raw_name, clamp, nem-termék szűrés) változatlan.
+- [x] Secret: `OPENAI_API_KEY` → `ANTHROPIC_API_KEY`; a config-error üzenet frissítve.
+- [ ] **Élesítés:** `ANTHROPIC_API_KEY` secret beállítása + `ocr-receipt` újradeploy.
+
+**OCR tanuló réteg javítása — ✅ KÉSZ (kód), deploy függőben (2026-06-22):**
+
+> **Bejelentett tünet:** „az OCR pontatlan, és a javító algoritmus nem működik — a blokkok beolvasása után sem javul." **Gyökérok:** a tanuló glosszárium (`ocr_corrections`) a ROSSZ tokenre tanult. A `rawName` (amit a glosszárium kulcsának hittünk) valójában a modell MÁR KIBŐVÍTETT nevének másolata volt (`ocrStore.setOcrResponse: rawName: item.name`), nem a blokkon betűhíven szereplő rövidítés. A modell az adott rövidítést (`"Parad.koktél"`) blokkról blokkra eltérően bővítheti → a glosszárium bal oldala (egy korábbi kibővített kitalálás) ritkán egyezett az új scan-nel → a tanulás gyakorlatilag sosem sült el.
+
+- [x] Edge Function (`supabase/functions/ocr-receipt/index.ts`): a JSON-séma + prompt új `raw_name` mezővel — a terméksor BETŰHÍVEN, rövidítésekkel (csak ÁFA-kód/cikkszám/ár-rész/„Ft" levágva), a `name` marad a tiszta/kibővített név. A glosszárium-blokk a `raw_name`-re kulcsol, és utasítja a modellt: ha egy tétel `raw_name`-je (kis-/nagybetűtől eltekintve) egyezik egy szótár-kulccsal, a `name` KÖTELEZŐEN a kanonikus név. A parser visszaadja a `raw_name`-et (fallback a tiszta névre).
+- [x] Kliens: `OCRItem.rawName` (a blokkon látható szöveg) + `ReviewItem.suggestedName` (a modell eredeti javaslata); `lib/ocr.ts` átveszi a `raw_name`-et; `ocrStore` NEM írja felül a `rawName`-et a tiszta névvel; `review.tsx` `recordCorrections` csak akkor rögzít, ha a user TÉNYLEGESEN javított (`name !== suggestedName`) — így nem szennyezzük a szótárat a modell saját auto-bővítéseivel, és a stabil nyers token lesz a kulcs.
+- [x] Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 error az érintett fájlokon.
+- [ ] **Élesítés:** `ocr-receipt` újradeploy (a tanulás csak a deploy után kezd működni); meglévő `ocr_corrections` sorok a régi (kibővített) kulccsal maradnak — ezek ártalmatlanok, de nem fognak illeszkedni; idővel a helyes nyers kulcsok feltöltődnek.
+
+**Wallet-integráció (élesítés, függőben):**
+
+- [ ] `BUDGETBAKERS_API_TOKEN` Supabase secret beállítása (személyes Wallet API token a Wallet web Settings → API-ból, Premium). A `wallet-spending` Edge Function már deploy-olva; token nélkül a Kassza a tervezési nézetre esik vissza.
 
 **Tech adósság (alacsony prioritás):**
 
@@ -186,11 +262,17 @@
 - [x] `shopping_lists`, `products`, `product_price_history`, `shopping_statistics`, `ocr_corrections`
 
 **Megvan (familybudget, CSAK olvassuk):**
-- [x] `budget_plans`, `annual_budget_plans`, `savings_goals`, `recipes`, `recipe_ingredients`
+- [x] `budget_plans`, `annual_budget_plans`, `savings_goals`
+
+**Megvan (familybudget, olvassuk + írjuk a saját sorokat — RLS `user_id`):**
+- [x] `recipes`, `recipe_ingredients` (2026-06-21 óta a Receptkönyvből létrehozható/szerkeszthető/törölhető); `recipe_ingredients.product_id` (FK → products) a termékár-bekötéshez
 
 **Új (létrehozandó) — v1 RLS: `user_id = auth.uid()` (NEM family_id):**
 - [x] `calendar_events` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21)
-- [x] `meal_plan_entries` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21)
+- [x] `meal_plan_entries` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21); tagonkénti/több tételes átalakítás (recipe_id nullable, member_id/item_name/product_id/quantity/unit) alkalmazva (2026-06-21)
+
+**Lokális (nincs DB — AsyncStorage, v1 single-user):**
+- [x] `familyhub_members_v1` — családtagok (név + tagszín) az étrend tagonkénti tételeihez; család-megosztáskor szinkronizálandó (v2.x)
 
 ---
 

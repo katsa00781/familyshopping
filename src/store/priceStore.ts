@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { supabase, getSessionSafe } from '@/lib/supabase'
+import { supabase } from '@/lib/supabase'
+import { loadWithSessionRetry } from '@/lib/loadWithRetry'
 import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
 import type {
   ProductPriceHistory,
@@ -63,43 +64,25 @@ export const usePriceStore = create<PriceState>((set, get) => ({
     const p = period ?? get().period
     set({ isLoading: true, error: null, period: p })
 
-    // getSession() a tárolt session-t adja vissza és lejárt access token esetén
-    // frissíti azt. A getUser() ezzel szemben friss hálózati kérést indít, és lejárt
-    // token mellett null usert ad — ettől nem töltődtek be az árak.
-    const session = await getSessionSafe()
-    const user = session?.user
-
-    if (!user) {
-      const cached = await loadCache()
-      set({ ...(cached ?? { priceHistory: [], statistics: [] }), isLoading: false })
-      return
-    }
-
     const since = new Date()
     since.setDate(since.getDate() - p)
     const sinceStr = since.toISOString().split('T')[0]!
 
-    // A bejelentkezés / cold start utáni ELSŐ authentikált lekérés gyakran némán
-    // ÜRESEN tér vissza: a frissen kiállított JWT-t a szerver pár másodpercig még nem
-    // fogadja el (vagy a token épp lejárt), így az RLS `auth.uid()` null → 0 sor, HIBA
-    // NÉLKÜL. A második próbálkozás (eddig: kézi újrafókusz) már működik. Ezért hibára
-    // ÉS üres eredményre is egyszer újrapróbálunk rövid késleltetéssel — automatikusan.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
+    const result = await loadWithSessionRetry(
+      async (userId) => {
         const [histRes, statRes] = await Promise.all([
           supabase
             .from('product_price_history')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .gte('price_date', sinceStr)
             .order('price_date', { ascending: false }),
           supabase
             .from('shopping_statistics')
             .select('*')
-            .eq('user_id', user.id)
+            .eq('user_id', userId)
             .gte('shopping_date', sinceStr),
         ])
-
         if (histRes.error) throw histRes.error
         if (statRes.error) throw statRes.error
 
@@ -115,28 +98,32 @@ export const usePriceStore = create<PriceState>((set, get) => ({
           quantity: Number(r.quantity),
           total_price: Number(r.total_price),
         }))
+        return { priceHistory, statistics }
+      },
+      (d) => d.priceHistory.length === 0 && d.statistics.length === 0,
+    )
 
-        if (priceHistory.length === 0 && statistics.length === 0 && attempt === 0) {
-          await new Promise((r) => setTimeout(r, 600))
-          continue
-        }
-
-        await saveCache({ priceHistory, statistics })
-        set({ priceHistory, statistics, isLoading: false })
-        return
-      } catch {
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 500))
-          continue
-        }
-        const cached = await loadCache()
-        if (cached) {
-          set({ ...cached, isLoading: false, error: 'Offline – tárolt adatok' })
-        } else {
-          set({ priceHistory: [], statistics: [], isLoading: false, error: 'Adatok betöltése sikertelen' })
-        }
-      }
+    if (result.status === 'data') {
+      await saveCache(result.data)
+      set({ ...result.data, isLoading: false, error: null })
+      return
     }
+
+    // `failed`: nem jött össze hibamentes olvasás → meglévő (nem-üres) cache megtartása,
+    // hogy a felhasználó ne üres képernyőt lásson egy múló hiba miatt.
+    if (result.status === 'failed') {
+      const cached = await loadCache()
+      if (cached && (cached.priceHistory.length > 0 || cached.statistics.length > 0)) {
+        set({ ...cached, isLoading: false, error: 'Offline – tárolt adatok' })
+        return
+      }
+      set({ priceHistory: [], statistics: [], isLoading: false, error: 'Adatok betöltése sikertelen' })
+      return
+    }
+
+    // `empty`: a szerver megerősítette az üres eredményt → tiszta üres állapot.
+    await saveCache({ priceHistory: [], statistics: [] })
+    set({ priceHistory: [], statistics: [], isLoading: false, error: null })
   },
 
   computePriceChanges: () => {

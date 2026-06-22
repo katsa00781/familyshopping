@@ -35,7 +35,9 @@ export const useOcrStore = create<OCRState>((set, get) => ({
     const reviewItems: ReviewItem[] = response.items.map((item) => ({
       ...item,
       id: generateId(),
-      rawName: item.name,
+      // rawName az ...item-ből jön (a blokkon látható eredeti szöveg) — NEM a tiszta
+      // névvel írjuk felül, hogy a tanuló glosszárium a stabil kulcsot rögzítse.
+      suggestedName: item.name,
       isDuplicate: existingProductIds[item.name] !== undefined,
       existingProductId: existingProductIds[item.name] ?? null,
       matchedProductName: matchedProductNames[item.name] ?? null,

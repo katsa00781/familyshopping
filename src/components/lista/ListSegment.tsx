@@ -1,10 +1,29 @@
 import { Pressable, Text, View } from 'react-native'
+import { useRouter } from 'expo-router'
 
 export type ListSegmentKey = 'listak' | 'termekek' | 'arak'
 
 interface SegmentItem {
   key: ListSegmentKey
   label: string
+}
+
+const SEGMENT_ROUTES = {
+  listak: '/(tabs)/bevasarlas',
+  termekek: '/(tabs)/termekek',
+  arak: '/(tabs)/arak',
+} as const
+
+/**
+ * Közös szegmens-navigáció a Bevásárlás aldnézetei közt (Listák / Termékek / Árak).
+ * `navigate` (nem `push`), hogy ne épüljön fel duplikált back-stack a váltogatásnál.
+ */
+export function useSegmentNav(current: ListSegmentKey) {
+  const router = useRouter()
+  return (key: ListSegmentKey) => {
+    if (key === current) return
+    router.navigate(SEGMENT_ROUTES[key])
+  }
 }
 
 interface Props {

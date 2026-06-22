@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
 import { getSessionSafe } from '@/lib/supabase'
+import { loadWithSessionRetry } from '@/lib/loadWithRetry'
 import { fetchEvents, insertEvent, patchEvent, removeEvent } from '@/lib/calendar'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
@@ -44,43 +45,31 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
   loadEvents: async () => {
     set({ isLoading: true, error: null })
 
-    const session = await getSessionSafe()
-    const user = session?.user
+    // Cold-start-biztos betöltés (session a retry-cikluson belül). Lásd loadWithRetry.
+    const result = await loadWithSessionRetry(
+      (userId) => fetchEvents(userId),
+      (events) => events.length === 0,
+    )
 
-    if (!user) {
-      const cached = await loadCache()
-      set({ events: cached ?? [], isLoading: false })
+    if (result.status === 'data') {
+      await saveCache(result.data)
+      set({ events: result.data, isLoading: false, error: null })
       return
     }
 
-    // A bejelentkezés utáni első authentikált lekérés a friss JWT miatt némán üres
-    // lehet (RLS 0 sor) → hibára és üres eredményre is egyszer újrapróbálunk.
-    for (let attempt = 0; attempt < 2; attempt++) {
-      try {
-        const events = await fetchEvents(user.id)
-        if (events.length === 0 && attempt === 0) {
-          const cached = await loadCache()
-          if (cached && cached.length > 0) {
-            await new Promise((r) => setTimeout(r, 600))
-            continue
-          }
-        }
-        await saveCache(events)
-        set({ events, isLoading: false })
+    if (result.status === 'failed') {
+      const cached = await loadCache()
+      if (cached && cached.length > 0) {
+        set({ events: cached, isLoading: false, error: 'Offline – tárolt adatok' })
         return
-      } catch {
-        if (attempt === 0) {
-          await new Promise((r) => setTimeout(r, 500))
-          continue
-        }
-        const cached = await loadCache()
-        if (cached) {
-          set({ events: cached, isLoading: false, error: 'Offline – tárolt adatok' })
-        } else {
-          set({ events: [], isLoading: false, error: 'Naptár betöltése sikertelen' })
-        }
       }
+      set({ events: [], isLoading: false, error: 'Naptár betöltése sikertelen' })
+      return
     }
+
+    // `empty`: a szerver megerősítette az üres naptárt (nincs esemény, vagy mind törölve).
+    await saveCache([])
+    set({ events: [], isLoading: false, error: null })
   },
 
   createEvent: async (input) => {

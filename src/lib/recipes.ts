@@ -4,8 +4,11 @@ import type {
   MealPlanEntry,
   MealPlanEntryInput,
   MealType,
+  Product,
   Recipe,
   RecipeIngredient,
+  RecipeIngredientInput,
+  RecipeInput,
   ShoppingItem,
 } from '@/types'
 
@@ -93,6 +96,55 @@ export async function fetchRecipes(userId: string): Promise<Recipe[]> {
   return (data ?? []) as Recipe[]
 }
 
+// ─── Recept írása (saját recept; RLS: user_id = auth.uid()) ───────────────────
+export async function insertRecipe(userId: string, input: RecipeInput): Promise<Recipe> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .insert({ ...input, user_id: userId })
+    .select('*')
+    .single()
+  if (error) throw error
+  return data as Recipe
+}
+
+export async function updateRecipe(id: string, input: RecipeInput): Promise<Recipe> {
+  const { data, error } = await supabase
+    .from('recipes')
+    .update({ ...input, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .select('*')
+    .single()
+  if (error) throw error
+  return data as Recipe
+}
+
+/** Recept törlése — a hozzávalók és a hozzá kötött étrend-tételek ON DELETE CASCADE-del törlődnek. */
+export async function deleteRecipe(id: string): Promise<void> {
+  const { error } = await supabase.from('recipes').delete().eq('id', id)
+  if (error) throw error
+}
+
+/** A recept hozzávalóit teljesen lecseréli (régiek törlése + újak beszúrása). */
+export async function replaceIngredients(
+  recipeId: string,
+  items: RecipeIngredientInput[],
+): Promise<RecipeIngredient[]> {
+  const { error: delErr } = await supabase
+    .from('recipe_ingredients')
+    .delete()
+    .eq('recipe_id', recipeId)
+  if (delErr) throw delErr
+
+  if (items.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('recipe_ingredients')
+    .insert(items.map((i) => ({ ...i, recipe_id: recipeId })))
+    .select('*')
+  if (error) throw error
+  return (data ?? []).map((r) => ({ ...r, quantity: Number(r.quantity) })) as RecipeIngredient[]
+}
+
 export async function fetchIngredients(recipeIds: string[]): Promise<RecipeIngredient[]> {
   if (recipeIds.length === 0) return []
   const { data, error } = await supabase
@@ -114,17 +166,14 @@ export async function fetchMealPlanEntries(userId: string): Promise<MealPlanEntr
   return (data ?? []) as MealPlanEntry[]
 }
 
-/** Recept hozzárendelése egy naphoz/étkezéshez (upsert a (user_id,date,meal_type) páron). */
-export async function upsertMealPlanEntry(
+/** Új étrend-tétel beszúrása (egy slothoz több tétel tartozhat → nincs upsert/konfliktus). */
+export async function insertMealPlanEntry(
   userId: string,
   input: MealPlanEntryInput,
 ): Promise<MealPlanEntry> {
   const { data, error } = await supabase
     .from('meal_plan_entries')
-    .upsert(
-      { ...input, user_id: userId, created_by: userId },
-      { onConflict: 'user_id,date,meal_type' },
-    )
+    .insert({ ...input, user_id: userId, created_by: userId })
     .select('*')
     .single()
   if (error) throw error
@@ -137,29 +186,50 @@ export async function deleteMealPlanEntry(id: string): Promise<void> {
 }
 
 // ─── Bevásárlólista-generálás ─────────────────────────────────────────────────
-// A kiválasztott napok tételeiből összevonja a hozzávalókat (név + egység szerint),
-// a recept alap-adagjához képest a tervezett adagszámmal arányosítva.
+// A kiválasztott napok tételeiből összevonja a beszerzendőket (név + egység szerint):
+//  - recept-tétel → a hozzávalói, a recept alap-adagjához képest arányosítva;
+//  - nyers termék-tétel → önmaga (mennyiség + egység).
+// Ahol van katalógus-termék (ing.product_id / entry.product_id), a termék ára (egységár)
+// és product_id is bekerül a listatételbe.
 export function buildShoppingItems(
   entries: MealPlanEntry[],
   recipesById: Map<string, Recipe>,
   ingredientsByRecipe: Map<string, RecipeIngredient[]>,
+  productsById: Map<string, Product>,
 ): ShoppingItem[] {
-  const agg = new Map<string, { name: string; unit: string; quantity: number }>()
+  type Agg = { name: string; unit: string; quantity: number; productId: string | null; price: number | null }
+  const agg = new Map<string, Agg>()
+
+  function add(rawName: string, rawUnit: string, quantity: number, productId: string | null): void {
+    const name = rawName.trim()
+    const unit = rawUnit.trim()
+    if (!name) return
+    const price = productId ? productsById.get(productId)?.price ?? null : null
+    const key = `${name.toLowerCase()}|${unit.toLowerCase()}`
+    const prev = agg.get(key)
+    if (prev) {
+      prev.quantity += quantity
+      // Az első katalógus-termékhez kötött tétel ára „nyeri" az aggregátumot.
+      if (prev.productId == null && productId != null) {
+        prev.productId = productId
+        prev.price = price
+      }
+    } else {
+      agg.set(key, { name, unit, quantity, productId, price })
+    }
+  }
 
   for (const entry of entries) {
-    const recipe = recipesById.get(entry.recipe_id)
-    const ings = ingredientsByRecipe.get(entry.recipe_id) ?? []
-    const base = recipe?.servings && recipe.servings > 0 ? recipe.servings : entry.servings
-    const ratio = base > 0 ? entry.servings / base : 1
-
-    for (const ing of ings) {
-      const name = ing.name.trim()
-      const unit = ing.unit.trim()
-      const key = `${name.toLowerCase()}|${unit.toLowerCase()}`
-      const qty = ing.quantity * ratio
-      const prev = agg.get(key)
-      if (prev) prev.quantity += qty
-      else agg.set(key, { name, unit, quantity: qty })
+    if (entry.recipe_id) {
+      const recipe = recipesById.get(entry.recipe_id)
+      const ings = ingredientsByRecipe.get(entry.recipe_id) ?? []
+      const base = recipe?.servings && recipe.servings > 0 ? recipe.servings : entry.servings
+      const ratio = base > 0 ? entry.servings / base : 1
+      for (const ing of ings) {
+        add(ing.name, ing.unit, ing.quantity * ratio, ing.product_id)
+      }
+    } else if (entry.item_name) {
+      add(entry.item_name, entry.unit ?? '', entry.quantity ?? 1, entry.product_id)
     }
   }
 
@@ -170,7 +240,7 @@ export function buildShoppingItems(
     unit: a.unit,
     category: inferCategory(a.name),
     checked: false,
-    price: null,
-    product_id: null,
+    price: a.price,
+    product_id: a.productId,
   }))
 }

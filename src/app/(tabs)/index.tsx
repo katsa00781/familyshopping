@@ -51,7 +51,8 @@ export default function KezdolapScreen() {
 
   const loadBudget = useBudgetStore((s) => s.loadBudget)
   const budgetPlan = useBudgetStore((s) => s.plan)
-  const budgetSummary = budgetPlan ? summarizeBudget(budgetPlan) : null
+  const budgetSpending = useBudgetStore((s) => s.spending)
+  const budgetSummary = budgetPlan ? summarizeBudget(budgetPlan, budgetSpending) : null
 
   const events = useCalendarStore((s) => s.events)
   const loadEvents = useCalendarStore((s) => s.loadEvents)

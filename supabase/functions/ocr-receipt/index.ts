@@ -1,8 +1,9 @@
 /// <reference path="./deno.d.ts" />
 // ocr-receipt Edge Function
-// Proxies OpenAI GPT-4o-mini Vision API for receipt OCR.
+// Proxies the Anthropic (Claude Haiku 4.5) Vision API for receipt OCR.
 // The client sends a base64-encoded JPEG image; this function returns structured item data.
-// OPENAI_API_KEY is read from Supabase secrets — never from the client.
+// A JSON-séma kényszerítésével (structured outputs) garantáltan valid JSON-t kapunk.
+// ANTHROPIC_API_KEY is read from Supabase secrets — never from the client.
 //
 // Önfejlesztő rész: a felhasználó korábbi kézi javításait (ocr_corrections tábla) glosszáriumként
 // visszainjektáljuk a promptba, így a modell idővel egyre jobban ismeri fel a tipikus rövidítéseket.
@@ -32,21 +33,27 @@ Feladatod: olvasd ki a MEGVÁSÁROLT TERMÉKEKET pontosan, és add vissza strukt
 VÁLASZ FORMÁTUM — KIZÁRÓLAG valid JSON, markdown és magyarázat nélkül:
 {
   "items": [
-    { "name": "...", "quantity": 1, "unit": "db", "unit_price": 0, "total_price": 0, "category": "...", "confidence": 0.0 }
+    { "raw_name": "...", "name": "...", "quantity": 1, "unit": "db", "unit_price": 0, "total_price": 0, "category": "...", "confidence": 0.0 }
   ],
   "total": 0,
   "store": "ALDI",
   "date": "YYYY-MM-DD"
 }
 
+NYERS NÉV (raw_name) — KRITIKUS a tanuláshoz:
+- A terméksor szövege BETŰHÍVEN, AHOGY A BLOKKON SZEREPEL, rövidítésekkel együtt
+  (pl. "Parad.koktél", "burg.pogácsa", "LM trapp.sz.", "Csirkecombf.kgvák.").
+- CSAK ezt hagyd el belőle: a sor elején álló ÁFA-kódot (C00/B00/A00/E00, elmosódva COO/BOO),
+  a cikkszámot/PLU-t (hosszú számsor), a "mennyiség × ár" részt és a "Ft"/"Ft/DB"/"Ft/KG" jelölést.
+- NE bővítsd, NE javítsd, NE értelmezd — ez a kulcs, amivel a rendszer felismeri ugyanazt a
+  terméket a következő blokkokon, ezért stabilnak kell lennie.
+
 NÉV (name):
-- A tényleges terméknév, tisztán. Bővítsd ki az egyértelmű magyar rövidítéseket olvasható formára:
+- A tényleges, tiszta terméknév. Bővítsd ki az egyértelmű magyar rövidítéseket olvasható formára:
   "Parad.koktél" → "Paradicsom koktél", "burg.pogácsa" → "Burgonyás pogácsa",
   "LM trapp.sz." → "Trappista sajt", "Felsőcombfilé" → "Csirke felsőcombfilé",
   "Bécsi virsli 2x200g" → "Bécsi virsli". Ha a rövidítés nem egyértelmű, hagyd meg az eredetit.
-- NE tedd a névbe: ÁFA-kódot (a sor elején álló C00/B00/A00/E00, vagy elmosódva COO/BOO),
-  cikkszámot/PLU-t (hosszú számsor, pl. 10000220319), a "mennyiség × ár" részt, sem a
-  "Ft", "Ft/DB", "Ft/KG" jelölést.
+- Ugyanazokat a részeket hagyd el, mint a raw_name-nél (ÁFA-kód, cikkszám, mennyiség×ár, Ft jelölés).
 
 MENNYISÉG ÉS ÁR:
 - "quantity": darabszám vagy súly. A magyar tizedes elválasztó a VESSZŐ: "1,021 KG" → 1.021.
@@ -77,6 +84,46 @@ KATEGÓRIA (category): rövid magyar kategória, pl. "Pékáru", "Tejtermék", "
 CONFIDENCE: 0.0–1.0 — mennyire vagy biztos a tételben (név + ár). Halvány, elmosódott vagy
 bizonytalanul olvasott sornál adj 0.78 ALATTI értéket, így a felhasználó tudja, mit kell ellenőriznie.`;
 
+// A válasz alakját strukturált kimenettel (output_config.format) kényszerítjük → garantáltan
+// valid JSON. A séma minden mezőt megkövetel (a nullázható mezők is), additionalProperties tiltva.
+const RECEIPT_JSON_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  properties: {
+    items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          raw_name: { type: "string" },
+          name: { type: "string" },
+          quantity: { type: ["number", "null"] },
+          unit: { type: ["string", "null"] },
+          unit_price: { type: ["number", "null"] },
+          total_price: { type: ["number", "null"] },
+          category: { type: ["string", "null"] },
+          confidence: { type: ["number", "null"] },
+        },
+        required: [
+          "raw_name",
+          "name",
+          "quantity",
+          "unit",
+          "unit_price",
+          "total_price",
+          "category",
+          "confidence",
+        ],
+      },
+    },
+    total: { type: ["number", "null"] },
+    store: { type: ["string", "null"] },
+    date: { type: ["string", "null"] },
+  },
+  required: ["items", "total", "store", "date"],
+};
+
 // ---------------------------------------------------------------------------
 // Response helpers
 // ---------------------------------------------------------------------------
@@ -101,6 +148,7 @@ function errorResponse(
 // ---------------------------------------------------------------------------
 
 interface OcrReceiptItem {
+  raw_name: string;
   name: string;
   quantity: number | null;
   unit: string | null;
@@ -235,47 +283,50 @@ Deno.serve(async (req: Request) => {
         .map((c) => `- "${c.raw_name}" → "${c.corrected_name}"`)
         .join("\n");
       glossaryBlock =
-        `\n\nISMERT JAVÍTÁSI SZÓTÁR (a felhasználó korábbi kézi javításai). Ha egy blokkon szereplő ` +
-        `(rövidített vagy hibásan olvasott) név erősen egyezik a bal oldalival, a "name" mezőbe a ` +
-        `jobb oldali kanonikus nevet írd:\n${lines}`;
+        `\n\nISMERT JAVÍTÁSI SZÓTÁR (a felhasználó korábbi kézi javításai). A bal oldal a blokkon ` +
+        `BETŰHÍVEN szereplő (rövidített) szöveg, a jobb oldal a helyes terméknév. Ha egy tétel ` +
+        `"raw_name" mezője — kis-/nagybetűtől eltekintve — erősen egyezik egy bal oldali kulccsal, ` +
+        `akkor a "name" mezőbe KÖTELEZŐEN a hozzá tartozó jobb oldali nevet írd (a "raw_name" maradjon ` +
+        `a blokkon látható eredeti szöveg):\n${lines}`;
     }
   } catch (glossaryError) {
     console.error("Glossary fetch failed (non-fatal):", glossaryError);
   }
 
   // ------------------------------------------------------------------
-  // 5. Call OpenAI Vision API
+  // 5. Call Anthropic (Claude Haiku 4.5) Vision API
   // ------------------------------------------------------------------
-  const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-  if (!openaiApiKey) {
-    console.error("OPENAI_API_KEY secret is not configured");
+  const anthropicApiKey = Deno.env.get("ANTHROPIC_API_KEY");
+  if (!anthropicApiKey) {
+    console.error("ANTHROPIC_API_KEY secret is not configured");
     return errorResponse(
       500,
       "CONFIGURATION_ERROR",
-      "OpenAI API key is not configured on the server",
+      "Anthropic API key is not configured on the server",
     );
   }
 
   const startMs = Date.now();
-  let openaiResponse: Response;
+  let anthropicResponse: Response;
 
   try {
-    openaiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+    anthropicResponse = await fetch("https://api.anthropic.com/v1/messages", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${openaiApiKey}`,
-        "Content-Type": "application/json",
+        "x-api-key": anthropicApiKey,
+        "anthropic-version": "2023-06-01",
+        "content-type": "application/json",
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini",
-        max_tokens: 3000,
-        temperature: 0.05,
-        response_format: { type: "json_object" },
+        model: "claude-haiku-4-5",
+        max_tokens: 4096,
+        temperature: 0,
+        system: RECEIPT_OCR_SYSTEM_PROMPT + glossaryBlock,
+        // Structured outputs: a séma kényszeríti a válasz alakját → mindig valid JSON.
+        output_config: {
+          format: { type: "json_schema", schema: RECEIPT_JSON_SCHEMA },
+        },
         messages: [
-          {
-            role: "system",
-            content: RECEIPT_OCR_SYSTEM_PROMPT + glossaryBlock,
-          },
           {
             role: "user",
             content: [
@@ -284,10 +335,11 @@ Deno.serve(async (req: Request) => {
                 text: "Dolgozd fel ezt a bevásárlási blokkot és add vissza a strukturált JSON adatokat.",
               },
               {
-                type: "image_url",
-                image_url: {
-                  url: `data:image/jpeg;base64,${imageBase64}`,
-                  detail: "high",
+                type: "image",
+                source: {
+                  type: "base64",
+                  media_type: "image/jpeg",
+                  data: imageBase64,
                 },
               },
             ],
@@ -296,37 +348,56 @@ Deno.serve(async (req: Request) => {
       }),
     });
   } catch (networkError) {
-    console.error("OpenAI network error:", networkError);
+    console.error("Anthropic network error:", networkError);
     return errorResponse(
       502,
       "UPSTREAM_ERROR",
-      "Failed to reach the OpenAI API",
+      "Failed to reach the Anthropic API",
     );
   }
 
-  if (!openaiResponse.ok) {
-    const errText = await openaiResponse.text();
+  if (!anthropicResponse.ok) {
+    const errText = await anthropicResponse.text();
     console.error(
-      `OpenAI API error ${openaiResponse.status}:`,
+      `Anthropic API error ${anthropicResponse.status}:`,
       errText.slice(0, 500),
     );
     return errorResponse(
       502,
       "UPSTREAM_ERROR",
-      `OpenAI returned HTTP ${openaiResponse.status}`,
+      `Anthropic returned HTTP ${anthropicResponse.status}`,
     );
   }
 
   // ------------------------------------------------------------------
-  // 6. Parse OpenAI response and normalize structured data
+  // 6. Parse Anthropic response and normalize structured data
   // ------------------------------------------------------------------
   let result: OcrReceiptResult;
 
   try {
-    const completion = await openaiResponse.json();
-    const rawContent: string = completion?.choices?.[0]?.message?.content ?? "";
+    const completion = await anthropicResponse.json();
 
-    // response_format=json_object miatt tiszta JSON-t kapunk, de a fence-eket
+    // Biztonsági ellenőrzés: ritkán a modell elutasíthatja a kérést.
+    if (completion?.stop_reason === "refusal") {
+      console.error("Anthropic refused the OCR request");
+      return errorResponse(
+        422,
+        "REFUSED",
+        "Az OCR kérést a modell elutasította.",
+      );
+    }
+
+    // Az Anthropic válasz content tömb; a structured output a (jellemzően egyetlen)
+    // text blokkban érkezik valid JSON-ként.
+    const blocks: Array<{ type?: string; text?: string }> = Array.isArray(
+      completion?.content,
+    )
+      ? completion.content
+      : [];
+    const rawContent: string =
+      blocks.find((b) => b?.type === "text")?.text ?? "";
+
+    // A structured output miatt tiszta JSON-t kapunk, de a fence-eket
     // defenzíven még levágjuk.
     const cleaned = rawContent
       .replace(/^```(?:json)?\s*/i, "")
@@ -348,6 +419,9 @@ Deno.serve(async (req: Request) => {
       .map((raw): OcrReceiptItem => {
         const it = raw as Record<string, unknown>;
         const name = String(it.name ?? "").trim();
+        // A nyers (blokkon látható) szöveg a tanuló glosszárium kulcsa. Ha a modell
+        // nem adta vissza, a tiszta névre esünk vissza, hogy ne maradjon üresen.
+        const rawName = String(it.raw_name ?? it.name ?? "").trim();
         const quantity = toNumberOrNull(it.quantity) ?? 1;
         let unitPrice = toNumberOrNull(it.unit_price);
         let totalPrice = toNumberOrNull(it.total_price);
@@ -362,6 +436,7 @@ Deno.serve(async (req: Request) => {
         }
 
         return {
+          raw_name: rawName,
           name,
           quantity,
           unit: it.unit ? String(it.unit) : null,
@@ -381,7 +456,7 @@ Deno.serve(async (req: Request) => {
       date: parsed.date ? String(parsed.date) : null,
     };
   } catch (parseError) {
-    console.error("JSON parse error from OpenAI response:", parseError);
+    console.error("JSON parse error from Anthropic response:", parseError);
     return errorResponse(
       422,
       "PARSE_ERROR",
