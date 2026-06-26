@@ -8,6 +8,7 @@ import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
 import { EventSheet } from '@/components/naptar/EventSheet'
 import { useCalendarStore } from '@/store/calendarStore'
+import { useDeviceWorkoutStore, isDeviceWorkout } from '@/store/deviceWorkoutStore'
 import { useMemberStore } from '@/store/memberStore'
 import { agendaDayLabel, dayKey, eventDayKey, expandEvents, monthGridRange, monthTitle, type CalendarDay } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
@@ -19,6 +20,9 @@ export default function NaptarScreen() {
   const createEvent = useCalendarStore((s) => s.createEvent)
   const updateEvent = useCalendarStore((s) => s.updateEvent)
   const deleteEvent = useCalendarStore((s) => s.deleteEvent)
+
+  const workouts = useDeviceWorkoutStore((s) => s.workouts)
+  const loadWorkouts = useDeviceWorkoutStore((s) => s.loadWorkouts)
 
   const members = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
@@ -33,8 +37,9 @@ export default function NaptarScreen() {
 
   useEffect(() => {
     loadEvents()
+    void loadWorkouts()
     void loadMembers()
-  }, [loadEvents, loadMembers])
+  }, [loadEvents, loadWorkouts, loadMembers])
 
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -42,11 +47,13 @@ export default function NaptarScreen() {
     return map
   }, [members])
 
-  // Az ismétlődő eseményeket a látható hónap-ablakra bontjuk ki (egyszeriek változatlanul).
+  // Az ismétlődő eseményeket a látható hónap-ablakra bontjuk ki (egyszeriek
+  // változatlanul). A kettlebell edzések (device naptár, csak olvasás) már
+  // konkrét előfordulásként jönnek, ezeket hozzáfűzzük.
   const expanded = useMemo(() => {
     const { start, end } = monthGridRange(viewYear, viewMonth)
-    return expandEvents(events, start, end)
-  }, [events, viewYear, viewMonth])
+    return [...expandEvents(events, start, end), ...workouts]
+  }, [events, workouts, viewYear, viewMonth])
 
   // Napi pöttyök: kulcs → tagszínek (egyedi, max 3-at mutat a grid)
   const dotsByDay = useMemo(() => {
@@ -98,6 +105,8 @@ export default function NaptarScreen() {
   }
 
   function openEdit(ev: CalendarEvent) {
+    // A kettlebell edzések csak olvashatók – nem szerkeszthetők innen.
+    if (isDeviceWorkout(ev.id)) return
     // Ismétlődő előfordulásnál a mester-eseményt szerkesztjük (eredeti kezdettel).
     const master = events.find((e) => e.id === ev.id) ?? ev
     setEditing(master)
@@ -164,7 +173,13 @@ export default function NaptarScreen() {
             <AgendaEvent
               key={ev.id}
               event={ev}
-              memberName={ev.member_id ? memberNameById.get(ev.member_id) ?? null : null}
+              memberName={
+                isDeviceWorkout(ev.id)
+                  ? 'Edzés'
+                  : ev.member_id
+                    ? memberNameById.get(ev.member_id) ?? null
+                    : null
+              }
               onPress={() => openEdit(ev)}
             />
           ))

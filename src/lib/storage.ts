@@ -6,6 +6,7 @@ export const StorageKeys = {
   pricePeriod: 'price.period',
   listLastActive: 'list.lastActive',
   authToken: 'auth.token',
+  notificationPrefs: 'notification.prefs',
 } as const
 
 export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys]

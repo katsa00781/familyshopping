@@ -29,6 +29,7 @@ import {
   resizeDays,
 } from '@/lib/shifts'
 import { haptics } from '@/lib/haptics'
+import { clearShiftsFromDevice, syncShiftsToDevice } from '@/lib/deviceCalendarSync'
 import { colors } from '@/constants/colors'
 import type { ShiftSchedule, ShiftType } from '@/types'
 
@@ -145,6 +146,16 @@ export default function MuszakScreen() {
       patchSchedule({ generatedEventIds: ids })
       haptics.success()
       showToast(`Beosztás létrehozva · ${ids.length} műszak`, 'success')
+
+      // A telefon naptárába is kiírjuk, hogy a többi app is olvashassa.
+      try {
+        const synced = await syncShiftsToDevice(inputs)
+        if (synced === -1) {
+          showToast('Telefon-naptár hozzáférés nélkül a műszakokat nem írtuk ki oda.', 'info')
+        }
+      } catch {
+        showToast('A műszakok telefon-naptárba írása nem sikerült.', 'info')
+      }
     } catch {
       haptics.error()
       showToast('A beosztás generálása nem sikerült.', 'error')
@@ -162,6 +173,11 @@ export default function MuszakScreen() {
         onPress: async () => {
           await deleteEvents(schedule!.generatedEventIds)
           patchSchedule({ generatedEventIds: [] })
+          try {
+            await clearShiftsFromDevice()
+          } catch {
+            // a telefon-naptár takarítása nem kritikus
+          }
           haptics.warning()
           showToast('Generált műszakok törölve.', 'info')
         },

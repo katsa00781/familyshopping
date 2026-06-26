@@ -55,6 +55,11 @@ export default function RootLayout() {
               />
               <Stack.Screen name="family-settings" />
               <Stack.Screen name="muszak" />
+              <Stack.Screen name="profil-szerkesztes" />
+              <Stack.Screen name="jelszo-modositas" />
+              <Stack.Screen name="ertesitesek" />
+              <Stack.Screen name="adatvedelem" />
+              <Stack.Screen name="feltetelek" />
             </Stack>
             <ToastContainer />
           </View>

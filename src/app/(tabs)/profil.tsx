@@ -232,14 +232,14 @@ export default function ProfilScreen() {
             <Separator />
             <Row label="Alapértelmezett bolt" value="–" onPress={notImplemented} />
             <Separator />
-            <Row label="Értesítések" value="Be" onPress={notImplemented} />
+            <Row label="Értesítések" onPress={() => router.push('/ertesitesek')} />
           </Group>
 
           {/* Fiók */}
           <Group title="Fiók">
-            <Row label="Profil szerkesztése" onPress={notImplemented} />
+            <Row label="Profil szerkesztése" onPress={() => router.push('/profil-szerkesztes')} />
             <Separator />
-            <Row label="Jelszó módosítása" onPress={notImplemented} />
+            <Row label="Jelszó módosítása" onPress={() => router.push('/jelszo-modositas')} />
             <Separator />
             <Row
               label={signingOut ? 'Kijelentkezés…' : 'Kijelentkezés'}
@@ -253,9 +253,9 @@ export default function ProfilScreen() {
           <Group title="Rólunk">
             <Row label="App verzió" value="v0.1.0" disabled />
             <Separator />
-            <Row label="Adatvédelem" onPress={notImplemented} />
+            <Row label="Adatvédelem" onPress={() => router.push('/adatvedelem')} />
             <Separator />
-            <Row label="Felhasználási feltételek" onPress={notImplemented} />
+            <Row label="Felhasználási feltételek" onPress={() => router.push('/feltetelek')} />
           </Group>
 
         </View>

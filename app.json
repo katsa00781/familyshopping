@@ -10,7 +10,14 @@
     "ios": {
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.kacsorzsolt.familyshopping",
-      "buildNumber": "1"
+      "buildNumber": "1",
+      "infoPlist": {
+        "NSCalendarsUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
+        "NSCalendarsFullAccessUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
+        "NSCalendarsWriteOnlyAccessUsageDescription": "A műszakbeosztásod telefon-naptárba írásához.",
+        "NSRemindersUsageDescription": "A naptár-emlékeztetők kezeléséhez.",
+        "NSRemindersFullAccessUsageDescription": "A naptár-emlékeztetők kezeléséhez."
+      }
     },
     "android": {
       "adaptiveIcon": {
@@ -54,6 +61,13 @@
         {
           "photosPermission": "A blokk beolvasásához engedélyezd a fotókönyvtár-hozzáférést.",
           "cameraPermission": "A blokk beolvasásához szükséges a kamera-hozzáférés."
+        }
+      ],
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban is láthasd.",
+          "remindersPermission": "A naptár-emlékeztetők kezeléséhez."
         }
       ]
     ],
