@@ -68,57 +68,100 @@ export default function KasszaScreen() {
         >
           {/* Összegző kártya */}
           <View className="mx-screen-x mt-4 rounded-3xl border border-border dark:border-dark-border bg-card dark:bg-dark-card p-5">
-            <Text className="text-body-sm text-muted">Havi keret</Text>
-            <Text className="mt-1 text-heading-xl font-bold text-foreground dark:text-dark-foreground">
-              {formatHuf(summary.keret)}
-            </Text>
-
-            {summary.hasSpending ? (
-              <View className="mt-4 flex-row">
-                <View className="flex-1">
-                  <Text className="text-body-sm text-muted">Elköltve</Text>
-                  <Text className="mt-0.5 text-body-lg font-semibold text-foreground dark:text-dark-foreground">
-                    {formatHuf(summary.totalSpent)}
-                  </Text>
+            {summary.hasActualIncome ? (
+              // Tényleges bevétel + kiadás → szabad keret kiszámítva
+              <>
+                <Text className="text-body-sm text-muted">Havi bevétel</Text>
+                <Text className="mt-1 text-heading-xl font-bold text-foreground dark:text-dark-foreground">
+                  {formatHuf(summary.totalIncome)}
+                </Text>
+                <View className="mt-4 flex-row">
+                  <View className="flex-1">
+                    <Text className="text-body-sm text-muted">Kiadás</Text>
+                    <Text className="mt-0.5 text-body-lg font-semibold text-foreground dark:text-dark-foreground">
+                      {formatHuf(summary.totalSpent)}
+                    </Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-body-sm text-muted">Szabad keret</Text>
+                    <Text
+                      className={`mt-0.5 text-body-lg font-semibold ${
+                        summary.remainingAfterSpent < 0
+                          ? 'text-warning'
+                          : 'text-foreground dark:text-dark-foreground'
+                      }`}
+                    >
+                      {formatHuf(summary.remainingAfterSpent)}
+                    </Text>
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-body-sm text-muted">Szabad keret</Text>
-                  <Text
-                    className={`mt-0.5 text-body-lg font-semibold ${
-                      summary.remainingAfterSpent < 0
-                        ? 'text-warning'
-                        : 'text-foreground dark:text-dark-foreground'
-                    }`}
-                  >
-                    {formatHuf(summary.remainingAfterSpent)}
-                  </Text>
+              </>
+            ) : summary.hasSpending ? (
+              // Van kiadás-adat, de nincs bevétel → tervezett keret alapján
+              <>
+                <Text className="text-body-sm text-muted">Tervezett keret</Text>
+                <Text className="mt-1 text-heading-xl font-bold text-foreground dark:text-dark-foreground">
+                  {formatHuf(summary.keret)}
+                </Text>
+                <View className="mt-4 flex-row">
+                  <View className="flex-1">
+                    <Text className="text-body-sm text-muted">Elköltve</Text>
+                    <Text className="mt-0.5 text-body-lg font-semibold text-foreground dark:text-dark-foreground">
+                      {formatHuf(summary.totalSpent)}
+                    </Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-body-sm text-muted">Szabad keret</Text>
+                    <Text
+                      className={`mt-0.5 text-body-lg font-semibold ${
+                        summary.remainingAfterSpent < 0
+                          ? 'text-warning'
+                          : 'text-foreground dark:text-dark-foreground'
+                      }`}
+                    >
+                      {formatHuf(summary.remainingAfterSpent)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
+              </>
             ) : summary.hasIncome ? (
-              <View className="mt-4 flex-row">
-                <View className="flex-1">
-                  <Text className="text-body-sm text-muted">Betervezve</Text>
-                  <Text className="mt-0.5 text-body-lg font-semibold text-foreground dark:text-dark-foreground">
-                    {formatHuf(summary.allocated)}
-                  </Text>
+              // Csak tervezési nézet (nincs Wallet-kapcsolat)
+              <>
+                <Text className="text-body-sm text-muted">Tervezett keret</Text>
+                <Text className="mt-1 text-heading-xl font-bold text-foreground dark:text-dark-foreground">
+                  {formatHuf(summary.keret)}
+                </Text>
+                <View className="mt-4 flex-row">
+                  <View className="flex-1">
+                    <Text className="text-body-sm text-muted">Betervezve</Text>
+                    <Text className="mt-0.5 text-body-lg font-semibold text-foreground dark:text-dark-foreground">
+                      {formatHuf(summary.allocated)}
+                    </Text>
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-body-sm text-muted">Szabad keret</Text>
+                    <Text
+                      className={`mt-0.5 text-body-lg font-semibold ${
+                        summary.remaining < 0
+                          ? 'text-warning'
+                          : 'text-foreground dark:text-dark-foreground'
+                      }`}
+                    >
+                      {formatHuf(summary.remaining)}
+                    </Text>
+                  </View>
                 </View>
-                <View className="flex-1">
-                  <Text className="text-body-sm text-muted">Szabad keret</Text>
-                  <Text
-                    className={`mt-0.5 text-body-lg font-semibold ${
-                      summary.remaining < 0
-                        ? 'text-warning'
-                        : 'text-foreground dark:text-dark-foreground'
-                    }`}
-                  >
-                    {formatHuf(summary.remaining)}
-                  </Text>
-                </View>
-              </View>
+              </>
             ) : (
-              <Text className="mt-2 text-body-sm text-muted">
-                Teljes havi terv {summary.categories.length} kategóriában
-              </Text>
+              <>
+                <Text className="text-body-sm text-muted">Havi terv</Text>
+                <Text className="mt-1 text-heading-xl font-bold text-foreground dark:text-dark-foreground">
+                  {formatHuf(summary.keret)}
+                </Text>
+                <Text className="mt-2 text-body-sm text-muted">
+                  {summary.categories.length} kategóriában tervezve
+                </Text>
+              </>
             )}
           </View>
 

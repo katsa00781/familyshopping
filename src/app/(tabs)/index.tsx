@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { useColorScheme } from 'nativewind'
 import { Settings } from 'lucide-react-native'
 
 import { TodayCard, type TodayEvent } from '@/components/dashboard/TodayCard'
@@ -40,6 +41,8 @@ function todayLabel(): string {
 
 export default function KezdolapScreen() {
   const router = useRouter()
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const [createVisible, setCreateVisible] = useState(false)
 
   const user = useAuthStore((s) => s.user)
@@ -158,7 +161,7 @@ export default function KezdolapScreen() {
                 className="items-center justify-center rounded-full bg-card dark:bg-dark-card border-2 border-border dark:border-dark-border"
               >
                 <View style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-                  <Settings size={20} color={colors.foreground} strokeWidth={1.75} />
+                  <Settings size={20} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={1.75} />
                 </View>
               </View>
             </Pressable>

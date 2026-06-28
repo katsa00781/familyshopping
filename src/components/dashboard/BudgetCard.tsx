@@ -41,12 +41,13 @@ export function BudgetCard({ summary, onPress }: BudgetCardProps) {
     )
   }
 
-  // Valós (Wallet) költéssel: szabad keret = keret − elköltve, sáv = elköltve / keret.
-  // Enélkül a v1 tervezési nézet: szabad keret = keret − betervezve.
-  const { keret, allocated, remaining, totalSpent, remainingAfterSpent, hasSpending } = summary
+  // hasActualIncome: keret = tényleges bevétel, used = tényleges kiadás → valós szabad keret.
+  // hasSpending (de nincs income): keret = tervezett, used = elköltve.
+  // Sem: v1 tervezési nézet, keret = tervezett, used = betervezett allokáció.
+  const { keret, allocated, remaining, totalSpent, remainingAfterSpent, hasSpending, hasActualIncome } = summary
   const used = hasSpending ? totalSpent : allocated
   const free = hasSpending ? remainingAfterSpent : remaining
-  const usedLabel = hasSpending ? 'Elköltve' : 'Betervezve'
+  const usedLabel = hasActualIncome ? 'Kiadás' : hasSpending ? 'Elköltve' : 'Betervezve'
   const ratio = keret > 0 ? Math.min(used / keret, 1) : 0
   const pct = keret > 0 ? Math.round((used / keret) * 100) : 0
   const over = free < 0

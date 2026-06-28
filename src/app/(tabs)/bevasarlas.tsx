@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
+import { useColorScheme } from 'nativewind'
 import { Plus, ScanLine, ShoppingCart } from 'lucide-react-native'
 
 import { ListSegment, useSegmentNav } from '@/components/lista/ListSegment'
@@ -63,6 +64,8 @@ function EmptyState() {
 
 export default function BevasarlasScreen() {
   const router = useRouter()
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const [createVisible, setCreateVisible] = useState(false)
 
   const lists = useListStore((s) => s.lists)
@@ -156,7 +159,7 @@ export default function BevasarlasScreen() {
                 elevation: 1,
               }}
             >
-              <ScanLine size={20} color={colors.foreground} strokeWidth={2} />
+              <ScanLine size={20} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2} />
             </View>
           </Pressable>
         </View>

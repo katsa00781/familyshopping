@@ -12,7 +12,7 @@
 > - v1 funkciók: Kezdőlap dashboard, Naptár, Kassza, Étkezéstervező.
 > - **v1 adatmodell:** `user_id`-scoped (NEM family_id, profiles üres). Naptár = saját hónap-grid (nincs react-native-calendars).
 >
-> **Utolsó frissítés:** 2026-06-26
+> **Utolsó frissítés:** 2026-06-28
 
 ---
 
@@ -80,6 +80,7 @@
   - Új tokenek: `surface-sunken` (#EFEDE7) + `surface-muted` (#F2F0EA) → tokens.json + tailwind + colors.ts
   - Stílus-érvényesülés: a kártya statikus stílusai belső View-n (objektum-style + className), a Pressable függvény-style csak `opacity` — a NativeWind v4 gotcha elkerülve (lásd dashboard/Naptár fix)
   - Füstteszt: tsc nem hozott új hibát, lint 0 az érintett fájlokon
+- [x] **Sötét mód – láthatatlan fejléc-ikonok javítva (2026-06-27):** sötét háttéren nem látszott az OCR (`ScanLine`, Bevásárlás fejléc), a Naptár (`CalendarClock` + hónap-navigáció `ChevronLeft/Right`) és a Kezdőlap fogaskerék (`Settings`) ikonja. Gyökérok: az ikon `color` propja fixen `colors.foreground` (light-mód sötét `#1C2B2A`) volt, ami a sötét háttéren (`#13201F`) eltűnt — a kör-chip `bg-card` className viszont helyesen sötétedett. Javítás a meglévő mintát követve (`useColorScheme` a `nativewind`-ből → `dark ? colors.darkForeground : colors.foreground`) az `index.tsx`, `naptar.tsx`, `bevasarlas.tsx` fejléceiben. tsc/lint tiszta az érintett fájlokon
 - [x] **Árfigyelés cold-start betöltési hiba javítva (2026-06-21):** a személyes infláció és árváltozások időnként üresen maradtak („reload után magától megjavul"). Adat- és számítás-ellenőrzés (Supabase): 894 áradat-sor, 30 napos ablakban 40 termék ≥2 adattal, 12 valódi árváltozás — tehát a hiba a **betöltési úton** volt, nem adathiány/számítás. Gyökérok: a `priceStore.loadPriceData` a sessiont a retry-cikluson KÍVÜL, egyszer kérte le → cold start után, ha a GoTrue session-hidratálás még futott, `getSessionSafe()` null → azonnali cache-fallback, cikluson belüli újrapróba nélkül. Másodlagos hiba: üres élő eredmény FELÜLÍRTA a jó cache-t üressel (tartóssá tette a hibát). Javítás: session-lekérés + query a retry-cikluson BELÜL (4 próba, backoff, újra-hidratálásra várva); üres élő eredmény SOSE írja felül a nem-üres cache-t; tiszta üres (új user) megkülönböztetve a tranziens hibától. Önjavító: az első sikeres élő betöltés felülírja a korábban beragadt üres cache-t. tsc/lint tiszta.
   - **Központosítva + kiterjesztve mind a 4 store-ra (2026-06-21):** a hibára hajlamos retry-logika kiemelve közös `src/lib/loadWithRetry.ts`-be (`loadWithSessionRetry(fetcher, isEmpty)` → `data` | `empty` | `failed`). A `priceStore`, `budgetStore`, `calendarStore`, `mealPlanStore` betöltése mind ezt használja. Kulcs: a `failed` (egyetlen hibamentes olvasás sem) megtartja a nem-üres cache-t (múló hiba ≠ adatvesztés), míg az `empty` (a szerver megerősítette a 0 sort) tisztán felülírja (törlés/valódi üres helyesen kezelve). A naptár/étrend mutációi (`createEvent`/`assignRecipe`…) változatlanok.
 - [x] **Szegmens-vezérlő perzisztálása mindhárom alnézeten (2026-06-21):** a felső tabok (Listák / Termékek / Árak) korábban csak a Bevásárlás (Listák) képernyőn voltak; Termékekre/Árakra lépve eltűntek, csak „Vissza" gomb maradt. Most a `ListSegment` mindhárom nézet fejlécében ott van, közvetlen váltással. A `termekek`/`arak` „Vissza → Bevásárlás" gomb helyét a szegmens vette át (cím egységesen „Bevásárlás"). Közös `useSegmentNav(current)` hook a `ListSegment`-ben: `router.navigate` (nem `push`), hogy ne épüljön duplikált back-stack. tsc/lint tiszta az érintett fájlokon
@@ -157,6 +158,8 @@
 **Megjegyzések / korlátok:**
 - A `CATEGORY_MAP` (és a `SUBCATEGORY_HU`) ehhez a konkrét tervhez (és kategória-nevekhez) van hangolva — v1 single-user. Ha a terv kategórianevei változnak, a térképet frissíteni kell.
 - A deploy-olt függvény azonos a repo-fájllal (CLI `--use-api` deploy a forrásból); a repo a kanonikus forrás.
+
+**Tényleges bevétel megjelenítése a Kasszában (2026-06-28):** a Kassza tab és a Kezdőlap Kassza-kártyája mostantól a Wallet tényleges havi bevételét mutatja (nem a tervezett keretet), és abból számolja a szabad keretet. A `wallet-spending` Edge Function (version 7) income rekordokat is lekér (`recordType=income`, transfer kihagyva) → `totalIncome` a válaszban. `WalletSpending.totalIncome` + `BudgetSummary.totalIncome`/`hasActualIncome` típusok. `summarizeBudget`: keret = `totalIncome` ha > 0, különben fallback a tervezett keretre. UI: `hasActualIncome` esetén „Havi bevétel + Kiadás + Szabad keret"; `BudgetCard` felirata „Kiadás" (volt: „Elköltve"). tsc/lint tiszta.
 
 ---
 

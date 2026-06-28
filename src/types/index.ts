@@ -267,6 +267,7 @@ export interface WalletSpending {
   currency: string // 'HUF'
   byCategory: Record<string, number> // terv-kategória neve → elköltött (pozitív, Ft)
   totalSpent: number
+  totalIncome: number // tényleges havi bevétel összege (0 ha nem sikerült lekérni)
   syncedAt: string
 }
 
@@ -294,20 +295,25 @@ export interface WalletCategoryDetail {
 }
 
 // Kezdőlap + Kassza tab összegzése.
-//   keret      = actual_income ?? total_amount
-//   allocated  = Σ betervezett kategória
-//   totalSpent = Σ valós költés a terv-kategóriákra (0, ha nincs spending)
-//   remaining  = keret − allocated (tervezési maradék)
+//   keret            = totalIncome (ha > 0) → actual_income → total_amount (terv)
+//   allocated        = Σ betervezett kategória
+//   totalSpent       = Σ valós kiadás (Wallet, 0 ha nincs adat)
+//   totalIncome      = tényleges havi bevétel (Wallet, 0 ha nincs adat)
+//   remaining        = tervezett keret − allocated
 //   remainingAfterSpent = keret − totalSpent (valós szabad keret)
-//   hasSpending = van-e élő Wallet költés-adat ehhez a hónaphoz
+//   hasIncome        = van-e actual_income a tervben
+//   hasSpending      = van-e élő Wallet kiadás-adat
+//   hasActualIncome  = van-e tényleges bevétel-adat (totalIncome > 0)
 export interface BudgetSummary {
   keret: number
   allocated: number
   totalSpent: number
+  totalIncome: number
   remaining: number
   remainingAfterSpent: number
   hasIncome: boolean
   hasSpending: boolean
+  hasActualIncome: boolean
   categories: BudgetCategorySummary[]
 }
 

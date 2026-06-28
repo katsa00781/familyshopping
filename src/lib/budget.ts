@@ -164,6 +164,7 @@ export async function getWalletSpending(month: string): Promise<WalletSpending |
     currency: typeof d.currency === 'string' ? d.currency : 'HUF',
     byCategory: d.byCategory,
     totalSpent: asNumber(d.totalSpent),
+    totalIncome: asNumber(d.totalIncome),
     syncedAt: typeof d.syncedAt === 'string' ? d.syncedAt : new Date().toISOString(),
   }
 }
@@ -191,16 +192,18 @@ export async function getWalletSpendingDetail(
 }
 
 // ─── Terv → összegzés ─────────────────────────────────────────────────────────
-// keret = actual_income ?? total_amount; allocated = Σ betervezett kategória.
-// `spending` megadásakor a valós (Wallet) költést is bekötjük: a wallet-spending
-// Edge Function már TERV-KATEGÓRIA NÉV szerint összegzett (Wallet→terv koncepció-
-// mapping, átvezetések kihagyásával), így itt egyszerű név-szerinti join.
+// Keret prioritás: tényleges bevétel (Wallet totalIncome) → actual_income → total_amount.
+// Ha van tényleges bevétel-adat (hasActualIncome), azt vesszük alapnak — a tervezett
+// összeg csak fallback (amikor a Wallet token nincs beállítva vagy a hónap elején 0).
 export function summarizeBudget(
   plan: BudgetPlan,
   spending?: WalletSpending | null,
 ): BudgetSummary {
   const byCat = spending?.byCategory ?? null
   const hasSpending = byCat != null
+
+  const totalIncome = spending?.totalIncome ?? 0
+  const hasActualIncome = hasSpending && totalIncome > 0
 
   const categories = normalizeBudgetData(plan.budget_data)
     .filter((c) => c.amount > 0)
@@ -212,20 +215,23 @@ export function summarizeBudget(
 
   const allocated = categories.reduce((s, c) => s + c.amount, 0)
   const hasIncome = plan.actual_income != null
-  const keret = hasIncome ? Number(plan.actual_income) : Number(plan.total_amount)
+  // A tervezett keret (remaining számításhoz): actual_income → total_amount
+  const plannedKeret = hasIncome ? Number(plan.actual_income) : Number(plan.total_amount)
+  // A tényleges keret: ha van Wallet bevétel-adat, azt használjuk; különben a terv
+  const keret = hasActualIncome ? totalIncome : plannedKeret
 
-  // Teljes valós költés = a függvény által számolt összeg (minden nem-átvezetés
-  // kiadás, a térképen kívüli tételek az „Egyéb" alatt). Robusztus a tervtől függetlenül.
   const totalSpent = hasSpending ? Number(spending?.totalSpent ?? 0) : 0
 
   return {
     keret,
     allocated,
     totalSpent,
-    remaining: keret - allocated,
+    totalIncome,
+    remaining: plannedKeret - allocated,
     remainingAfterSpent: keret - totalSpent,
     hasIncome,
     hasSpending,
+    hasActualIncome,
     categories,
   }
 }

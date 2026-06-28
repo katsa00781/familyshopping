@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
+import { useColorScheme } from 'nativewind'
 import { Calendar, CalendarClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
 
 import { MonthGrid } from '@/components/naptar/MonthGrid'
@@ -15,6 +16,8 @@ import { colors } from '@/constants/colors'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
 export default function NaptarScreen() {
+  const { colorScheme } = useColorScheme()
+  const dark = colorScheme === 'dark'
   const events = useCalendarStore((s) => s.events)
   const loadEvents = useCalendarStore((s) => s.loadEvents)
   const createEvent = useCalendarStore((s) => s.createEvent)
@@ -124,13 +127,13 @@ export default function NaptarScreen() {
       <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 6, paddingBottom: 14 }}>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <Pressable onPress={() => shiftMonth(-1)} accessibilityLabel="Előző hónap" hitSlop={8} className="bg-card dark:bg-dark-card" style={{ width: 34, height: 34, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}>
-            <ChevronLeft size={18} color={colors.foreground} strokeWidth={2.4} />
+            <ChevronLeft size={18} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2.4} />
           </Pressable>
           <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 24, fontWeight: '800', letterSpacing: -0.5, lineHeight: 26 }}>
             {monthTitle(viewYear, viewMonth)}
           </Text>
           <Pressable onPress={() => shiftMonth(1)} accessibilityLabel="Következő hónap" hitSlop={8} className="bg-card dark:bg-dark-card" style={{ width: 34, height: 34, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}>
-            <ChevronRight size={18} color={colors.foreground} strokeWidth={2.4} />
+            <ChevronRight size={18} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2.4} />
           </Pressable>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
@@ -141,7 +144,7 @@ export default function NaptarScreen() {
             className="bg-card dark:bg-dark-card"
             style={{ width: 38, height: 38, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}
           >
-            <CalendarClock size={19} color={colors.foreground} strokeWidth={2} />
+            <CalendarClock size={19} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2} />
           </Pressable>
           <Pressable onPress={goToday} accessibilityLabel="Ugrás a mai napra" style={{ borderRadius: 14, paddingHorizontal: 16, paddingVertical: 9, backgroundColor: 'rgba(20,184,166,0.12)' }}>
             <Text style={{ fontSize: 14, fontWeight: '800', letterSpacing: -0.1, color: colors.primary }}>Ma</Text>

@@ -429,6 +429,50 @@ Deno.serve(async (req: Request) => {
     return errorResponse(502, "UPSTREAM_ERROR", "Nem sikerült elérni a Wallet API-t");
   }
 
+  // ── Bevételek — csak aggregált módban kell (detail korai return után) ──────────
+  // A bevétel-összeg a tényleges havi keret kiszámításához kell.
+  // Ha a fetch hibázik, 0-t adunk vissza (a kiadás-nézet megmarad).
+  let totalIncome = 0;
+  if (!detailCategory) {
+    try {
+      for (let page = 0; page < MAX_PAGES; page++) {
+        const incParams = new URLSearchParams();
+        incParams.set("recordType", "income");
+        incParams.append("recordDate", `gte.${start}`);
+        incParams.append("recordDate", `lt.${end}`);
+        incParams.set("convertTo", "base");
+        incParams.set("limit", String(PAGE_SIZE));
+        incParams.set("offset", String(page * PAGE_SIZE));
+
+        const incRes = await fetch(`${WALLET_API_BASE}/records?${incParams.toString()}`, {
+          headers: {
+            Authorization: `Bearer ${walletToken}`,
+            Accept: "application/json",
+          },
+        });
+
+        if (!incRes.ok) break;
+
+        const incPayload = await incRes.json();
+        const incRecords: WalletRecord[] = Array.isArray(incPayload)
+          ? incPayload
+          : Array.isArray(incPayload?.records)
+            ? incPayload.records
+            : [];
+
+        for (const rec of incRecords) {
+          const catId = recordCategoryId(rec);
+          if (catId && EXCLUDED_CATEGORIES.has(catId)) continue; // átvezetés kihagyva
+          totalIncome += recordBaseAmount(rec);
+        }
+
+        if (incRecords.length < PAGE_SIZE) break;
+      }
+    } catch {
+      // bevétel-lekérés hiba nem kritikus — 0-val folytatjuk
+    }
+  }
+
   // ── Detail nézet: a kért kategória tételei Wallet-alkategória szerint csoportosítva ──
   if (detailCategory) {
     const groupMap = new Map<string, { total: number; records: { label: string; amount: number; date: string }[] }>();
@@ -474,6 +518,7 @@ Deno.serve(async (req: Request) => {
     currency: "HUF",
     byCategory,
     totalSpent: Math.round(totalSpent),
+    totalIncome: Math.round(totalIncome),
     syncedAt: new Date().toISOString(),
   };
 
@@ -485,6 +530,7 @@ Deno.serve(async (req: Request) => {
       record_count: recordCount,
       category_count: Object.keys(byCategory).length,
       total_spent: result.totalSpent,
+      total_income: result.totalIncome,
     }),
   );
 
