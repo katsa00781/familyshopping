@@ -25,8 +25,10 @@ import ListItem from '@/components/lista/ListItem'
 import ItemAddSheet from '@/components/lista/ItemAddSheet'
 import ItemEditSheet from '@/components/lista/ItemEditSheet'
 import { useListStore } from '@/store/listStore'
+import { useProductStore } from '@/store/productStore'
 import { colors } from '@/constants/colors'
 import { formatHuf } from '@/lib/format'
+import { sortItemsByStore } from '@/lib/sortByStore'
 import type { ItemCategory, ShoppingItem } from '@/types'
 
 type FilterCategory = 'Összes' | ItemCategory
@@ -48,13 +50,22 @@ export default function ListDetailScreen() {
   const completeList = useListStore((s) => s.completeList)
   const deleteList = useListStore((s) => s.deleteList)
 
+  const products = useProductStore((s) => s.products)
+  const loadProducts = useProductStore((s) => s.loadProducts)
+
+  useEffect(() => {
+    if (products.length === 0) void loadProducts()
+  }, [products.length, loadProducts])
+
   const [filter, setFilter] = useState<FilterCategory>('Összes')
   const [addVisible, setAddVisible] = useState(false)
   const [editItem, setEditItem] = useState<ShoppingItem | null>(null)
 
   const items = list?.items ?? []
-  const filteredItems =
-    filter === 'Összes' ? items : items.filter((i) => i.category === filter)
+  const filteredItems = sortItemsByStore(
+    filter === 'Összes' ? items : items.filter((i) => i.category === filter),
+    products,
+  )
   const checkedCount = items.filter((i) => i.checked).length
   const allChecked = items.length > 0 && checkedCount === items.length
 

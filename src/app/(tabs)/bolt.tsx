@@ -9,9 +9,11 @@ import { Check, ChevronDown, X } from 'lucide-react-native'
 import BoltRow from '@/components/bolt/BoltRow'
 import BottomSheet from '@/components/ui/BottomSheet'
 import { useListStore } from '@/store/listStore'
+import { useProductStore } from '@/store/productStore'
 import { colors } from '@/constants/colors'
 import { haptics } from '@/lib/haptics'
 import { formatHuf } from '@/lib/format'
+import { sortItemsByStore } from '@/lib/sortByStore'
 
 export default function BoltScreen() {
   useKeepAwake()
@@ -29,6 +31,9 @@ export default function BoltScreen() {
   const activeListId = useListStore((s) => s.activeListId)
   const setActiveListId = useListStore((s) => s.setActiveListId)
 
+  const products = useProductStore((s) => s.products)
+  const loadProducts = useProductStore((s) => s.loadProducts)
+
   const dark = useColorScheme() === 'dark'
   const activeLists = lists.filter((l) => !l.completed)
 
@@ -40,7 +45,7 @@ export default function BoltScreen() {
     return lists.find((l) => !l.completed) ?? null
   })()
 
-  const items = activeList?.items ?? []
+  const items = sortItemsByStore(activeList?.items ?? [], products)
   const checkedCount = items.filter((i) => i.checked).length
   const allChecked = items.length > 0 && checkedCount === items.length
   const ctaActive = allChecked || ctaForced
@@ -58,6 +63,10 @@ export default function BoltScreen() {
   useEffect(() => {
     void loadLists()
   }, [loadLists])
+
+  useEffect(() => {
+    if (products.length === 0) void loadProducts()
+  }, [products.length, loadProducts])
 
   async function handleComplete() {
     if (!activeList) return
