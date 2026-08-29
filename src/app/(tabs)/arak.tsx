@@ -72,6 +72,11 @@ export default function ArakScreen() {
 
   const hasData = priceHistory.length > 0
 
+  // Ha az adott időszakban egyáltalán nincs árváltozás, felajánljuk a következő
+  // szélesebb időszakot: ritkábban vásárolt termékeknél 30 nap alatt gyakran nincs
+  // két különböző ár ugyanarra a termékre, így a lista jogosan, de zavaróan üres.
+  const widerPeriod: Period | null = period === 7 ? 30 : period === 30 ? 90 : null
+
   // ─── Header ────────────────────────────────────────────────────────────────
   function renderHeader() {
     return (
@@ -314,10 +319,29 @@ export default function ArakScreen() {
           </View>
 
           {filteredChanges.length === 0 ? (
-            <View className="items-center py-10 px-screen-x">
+            <View className="items-center py-10 px-screen-x gap-3">
               <Text className="text-body-md text-muted text-center">
-                Nincs találat a szűrési feltételekre.
+                {changes.length === 0
+                  ? `Nincs árváltozás az elmúlt ${period} napban.`
+                  : 'Nincs találat a szűrési feltételekre.'}
               </Text>
+              {changes.length === 0 && widerPeriod !== null ? (
+                <Pressable
+                  onPress={() => {
+                    setSelectedCategory(null)
+                    setPeriod(widerPeriod)
+                  }}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Váltás ${widerPeriod} napos időszakra`}
+                  hitSlop={8}
+                  style={({ pressed }) => ({ opacity: pressed ? 0.75 : 1 })}
+                  className="px-4 py-2 rounded-fab bg-primary"
+                >
+                  <Text className="text-body-sm font-semibold text-white">
+                    Nézd meg {widerPeriod} napra
+                  </Text>
+                </Pressable>
+              ) : null}
             </View>
           ) : (
             <View className="border-t border-border dark:border-dark-border">

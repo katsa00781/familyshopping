@@ -296,11 +296,33 @@
 - [ ] Bolt mód boltban, valós körülmények közt (új háttérszín ellenőrzés)
 - [ ] Edge case-ek: üres állapot minden tabon, hosszú magyar szöveg, nincs net, lassú net
 - [ ] `budget_data` 3 formátuma valós adattal tesztelve
-- [ ] Lint + typecheck hibamentes
+- [x] Lint + typecheck hibamentes (2026-08-28): `tsc --noEmit` tiszta; `expo lint` 0 error / 8 warning
+      (starter-sablon maradék `SymbolView name` objektumok stringre, `useColorScheme() ?? 'light'`, `handoff/` kizárva a typecheckből)
 - [ ] Dev segédeszközök eltávolítva (mock adat, console.log)
 - [ ] Secrets ellenőrzés (kliens bundle + git history)
 - [ ] `backlog.md` frissítve
-- [ ] EAS Build → TestFlight a családnak (bundle id: `com.kacsorzsolt.familyshopping` — új név esetén frissítendő)
+- [x] EAS setup kész (2026-08-28): `eas.json` (development/preview/production profilok),
+      EAS projekt `@katsa00781/familyshopping`, `expo-updates` + EAS Update (fingerprint runtime policy),
+      `EXPO_PUBLIC_*` változók feltöltve az EAS környezetekbe, expo-doctor 18/18. Részletek: `TELEPITES.md`
+- [x] EAS Build → TestFlight (2026-08-29): `1.0.0 (2)` build fent, saját iPhone-ra telepítve.
+      ASC app: `FamilyHub (7ad880)`, kezdőképernyőn `FamilyHub`. A build 90 nap múlva lejár.
+- [ ] TestFlight tesztelők (a család többi tagja) meghívása az App Store Connectben
+- [x] Első EAS Update (OTA) kiadva (2026-08-29): `production` branch/channel, iOS,
+      runtimeVersion `bf83840a…` — a helyi fingerprint egyezik a `1.0.0 (2)` TestFlight buildével,
+      így a telepített app megkapja. Update group `e4e710cf-81b3-4cb7-be1c-5758c5ce3933`.
+      Tartalom: az Árak üres állapot javítása. A telefonon app-újraindítás kell (`checkAutomatically: ON_LOAD`,
+      a frissítés a következő indításkor aktiválódik).
+- [x] Árak tab — üres „Árváltozások" lista beszédes üres állapota (2026-08-29): TestFlight-visszajelzés
+      alapján. Ok: a 30 napos alapértelmezett ablakban (legutolsó ársor 2026-08-02) mind a 8 többszörös
+      termék ára változatlan → `computePriceChanges()` mindet kiszűri (`change_ft === 0`). A félrevezető
+      „Nincs találat a szűrési feltételekre." helyett most „Nincs árváltozás az elmúlt X napban." +
+      gomb a következő szélesebb időszakra (7→30→90). 90 napon 28 valódi árváltozás van.
+- [ ] Árak — nyitott hibák (TestFlight 2026-08-29, javítás elhalasztva):
+      (1) azonos napi sorok sorrendje: a query `price_date DESC`, a `sorted` csak dátumra rendez, így egy
+      napon belül az „oldest" a legújabb sor → az árváltozás előjele megfordulhat (90 napon 11 ilyen termék);
+      (2) egy blokk duplikált sorai „figyelt terméknek" számítanak a KPI-ban, de árváltozást sosem adnak.
+- [ ] Következő build előtt: `ITSAppUsesNonExemptEncryption: false` az infoPlistbe (kimarad a kézi
+      export compliance kérdés) + ASC app-név átírása egyedire
 
 ---
 
