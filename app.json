@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "familyshopping",
+    "name": "FamilyHub",
     "slug": "familyshopping",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -10,13 +10,13 @@
     "ios": {
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.kacsorzsolt.familyshopping",
-      "buildNumber": "1",
       "infoPlist": {
         "NSCalendarsUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
         "NSCalendarsFullAccessUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
         "NSCalendarsWriteOnlyAccessUsageDescription": "A műszakbeosztásod telefon-naptárba írásához.",
         "NSRemindersUsageDescription": "A naptár-emlékeztetők kezeléséhez.",
-        "NSRemindersFullAccessUsageDescription": "A naptár-emlékeztetők kezeléséhez."
+        "NSRemindersFullAccessUsageDescription": "A naptár-emlékeztetők kezeléséhez.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -29,7 +29,9 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_CALENDAR",
+        "android.permission.WRITE_CALENDAR"
       ]
     },
     "web": {
@@ -74,6 +76,21 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "a6a04c18-286a-424a-8e32-c52b23a2f117"
+      }
+    },
+    "owner": "katsa00781",
+    "updates": {
+      "url": "https://u.expo.dev/a6a04c18-286a-424a-8e32-c52b23a2f117",
+      "fallbackToCacheTimeout": 0,
+      "checkAutomatically": "ON_LOAD"
+    },
+    "runtimeVersion": {
+      "policy": "fingerprint"
     }
   }
 }
