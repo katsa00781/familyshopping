@@ -37,11 +37,66 @@ AppState.addEventListener('change', (state) => {
  */
 function isInvalidRefreshToken(err: unknown): boolean {
   const msg = err instanceof Error ? err.message : String(err ?? '')
-  return /refresh token/i.test(msg)
+  // SZŰKEN: csak a ténylegesen halott sessionre. A korábbi `/refresh token/i` az
+  // átmeneti "Invalid Refresh Token: Already Used"-ra is illeszkedett — az pedig a
+  // token-rotáció versenyhelyzetében normális, és nem indokol kiléptetést.
+  return /refresh token not found|token has expired|revoked/i.test(msg)
 }
 
 function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+/**
+ * A GoTrue `initialize()` (AsyncStorage-hidratálás + lejárt access token frissítése)
+ * ASZINKRON, és amíg fut, a `getSession()` session nélkül tér vissza. Meleg indításkor
+ * ez rendszeresen tovább tart, mint amennyit a hívók vártak — emiatt MINDEN store
+ * "nincs session"-re jutott és **el sem küldte a lekérdezést** (edge_logs: 2026-08-30-án
+ * egyetlen REST GET sem ment ki, miközben egy perccel később a felhasználói írás átment).
+ * Friss bejelentkezésnél a session a memóriában van, ezért ott sosem jelentkezett.
+ *
+ * A GoTrue az `initialize()` végén pontosan egyszer emittál `INITIAL_SESSION` eseményt —
+ * ez a kanonikus "kész a hidratálás" jelzés. Kijelentkezett usernél is azonnal megjön
+ * (null sessionnel), így a login képernyőt nem lassítja. A timeout csak vészfék.
+ */
+const HYDRATION_TIMEOUT_MS = 8000
+
+const initialSessionReady: Promise<void> = new Promise((resolve) => {
+  let done = false
+  const finish = () => {
+    if (done) return
+    done = true
+    resolve()
+  }
+  const {
+    data: { subscription },
+  } = supabase.auth.onAuthStateChange((event) => {
+    if (event === 'INITIAL_SESSION') {
+      subscription.unsubscribe()
+      finish()
+    }
+  })
+  setTimeout(finish, HYDRATION_TIMEOUT_MS)
+})
+
+/**
+ * Single-flight token-frissítés. A képernyők egyszerre több store-t töltenek, mindegyik
+ * hívja a `getSessionSafe()`-et; frissítendő token mellett ez N párhuzamos
+ * `refreshSession()`-t jelentene ugyanarra a ROTÁLÓ refresh tokenre. Itt egyetlen
+ * folyamatban lévő frissítést osztunk meg az összes hívóval.
+ */
+let refreshInFlight: ReturnType<typeof supabase.auth.refreshSession> | null = null
+
+function refreshSessionOnce(): ReturnType<typeof supabase.auth.refreshSession> {
+  if (!refreshInFlight) {
+    const pending = supabase.auth.refreshSession()
+    refreshInFlight = pending
+    const clear = () => {
+      if (refreshInFlight === pending) refreshInFlight = null
+    }
+    pending.then(clear, clear)
+  }
+  return refreshInFlight
 }
 
 /**
@@ -72,12 +127,13 @@ function delay(ms: number): Promise<void> {
  */
 export async function getSessionSafe(): Promise<Session | null> {
   try {
+    // Megvárjuk a GoTrue hidratálását (INITIAL_SESSION), különben meleg indításkor
+    // session nélkül térnénk vissza, és a hívó el sem küldi a lekérdezést.
+    await initialSessionReady
+
     let { data } = await supabase.auth.getSession()
-    // Közvetlenül bejelentkezés vagy cold start után a GoTrue session-olvasása
-    // (initialize / storage) még futhat, és az első `getSession()` átmenetileg
-    // session nélkül térhet vissza. Ilyenkor egy rövid újrapróba determinisztikussá
-    // teszi a betöltést — különben az első fókuszált képernyő üres adattal indul,
-    // és csak kézi újrafókuszálásra javul meg.
+    // Vészfék: ha az `initialize()` a timeoutig sem végzett, adunk még egy kört —
+    // így a lassú eszköz/hálózat sem eredményez néma "nincs adat" képernyőt.
     if (!data.session) {
       await delay(250)
       ;({ data } = await supabase.auth.getSession())
@@ -89,7 +145,7 @@ export async function getSessionSafe(): Promise<Session | null> {
     const expiresAt = session.expires_at ?? 0
     if (expiresAt - nowSec < 60) {
       try {
-        const { data: refreshed, error } = await supabase.auth.refreshSession()
+        const { data: refreshed, error } = await refreshSessionOnce()
         if (error) {
           if (isInvalidRefreshToken(error)) {
             await supabase.auth.signOut({ scope: 'local' }).catch(() => {})

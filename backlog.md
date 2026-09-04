@@ -307,6 +307,25 @@
 - [x] EAS Build → TestFlight (2026-08-29): `1.0.0 (2)` build fent, saját iPhone-ra telepítve.
       ASC app: `FamilyHub (7ad880)`, kezdőképernyőn `FamilyHub`. A build 90 nap múlva lejár.
 - [ ] TestFlight tesztelők (a család többi tagja) meghívása az App Store Connectben
+- [x] Új app ikon + splash (2026-09-04): a `assets/images/App Icon-selection.png` (kék gradiens,
+      fehér bevásárló-táska + lista) lett az app ikon. `assets/images/icon.png` felülírva (1024², alfa
+      nélkül – App Store-kompatibilis); ez fedi az `expo.icon`, `ios.icon` és `constants/images.ts`
+      `images.logo` hivatkozást is. Android: `android-icon-foreground.png` = a glyph a safe zone-ba
+      igazítva, `adaptiveIcon.backgroundColor` `#2563EB`, `backgroundImage` eltávolítva,
+      `android-icon-monochrome.png` = táska-sziluett a témázott ikonhoz. Splash (`expo-splash-screen`
+      plugin): `image` = új `splash-icon.png` (átlátszó hátterű glyph, floodfill-lel kivágva),
+      `imageWidth` 200, `backgroundColor` `#2563EB` (light+dark). **Natív változás → új build kell**
+      (nem OTA): a telefonon csak EAS Build → TestFlight után jelenik meg.
+- [x] Session-hidratálás javítva — "csak ki/bejelentkezés után látszanak az adatok" (2026-08-30):
+      Supabase edge_logs bizonyíték: 08-29 login után 1 mp-en belül lefut mind a 9 REST GET;
+      08-30 meleg indításkor a token-refresh 200-as, de **egyetlen REST GET sem megy ki** —
+      miközben egy perccel később a felhasználói írás (POST calendar_events) átment.
+      Ok: a GoTrue `initialize()` (AsyncStorage + lejárt token frissítése) aszinkron, a
+      `getSessionSafe()` viszont csak 250 ms-ot várt rá → minden store "nincs session"-re
+      jutott és el sem küldte a lekérdezést. Javítás: `INITIAL_SESSION` eseményre várunk
+      (8 mp vészfék-timeout), single-flight `refreshSession()` a rotáló refresh token
+      versenyhelyzete ellen, és az `isInvalidRefreshToken` regex szűkítve (az átmeneti
+      "Already Used" többé nem léptet ki lokálisan).
 - [x] Első EAS Update (OTA) kiadva (2026-08-29): `production` branch/channel, iOS,
       runtimeVersion `bf83840a…` — a helyi fingerprint egyezik a `1.0.0 (2)` TestFlight buildével,
       így a telepített app megkapja. Update group `e4e710cf-81b3-4cb7-be1c-5758c5ce3933`.
