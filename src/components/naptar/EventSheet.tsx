@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   KeyboardAvoidingView,
@@ -14,7 +14,7 @@ import {
   View,
 } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
-import { Check, Clock, Repeat, Trash2, Users, UsersRound, X } from 'lucide-react-native'
+import { Check, Clock, Info, Repeat, Trash2, Users, UsersRound, X } from 'lucide-react-native'
 
 import { DateTimePickerModal } from './DateTimePickerModal'
 import { MemberEditorSheet } from '@/components/etrend/MemberEditorSheet'
@@ -22,14 +22,17 @@ import {
   RECURRENCE_OPTIONS,
   RECURRENCE_UNITS,
   buildRRule,
+  expandEvents,
   freqFromRRule,
   intervalFromRRule,
+  rangesOverlap,
   recurrenceLabel,
   shortDateLabel,
   untilFromRRule,
   type RecurrenceFreq,
 } from '@/lib/calendar'
 import { useMemberStore } from '@/store/memberStore'
+import { useCalendarStore } from '@/store/calendarStore'
 import { colors, memberColors } from '@/constants/colors'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
@@ -54,6 +57,7 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
 
   const members = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
+  const events = useCalendarStore((s) => s.events)
 
   const [title, setTitle] = useState('')
   const [allDay, setAllDay] = useState(false)
@@ -119,6 +123,24 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
 
   const sheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: translateY.value }] }))
 
+  // Elérhetőség-jelzés: van-e átfedő műszak a kiválasztott napon/időszakban.
+  const overlappingShift = useMemo(() => {
+    if (allDay) return null
+    const dayStart = new Date(start.getFullYear(), start.getMonth(), start.getDate())
+    const dayEnd = new Date(start.getFullYear(), start.getMonth(), start.getDate(), 23, 59, 59, 999)
+    const dayEvents = expandEvents(events, dayStart, dayEnd)
+    return dayEvents.find(
+      (e) =>
+        e.event_type === 'shift' &&
+        e.id !== event?.id &&
+        rangesOverlap(start, end, new Date(e.starts_at), new Date(e.ends_at ?? e.starts_at)),
+    )
+  }, [events, start, end, allDay, event?.id])
+
+  const overlappingShiftMemberName = overlappingShift?.member_id
+    ? members.find((m) => m.id === overlappingShift.member_id)?.name ?? null
+    : null
+
   function handleSave() {
     const trimmed = title.trim()
     if (!trimmed) return
@@ -134,6 +156,7 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
       member_id: memberId,
       color,
       rrule: buildRRule(freq, customOpen ? parseInterval(customInterval) : 1, freq === 'none' ? null : until),
+      event_type: event?.event_type ?? 'event',
     }
     onSave(input, event?.id ?? null)
     onClose()
@@ -518,6 +541,16 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
                 style={[styles.input, { backgroundColor: fieldBg, borderColor: fieldBorder, color: fg, minHeight: 88, fontSize: 15.5, fontWeight: '600', textAlignVertical: 'top' }]}
               />
             </View>
+
+            {/* Elérhetőség-jelzés (nem blokkoló) */}
+            {overlappingShift ? (
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 14, paddingHorizontal: 4 }}>
+                <Info size={15} color={colors.warning} strokeWidth={2.2} />
+                <Text style={{ flex: 1, fontSize: 13, fontWeight: '700', color: colors.warning }}>
+                  Ekkor műszakban van: {overlappingShiftMemberName ?? overlappingShift.title}
+                </Text>
+              </View>
+            ) : null}
           </ScrollView>
 
           {/* Footer */}

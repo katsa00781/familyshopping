@@ -4,12 +4,14 @@ import { StorageKeys, getStorageItem, setStorageItem } from '@/lib/storage'
 
 export interface NotificationPrefs {
   calendarReminders: boolean
+  shiftConflictAlerts: boolean
   priceAlerts: boolean
   shoppingReminders: boolean
 }
 
 const DEFAULT_PREFS: NotificationPrefs = {
   calendarReminders: true,
+  shiftConflictAlerts: true,
   priceAlerts: true,
   shoppingReminders: false,
 }
@@ -22,9 +24,11 @@ interface NotificationPrefsState {
 }
 
 /**
- * Lokális értesítési preferenciák (AsyncStorage). v1: csak a beállításokat
- * tároljuk; a tényleges push-ütemezés a v2.1 (out of scope). A memberStore /
- * shiftStore lokális-perzisztens mintáját követi.
+ * Lokális értesítési preferenciák (AsyncStorage). A `calendarReminders` és
+ * `shiftConflictAlerts` kapcsolja a `src/lib/notifications.ts` lokális
+ * ütemezését (naptárStore hívja); a `priceAlerts`/`shoppingReminders` egyelőre
+ * csak beállítás, ütemezés nélkül. A memberStore/shiftStore lokális-perzisztens
+ * mintáját követi.
  */
 export const useNotificationPrefsStore = create<NotificationPrefsState>((set, get) => ({
   prefs: DEFAULT_PREFS,

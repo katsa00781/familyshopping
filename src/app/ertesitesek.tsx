@@ -46,7 +46,12 @@ const ITEMS: {
   {
     key: 'calendarReminders',
     label: 'Naptár emlékeztetők',
-    description: 'Értesítés a közelgő családi eseményekről.',
+    description: 'Értesítés 30 perccel egy közelgő esemény/időpont előtt.',
+  },
+  {
+    key: 'shiftConflictAlerts',
+    label: 'Beosztás-ütközés riasztás',
+    description: 'Szólunk, ha egy esemény ütközik a műszakoddal.',
   },
   {
     key: 'priceAlerts',
@@ -84,8 +89,9 @@ export default function ErtesitesekScreen() {
         ))}
       </View>
       <Text className="text-body-sm text-muted px-1">
-        A push-értesítések beállítását a készülék rendszerbeállításaiban is engedélyezned kell. A
-        funkció egy későbbi frissítésben aktiválódik.
+        A naptár emlékeztetők és a beosztás-ütközés riasztás lokális (a készüléken ütemezett)
+        értesítések – ehhez a rendszerbeállításokban is engedélyezned kell az értesítéseket. Az
+        árváltozás és bevásárlás emlékeztetők egyelőre csak beállítás, ütemezés nélkül.
       </Text>
     </SettingsScaffold>
   )

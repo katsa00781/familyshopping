@@ -9,12 +9,14 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { AnimatedSplashOverlay } from '@/components/animated-icon'
 import { ToastContainer } from '@/components/ui/Toast'
 import { AppThemeProvider } from '@/lib/theme'
+import { ensureNotificationPermissions } from '@/lib/notifications'
 import { supabase, getSessionSafe } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 
 export default function RootLayout() {
   const colorScheme = useColorScheme()
   const initialized = useAuthStore((s) => s.initialized)
+  const session = useAuthStore((s) => s.session)
   const setSession = useAuthStore((s) => s.setSession)
 
   useEffect(() => {
@@ -26,6 +28,10 @@ export default function RootLayout() {
 
     return () => subscription.unsubscribe()
   }, [setSession])
+
+  useEffect(() => {
+    if (session) void ensureNotificationPermissions()
+  }, [session])
 
   if (!initialized) {
     return (
@@ -55,6 +61,7 @@ export default function RootLayout() {
               />
               <Stack.Screen name="family-settings" />
               <Stack.Screen name="muszak" />
+              <Stack.Screen name="idopontok" />
               <Stack.Screen name="profil-szerkesztes" />
               <Stack.Screen name="jelszo-modositas" />
               <Stack.Screen name="ertesitesek" />

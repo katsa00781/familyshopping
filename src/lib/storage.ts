@@ -7,6 +7,8 @@ export const StorageKeys = {
   listLastActive: 'list.lastActive',
   authToken: 'auth.token',
   notificationPrefs: 'notification.prefs',
+  eventReminderMap: 'notification.eventReminderMap',
+  shiftConflictNotified: 'notification.shiftConflictNotified',
 } as const
 
 export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys]

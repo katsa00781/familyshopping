@@ -4,7 +4,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getSessionSafe } from '@/lib/supabase'
 import { loadWithSessionRetry } from '@/lib/loadWithRetry'
 import { fetchEvents, insertEvent, insertEvents, patchEvent, removeEvent, removeEvents } from '@/lib/calendar'
+import { cancelEventReminder, notifyShiftConflicts, scheduleEventReminder } from '@/lib/notifications'
+import { useNotificationPrefsStore } from '@/store/notificationPrefsStore'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
+
+async function reminderPrefs() {
+  await useNotificationPrefsStore.getState().load()
+  return useNotificationPrefsStore.getState().prefs
+}
 
 const CACHE_KEY = 'familyhub_calendar_v1'
 
@@ -56,6 +63,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     if (result.status === 'data') {
       await saveCache(result.data)
       set({ events: result.data, isLoading: false, error: null })
+      const prefs = await reminderPrefs()
+      if (prefs.shiftConflictAlerts) void notifyShiftConflicts(result.data)
       return
     }
 
@@ -101,6 +110,8 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
           .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
         set({ events: merged })
         await saveCache(merged)
+        const prefs = await reminderPrefs()
+        if (prefs.calendarReminders) void scheduleEventReminder(saved)
       } catch {
         set({ events: prev, error: 'Esemény mentése sikertelen' })
         await saveCache(prev)
@@ -115,6 +126,11 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
     set({ events: next })
     await saveCache(next)
+
+    const updated = next.find((e) => e.id === id)
+    const prefs = await reminderPrefs()
+    if (updated && prefs.calendarReminders) void scheduleEventReminder(updated)
+    else void cancelEventReminder(id)
 
     const session = await getSessionSafe()
     const user = session?.user
@@ -133,6 +149,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     const next = prev.filter((e) => e.id !== id)
     set({ events: next })
     await saveCache(next)
+    void cancelEventReminder(id)
 
     const session = await getSessionSafe()
     const user = session?.user

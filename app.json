@@ -76,6 +76,12 @@
           "calendarPermission": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban is láthasd.",
           "remindersPermission": "A naptár-emlékeztetők kezeléséhez."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#14B8A6"
+        }
       ]
     ],
     "experiments": {
