@@ -50,6 +50,7 @@ interface ListState {
   deleteList: (id: string) => Promise<void>
   completeList: (id: string) => Promise<void>
   restoreList: (id: string) => Promise<void>
+  finishShopping: (id: string) => Promise<void>
   addItem: (listId: string, item: ShoppingItem) => Promise<void>
   updateItem: (listId: string, itemId: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => Promise<void>
   deleteItem: (listId: string, itemId: string) => Promise<void>
@@ -291,6 +292,75 @@ export const useListStore = create<ListState>((set, get) => ({
           await saveCache(prev)
         }
       }
+    }
+  },
+
+  // Bolt módban "Vásárlás kész": a lista NEM zárul le (marad megosztható,
+  // "mozgó" lista) – csak a kipipált (megvett) tételek tűnnek el belőle, a
+  // meg nem vettek maradnak, hogy bármikor bővíthető legyen a család által.
+  finishShopping: async (id) => {
+    const prev = get().lists
+    const list = prev.find((l) => l.id === id)
+    if (!list) return
+
+    const purchasedItems = list.items.filter((item) => item.checked)
+    const remainingItems = list.items.filter((item) => !item.checked)
+
+    const next = prev.map((l) =>
+      l.id === id ? { ...l, items: remainingItems, total_amount: calcTotal(remainingItems) } : l
+    )
+    set({ lists: next })
+    await saveCache(next)
+
+    const session = await getSessionSafe()
+    const user = session?.user
+    if (!user) return
+
+    const updated = next.find((l) => l.id === id)
+    if (updated) {
+      const { error } = await supabase.from('shopping_lists').upsert(toPayload(updated))
+      if (error) {
+        set({ lists: prev, error: 'Vásárlás lezárása sikertelen' })
+        await saveCache(prev)
+        return
+      }
+    }
+
+    // Áras tételeket rögzítjük a statisztika és árhistória táblákban
+    const pricedItems = purchasedItems.filter((item) => item.price !== null && item.price > 0)
+    if (pricedItems.length > 0) {
+      const shoppingDate = list.date || new Date().toISOString().split('T')[0]!
+
+      const statsRows = pricedItems.map((item) => ({
+        user_id: user.id,
+        shopping_list_id: list.id,
+        product_name: item.name,
+        product_category: item.category as string,
+        store_name: list.store_name,
+        unit: item.unit,
+        unit_price: item.price!,
+        quantity: item.quantity,
+        total_price: item.price! * item.quantity,
+        shopping_date: shoppingDate,
+        source: 'list' as const,
+      }))
+
+      const priceRows = pricedItems.map((item) => ({
+        user_id: user.id,
+        product_id: item.product_id,
+        product_name: item.name,
+        product_category: item.category as string,
+        store_name: list.store_name,
+        unit: item.unit,
+        unit_price: item.price!,
+        quantity: item.quantity,
+        total_price: item.price! * item.quantity,
+        price_date: shoppingDate,
+        source: 'list' as const,
+      }))
+
+      void supabase.from('shopping_statistics').insert(statsRows)
+      void supabase.from('product_price_history').insert(priceRows)
     }
   },
 

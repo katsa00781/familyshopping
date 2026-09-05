@@ -60,6 +60,8 @@
 - [x] Bolt háttér `#000000` → `#13201F`, sticky bar `#0E1817`, hairline `#2A3B39` (token-értékek frissítve: `colors.boltBg/boltBar/boltBorder` + tokens.json + tailwind `bolt-*`)
 - [x] Accent (korall `#FB7185`) a sticky bar CTA-ján (`styles.cta` → `colors.accent`)
 - [x] Minden más változatlan (72/56 pt méretek, medium haptika, keep-awake, nem-átrendeződés)
+- [x] **„Vásárlás kész" már nem zárja le a listát (2026-09-05):** a Bolt mód CTA-ja eddig `completeList`-et hívta (a lista `completed: true`-ra állt, lekerült az aktív listák közül). Cél: „mozgó" bevásárlólista, amit a család bármikor bővíthet. Új `listStore.finishShopping(id)`: a kipipált (megvett) tételek eltávolítva a listából, a meg nem vettek megmaradnak, a lista `completed` marad `false` (nem archiválódik) — az ár/statisztika-rögzítés (`shopping_statistics`, `product_price_history`) változatlanul megtörténik a megvett tételekre. A `bolt.tsx` `handleComplete` ezt hívja `completeList` helyett. A `lista/[id].tsx` és `bevasarlas.tsx` explicit „Lista befejezése" / „Befejezettnek jelöl" akciói (teljes archiválás) változatlanok — azok külön, szándékos műveletek maradtak.
+- [x] **Tétel hozzáadás gyorsítása (2026-09-05):** `ItemAddSheet` legördülő terméktalálataira koppintva a tétel azonnal bekerül a listába (alapértelmezett/beírt mennyiséggel, a termék egysége/kategóriája/ára szerint) — nem kell külön megnyomni a „Hozzáadás" gombot.
 
 ---
 

@@ -27,7 +27,7 @@ export default function BoltScreen() {
   const lists = useListStore((s) => s.lists)
   const loadLists = useListStore((s) => s.loadLists)
   const toggleItem = useListStore((s) => s.toggleItem)
-  const completeList = useListStore((s) => s.completeList)
+  const finishShopping = useListStore((s) => s.finishShopping)
   const activeListId = useListStore((s) => s.activeListId)
   const setActiveListId = useListStore((s) => s.setActiveListId)
 
@@ -70,7 +70,7 @@ export default function BoltScreen() {
 
   async function handleComplete() {
     if (!activeList) return
-    await completeList(activeList.id)
+    await finishShopping(activeList.id)
     router.back()
   }
 

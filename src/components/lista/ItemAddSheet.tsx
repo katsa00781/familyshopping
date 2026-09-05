@@ -14,6 +14,7 @@ import Button from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
 import { formatHuf } from '@/lib/format'
+import { haptics } from '@/lib/haptics'
 import type { ItemCategory, Product, ShoppingItem } from '@/types'
 
 const UNITS = ['db', 'kg', 'g', 'l', 'ml']
@@ -96,17 +97,29 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     }, 300)
   }
 
+  // A legördülő javaslatra koppintva a termék azonnal bekerül a listába –
+  // nem kell külön "Hozzáadás" gombot keresni.
   function selectSuggestion(product: Product) {
-    setName(product.brand ? `${product.name} ${product.brand}` : product.name)
-    setUnit(product.unit)
-    const p = product.last_price ?? product.price
-    setPrice(p != null ? String(p) : '')
-    setProductId(product.id)
-    setSuggestions([])
     const validCat = CATEGORIES.includes(product.category as ItemCategory)
       ? (product.category as ItemCategory)
       : 'Egyéb'
-    setCategory(validCat)
+    const resolvedPrice = product.last_price ?? product.price
+
+    const item: ShoppingItem = {
+      id: generateId(),
+      name: product.brand ? `${product.name} ${product.brand}` : product.name,
+      quantity: parseFloat(quantity) || 1,
+      unit: product.unit,
+      category: validCat,
+      checked: false,
+      price: resolvedPrice ?? null,
+      product_id: product.id,
+    }
+
+    onAdd(item)
+    haptics.light()
+    reset()
+    onClose()
   }
 
   async function handleAdd(createProduct: boolean) {
