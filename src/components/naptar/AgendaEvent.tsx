@@ -1,5 +1,5 @@
 import { Pressable, Text, View } from 'react-native'
-import { CalendarCheck, MapPin, Repeat } from 'lucide-react-native'
+import { CalendarCheck, Dumbbell, MapPin, Repeat } from 'lucide-react-native'
 
 import { eventTimeLabel } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
@@ -68,6 +68,9 @@ export function AgendaEvent({ event, memberName, onPress }: AgendaEventProps) {
             {event.rrule ? <Repeat size={13} color={colors.muted} strokeWidth={2.2} /> : null}
             {event.event_type === 'appointment' ? (
               <CalendarCheck size={13} color={colors.muted} strokeWidth={2.2} />
+            ) : null}
+            {event.event_type === 'workout' ? (
+              <Dumbbell size={13} color={colors.muted} strokeWidth={2.2} />
             ) : null}
           </View>
           {event.location ? (

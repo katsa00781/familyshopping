@@ -3,13 +3,13 @@ import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useColorScheme } from 'nativewind'
-import { Calendar, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
+import { Calendar, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Clock, List, Plus } from 'lucide-react-native'
 
 import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
+import { DayTimeline } from '@/components/naptar/DayTimeline'
 import { EventSheet } from '@/components/naptar/EventSheet'
 import { useCalendarStore } from '@/store/calendarStore'
-import { useDeviceWorkoutStore, isDeviceWorkout } from '@/store/deviceWorkoutStore'
 import { useMemberStore } from '@/store/memberStore'
 import { agendaDayLabel, dayKey, eventDayKey, expandEvents, monthGridRange, monthTitle, type CalendarDay } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
@@ -24,9 +24,6 @@ export default function NaptarScreen() {
   const updateEvent = useCalendarStore((s) => s.updateEvent)
   const deleteEvent = useCalendarStore((s) => s.deleteEvent)
 
-  const workouts = useDeviceWorkoutStore((s) => s.workouts)
-  const loadWorkouts = useDeviceWorkoutStore((s) => s.loadWorkouts)
-
   const members = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
 
@@ -37,12 +34,12 @@ export default function NaptarScreen() {
 
   const [sheetVisible, setSheetVisible] = useState(false)
   const [editing, setEditing] = useState<CalendarEvent | null>(null)
+  const [viewMode, setViewMode] = useState<'lista' | 'idovonal'>('lista')
 
   useEffect(() => {
     loadEvents()
-    void loadWorkouts()
     void loadMembers()
-  }, [loadEvents, loadWorkouts, loadMembers])
+  }, [loadEvents, loadMembers])
 
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -51,12 +48,12 @@ export default function NaptarScreen() {
   }, [members])
 
   // Az ismétlődő eseményeket a látható hónap-ablakra bontjuk ki (egyszeriek
-  // változatlanul). A kettlebell edzések (device naptár, csak olvasás) már
-  // konkrét előfordulásként jönnek, ezeket hozzáfűzzük.
+  // változatlanul). Az Underground KB edzések ('workout' event_type) is
+  // normál calendar_events sorként érkeznek (közös Supabase projekt).
   const expanded = useMemo(() => {
     const { start, end } = monthGridRange(viewYear, viewMonth)
-    return [...expandEvents(events, start, end), ...workouts]
-  }, [events, workouts, viewYear, viewMonth])
+    return expandEvents(events, start, end)
+  }, [events, viewYear, viewMonth])
 
   // Napi pöttyök: kulcs → tagszínek (egyedi, max 3-at mutat a grid)
   const dotsByDay = useMemo(() => {
@@ -108,8 +105,6 @@ export default function NaptarScreen() {
   }
 
   function openEdit(ev: CalendarEvent) {
-    // A kettlebell edzések csak olvashatók – nem szerkeszthetők innen.
-    if (isDeviceWorkout(ev.id)) return
     // Ismétlődő előfordulásnál a mester-eseményt szerkesztjük (eredeti kezdettel).
     const master = events.find((e) => e.id === ev.id) ?? ev
     setEditing(master)
@@ -119,6 +114,11 @@ export default function NaptarScreen() {
   function handleSave(input: CalendarEventInput, id: string | null) {
     if (id) void updateEvent(id, input)
     else void createEvent(input)
+  }
+
+  function memberNameFor(ev: CalendarEvent): string | null {
+    if (ev.event_type === 'workout') return 'Edzés'
+    return ev.member_id ? memberNameById.get(ev.member_id) ?? null : null
   }
 
   return (
@@ -170,45 +170,95 @@ export default function NaptarScreen() {
       />
 
       {/* Agenda */}
-      <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 18, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-        <View style={{ flexDirection: 'row', alignItems: 'baseline', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 2 }}>
-          <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 17, fontWeight: '800', letterSpacing: -0.3 }}>
-            {agendaDayLabel(selected)}
-          </Text>
-          <Text className="text-muted" style={{ fontSize: 13, fontWeight: '700' }}>
-            {dayEvents.length} esemény
-          </Text>
-        </View>
-
-        {dayEvents.length > 0 ? (
-          dayEvents.map((ev) => (
-            <AgendaEvent
-              key={ev.id}
-              event={ev}
-              memberName={
-                isDeviceWorkout(ev.id)
-                  ? 'Edzés'
-                  : ev.member_id
-                    ? memberNameById.get(ev.member_id) ?? null
-                    : null
-              }
-              onPress={() => openEdit(ev)}
-            />
-          ))
-        ) : (
-          <View style={{ alignItems: 'center', paddingTop: 40, paddingHorizontal: 30, gap: 6 }}>
-            <View style={{ width: 64, height: 64, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(20,184,166,0.10)', marginBottom: 8 }}>
-              <Calendar size={30} color={colors.primary} strokeWidth={1.75} />
-            </View>
-            <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 16, fontWeight: '800' }}>
-              Nincs esemény ezen a napon
+      <View style={{ flex: 1, paddingTop: 18 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 22 }}>
+          <View style={{ flexShrink: 1, gap: 1 }}>
+            <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 17, fontWeight: '800', letterSpacing: -0.3 }}>
+              {agendaDayLabel(selected)}
             </Text>
-            <Text className="text-muted" style={{ fontSize: 13.5, fontWeight: '600', textAlign: 'center', maxWidth: 240 }}>
-              Koppints a + gombra új esemény hozzáadásához.
+            <Text className="text-muted" style={{ fontSize: 13, fontWeight: '700' }}>
+              {dayEvents.length} esemény
             </Text>
           </View>
+
+          <View className="bg-surface-sunken dark:bg-dark-card" style={{ flexDirection: 'row', borderRadius: 12, padding: 3, gap: 2 }}>
+            <Pressable
+              onPress={() => setViewMode('lista')}
+              accessibilityRole="button"
+              accessibilityLabel="Lista nézet"
+              hitSlop={4}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 9,
+                backgroundColor: viewMode === 'lista' ? colors.primary : 'transparent',
+              }}
+            >
+              <List size={14} color={viewMode === 'lista' ? colors.primaryForeground : colors.muted} strokeWidth={2.3} />
+              <Text style={{ fontSize: 12.5, fontWeight: '800', color: viewMode === 'lista' ? colors.primaryForeground : colors.muted }}>
+                Lista
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => setViewMode('idovonal')}
+              accessibilityRole="button"
+              accessibilityLabel="Idővonal nézet"
+              hitSlop={4}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 5,
+                paddingHorizontal: 10,
+                paddingVertical: 7,
+                borderRadius: 9,
+                backgroundColor: viewMode === 'idovonal' ? colors.primary : 'transparent',
+              }}
+            >
+              <Clock size={14} color={viewMode === 'idovonal' ? colors.primaryForeground : colors.muted} strokeWidth={2.3} />
+              <Text style={{ fontSize: 12.5, fontWeight: '800', color: viewMode === 'idovonal' ? colors.primaryForeground : colors.muted }}>
+                Idővonal
+              </Text>
+            </Pressable>
+          </View>
+        </View>
+
+        {viewMode === 'idovonal' ? (
+          <DayTimeline
+            date={selected}
+            events={dayEvents}
+            memberNameFor={memberNameFor}
+            onPressEvent={openEdit}
+          />
+        ) : (
+          <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+            {dayEvents.length > 0 ? (
+              dayEvents.map((ev) => (
+                <AgendaEvent
+                  key={ev.id}
+                  event={ev}
+                  memberName={memberNameFor(ev)}
+                  onPress={() => openEdit(ev)}
+                />
+              ))
+            ) : (
+              <View style={{ alignItems: 'center', paddingTop: 40, paddingHorizontal: 30, gap: 6 }}>
+                <View style={{ width: 64, height: 64, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(20,184,166,0.10)', marginBottom: 8 }}>
+                  <Calendar size={30} color={colors.primary} strokeWidth={1.75} />
+                </View>
+                <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 16, fontWeight: '800' }}>
+                  Nincs esemény ezen a napon
+                </Text>
+                <Text className="text-muted" style={{ fontSize: 13.5, fontWeight: '600', textAlign: 'center', maxWidth: 240 }}>
+                  Koppints a + gombra új esemény hozzáadásához.
+                </Text>
+              </View>
+            )}
+          </ScrollView>
         )}
-      </ScrollView>
+      </View>
 
       {/* FAB */}
       <Pressable

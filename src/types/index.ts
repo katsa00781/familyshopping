@@ -170,9 +170,11 @@ export interface Family {
 // v1: user_id-scoped (NEM family_id). A member_id/color a tagszínes megjelenítést
 // szolgálja; v1-ben az esemény színét közvetlenül a `color` mező adja.
 // `event_type`: 'event' (általános), 'shift' (a Műszakbeosztás generálja),
-// 'appointment' (ügyfél-időpont, az Időpontok képernyő generálja). Az ügyfél
-// nevét a `title` mező tárolja — nincs külön client_name mező.
-export type CalendarEventType = 'event' | 'shift' | 'appointment'
+// 'appointment' (ügyfél-időpont, az Időpontok képernyő generálja), 'workout'
+// (az Underground KB app írja ide közvetlenül, közös Supabase projekt, saját
+// auth.uid()-vel — nincs többé device-naptár híd). Az ügyfél/edzés nevét a
+// `title` mező tárolja — nincs külön client_name mező.
+export type CalendarEventType = 'event' | 'shift' | 'appointment' | 'workout'
 
 export interface CalendarEventInput {
   title: string

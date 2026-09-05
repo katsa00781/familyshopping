@@ -4,17 +4,13 @@ import * as Calendar from 'expo-calendar'
 import { colors } from '@/constants/colors'
 import type { CalendarEventInput } from '@/types'
 
-// A műszakbeosztást a telefon natív naptárába is kiírjuk, hogy a többi app
-// (pl. az edzésnaptár) is olvashassa – azok külön Supabase projektben élnek, így
-// a device naptár a közös csatorna. Saját, app által kezelt naptárba dolgozunk,
-// amit minden szinkronnál tisztára építünk.
+// A műszakbeosztást a telefon natív naptárába is kiírjuk (pl. hogy a rendszer
+// Naptár appban is látszódjon). Az edzésnaptár (Underground KB) mára a közös
+// Supabase projekten (calendar_events, event_type='workout') keresztül
+// szinkronizál, nem a device-naptáron át — lásd src/lib/calendar.ts. Saját, app
+// által kezelt naptárba dolgozunk, amit minden szinkronnál tisztára építünk.
 
 const SHIFT_CALENDAR_TITLE = 'Műszakok (FamilyHub)'
-
-// A kettlebell app ebbe a device-naptárba írja az edzéseket (lásd ottani
-// deviceCalendar.ts). Innen olvassuk vissza, hogy a családi naptárban is
-// megjelenjenek a tervezett edzések.
-const WORKOUT_CALENDAR_TITLE = 'Underground KB edzések'
 
 /** Naptár-hozzáférés kérése. true, ha írható. */
 export async function ensureCalendarPermission(): Promise<boolean> {
@@ -23,49 +19,6 @@ export async function ensureCalendarPermission(): Promise<boolean> {
   if (!current.canAskAgain) return false
   const req = await Calendar.requestCalendarPermissionsAsync()
   return req.granted
-}
-
-function toISO(value: string | Date): string {
-  return typeof value === 'string' ? new Date(value).toISOString() : value.toISOString()
-}
-
-export interface DeviceWorkout {
-  id: string
-  title: string
-  startISO: string
-  endISO: string
-  allDay: boolean
-  color: string
-}
-
-/**
- * A kettlebell „Underground KB edzések" naptárának eseményei az adott
- * tartományban (csak olvasás). Üres tömb, ha nincs naptár-hozzáférés vagy
- * nincs ilyen naptár a telefonon.
- */
-export async function getWorkoutEventsInRange(
-  startISO: string,
-  endISO: string,
-): Promise<DeviceWorkout[]> {
-  const granted = await ensureCalendarPermission()
-  if (!granted) return []
-
-  const calendars = await Calendar.getCalendarsAsync(Calendar.EntityTypes.EVENT)
-  const workoutCalendars = calendars.filter((c) => c.title === WORKOUT_CALENDAR_TITLE)
-  if (workoutCalendars.length === 0) return []
-
-  const colorById = new Map(workoutCalendars.map((c) => [c.id, c.color]))
-  const ids = workoutCalendars.map((c) => c.id)
-  const events = await Calendar.getEventsAsync(ids, new Date(startISO), new Date(endISO))
-
-  return events.map((e) => ({
-    id: e.id,
-    title: e.title ?? '',
-    startISO: toISO(e.startDate),
-    endISO: toISO(e.endDate),
-    allDay: e.allDay ?? false,
-    color: colorById.get(e.calendarId) ?? colors.primary,
-  }))
 }
 
 /** A heti ismétlődés intervalluma az rrule-ból (FREQ=WEEKLY;INTERVAL=n). 1, ha hiányzik. */

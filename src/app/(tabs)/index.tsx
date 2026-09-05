@@ -14,7 +14,6 @@ import { useFamilyStore } from '@/store/familyStore'
 import { useListStore } from '@/store/listStore'
 import { useBudgetStore } from '@/store/budgetStore'
 import { useCalendarStore } from '@/store/calendarStore'
-import { useDeviceWorkoutStore } from '@/store/deviceWorkoutStore'
 import { useMemberStore } from '@/store/memberStore'
 import { summarizeBudget } from '@/lib/budget'
 import { dayKey, eventDayKey, eventTimeLabel, expandEvents } from '@/lib/calendar'
@@ -62,9 +61,6 @@ export default function KezdolapScreen() {
   const events = useCalendarStore((s) => s.events)
   const loadEvents = useCalendarStore((s) => s.loadEvents)
 
-  const workouts = useDeviceWorkoutStore((s) => s.workouts)
-  const loadWorkouts = useDeviceWorkoutStore((s) => s.loadWorkouts)
-
   const familyMembers = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
 
@@ -73,15 +69,15 @@ export default function KezdolapScreen() {
     loadLists()
     loadBudget()
     loadEvents()
-    void loadWorkouts()
     void loadMembers()
-  }, [loadFamily, loadLists, loadBudget, loadEvents, loadWorkouts, loadMembers])
+  }, [loadFamily, loadLists, loadBudget, loadEvents, loadMembers])
 
   // Mai naptáresemények a „Ma" kártyához (ismétlődő is kibontva, egész napos
-  // elöl). A kettlebell edzések (device naptár) is bekerülnek a mai napra.
+  // elöl). Az Underground KB edzések ('workout' event_type) is normál
+  // calendar_events sorként érkeznek (közös Supabase projekt).
   const now = new Date()
   const todayKey = dayKey(now)
-  const todayEvents: TodayEvent[] = [...expandEvents(events, now, now), ...workouts]
+  const todayEvents: TodayEvent[] = expandEvents(events, now, now)
     .filter((e) => eventDayKey(e) === todayKey)
     .sort((a, b) => {
       if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
