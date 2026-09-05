@@ -169,6 +169,11 @@ export interface Family {
 // ─── Naptár ─────────────────────────────────────────────────────────────────
 // v1: user_id-scoped (NEM family_id). A member_id/color a tagszínes megjelenítést
 // szolgálja; v1-ben az esemény színét közvetlenül a `color` mező adja.
+// `event_type`: 'event' (általános), 'shift' (a Műszakbeosztás generálja),
+// 'appointment' (ügyfél-időpont, az Időpontok képernyő generálja). Az ügyfél
+// nevét a `title` mező tárolja — nincs külön client_name mező.
+export type CalendarEventType = 'event' | 'shift' | 'appointment'
+
 export interface CalendarEventInput {
   title: string
   description: string | null
@@ -179,6 +184,7 @@ export interface CalendarEventInput {
   member_id: string | null // a lokális tag-store azonosítója (null = közös/mindenki)
   color: string | null
   rrule: string | null // ismétlődés (RFC 5545 részhalmaz); null = egyszeri
+  event_type: CalendarEventType
 }
 
 export interface CalendarEvent extends CalendarEventInput {

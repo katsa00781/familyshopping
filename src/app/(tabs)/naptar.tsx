@@ -3,7 +3,7 @@ import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useColorScheme } from 'nativewind'
-import { Calendar, CalendarClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
+import { Calendar, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
 
 import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
@@ -137,6 +137,15 @@ export default function NaptarScreen() {
           </Pressable>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable
+            onPress={() => router.push('/idopontok')}
+            accessibilityLabel="Időpontok"
+            hitSlop={8}
+            className="bg-card dark:bg-dark-card"
+            style={{ width: 38, height: 38, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <CalendarCheck size={19} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2} />
+          </Pressable>
           <Pressable
             onPress={() => router.push('/muszak')}
             accessibilityLabel="Műszakbeosztás"

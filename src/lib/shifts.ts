@@ -96,7 +96,15 @@ export function buildShiftEvents(schedule: ShiftSchedule, shiftTypes: ShiftType[
       member_id: schedule.memberId,
       color: t.color,
       rrule,
+      event_type: 'shift',
     })
   }
   return out
+}
+
+/** A hétfővel kezdődő hét [kezdet, vég] dátumtartománya (helyi idő), a `date`-et tartalmazó héthez. */
+export function weekRange(date: Date): { start: Date; end: Date } {
+  const start = mondayOf(date)
+  const end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6)
+  return { start, end }
 }

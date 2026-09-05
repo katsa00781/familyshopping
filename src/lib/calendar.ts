@@ -100,6 +100,11 @@ export function minutesOfDay(iso: string): number {
   return d.getHours() * 60 + d.getMinutes()
 }
 
+/** Két időintervallum átfedésben van-e (fél-nyílt: [start, end)). */
+export function rangesOverlap(aStart: Date, aEnd: Date, bStart: Date, bEnd: Date): boolean {
+  return aStart.getTime() < bEnd.getTime() && bStart.getTime() < aEnd.getTime()
+}
+
 /** A hónap-grid teljes [első cella … utolsó cella] dátumtartománya. */
 export function monthGridRange(year: number, month: number): { start: Date; end: Date } {
   const m = buildMonthMatrix(year, month)

@@ -29,6 +29,7 @@ function toCalendarEvent(w: DeviceWorkout): CalendarEvent {
     member_id: null,
     color: w.color,
     rrule: null,
+    event_type: 'event',
   }
 }
 
