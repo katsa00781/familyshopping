@@ -10,6 +10,7 @@
     "ios": {
       "icon": "./assets/images/icon.png",
       "bundleIdentifier": "com.kacsorzsolt.familyshopping",
+      "buildNumber": "8",
       "infoPlist": {
         "NSCalendarsUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
         "NSCalendarsFullAccessUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
@@ -98,7 +99,10 @@
     "updates": {
       "url": "https://u.expo.dev/a6a04c18-286a-424a-8e32-c52b23a2f117",
       "fallbackToCacheTimeout": 0,
-      "checkAutomatically": "ON_LOAD"
+      "checkAutomatically": "ON_LOAD",
+      "requestHeaders": {
+        "expo-channel-name": "production"
+      }
     },
     "runtimeVersion": {
       "policy": "fingerprint"

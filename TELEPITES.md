@@ -29,6 +29,36 @@ A build number-t az EAS kezeli távolról (`appVersionSource: remote`,
 `app.json` engedély/ikon/név módosítás, Expo SDK emelés. Ilyenkor a fingerprint
 megváltozik, és a régi buildek nem kapják meg az OTA-t.
 
+### 1/b. Alternatíva: helyi build Xcode-dal → TestFlight
+
+Ha nem EAS-ben, hanem a saját gépen archiválsz és töltesz fel:
+
+```bash
+# 1. app.json → ios.buildNumber emelése (kézzel, EGYEL az utolsó fölé — se
+#    az EAS remote, se az App Store Connect ne ütközzön; utolsó feltöltött: 8)
+# 2. natív projekt újragenerálása app.json-ból
+npx expo prebuild -p ios --clean
+# 3. workspace megnyitása
+open ios/FamilyHub.xcworkspace
+```
+
+Xcode-ban:
+
+1. Bal oldalt **FamilyHub** projekt → **FamilyHub** target → **Signing & Capabilities**
+   → *Automatically manage signing* be, **Team: ZSOLT KÁCSOR (66TY7MP862)**.
+2. Fenti eszköz-választó: **Any iOS Device (arm64)**.
+3. **Product → Archive** (release konfiguráció; a „Bundle React Native code and images"
+   fázis a `.env`-ből olvassa az `EXPO_PUBLIC_*` változókat — legyen kitöltve).
+4. Az **Organizer** ablakban: **Distribute App → App Store Connect → Upload**
+   (automatikus signing, „Upload your app's symbols" bepipálva).
+5. Feltöltés után az App Store Connectben ~5–15 perc feldolgozás, majd megjelenik
+   a **TestFlight** fülön. Internal tesztelőknél nincs review, azonnal telepíthető.
+
+⚠️ A `buildNumber` itt **lokálisan**, az `app.json`-ban él — minden feltöltés előtt
+kézzel emelni kell (az `eas.json` `appVersionSource: remote` csak az `eas build`-re hat).
+⚠️ Xcode-build után is működik az OTA: az `app.json` `updates.requestHeaders`
+(`expo-channel-name: production`) miatt a `production` csatornára megy.
+
 ## 2. OTA frissítés kiadása (a napi munkafolyamat)
 
 Csak JS/TS/asset változás esetén — másodpercek alatt kimegy:
