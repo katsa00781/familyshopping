@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pressable, ScrollView, Text, View } from 'react-native'
+import Animated, { FadeInUp, FadeOutUp, LinearTransition } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useColorScheme } from 'nativewind'
-import { Calendar, CalendarCheck, CalendarClock, ChevronLeft, ChevronRight, Clock, List, Plus } from 'lucide-react-native'
+import { Calendar, CalendarCheck, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, List, Plus } from 'lucide-react-native'
 
 import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
@@ -35,6 +36,9 @@ export default function NaptarScreen() {
   const [sheetVisible, setSheetVisible] = useState(false)
   const [editing, setEditing] = useState<CalendarEvent | null>(null)
   const [viewMode, setViewMode] = useState<'lista' | 'idovonal'>('lista')
+  // Idővonal nézetben a hónap-grid alapból összecsukva, hogy több hely jusson
+  // az idővonalnak; a dátumcímkére koppintva bármikor visszanyitható.
+  const [calendarOpen, setCalendarOpen] = useState(true)
 
   useEffect(() => {
     loadEvents()
@@ -82,6 +86,21 @@ export default function NaptarScreen() {
     const next = new Date(viewYear, viewMonth + delta, 1)
     setViewYear(next.getFullYear())
     setViewMonth(next.getMonth())
+  }
+
+  function shiftDay(delta: number) {
+    const next = new Date(selected)
+    next.setDate(next.getDate() + delta)
+    setSelected(next)
+    if (next.getMonth() !== viewMonth || next.getFullYear() !== viewYear) {
+      setViewYear(next.getFullYear())
+      setViewMonth(next.getMonth())
+    }
+  }
+
+  function changeViewMode(mode: 'lista' | 'idovonal') {
+    setViewMode(mode)
+    setCalendarOpen(mode === 'lista')
   }
 
   function goToday() {
@@ -161,29 +180,80 @@ export default function NaptarScreen() {
         </View>
       </View>
 
-      <MonthGrid
-        year={viewYear}
-        month={viewMonth}
-        selectedKey={selectedKey}
-        dotsByDay={dotsByDay}
-        onSelectDay={handleSelectDay}
-      />
+      {calendarOpen ? (
+        <Animated.View entering={FadeInUp.duration(200)} exiting={FadeOutUp.duration(160)}>
+          <MonthGrid
+            year={viewYear}
+            month={viewMonth}
+            selectedKey={selectedKey}
+            dotsByDay={dotsByDay}
+            onSelectDay={handleSelectDay}
+          />
+        </Animated.View>
+      ) : null}
 
       {/* Agenda */}
-      <View style={{ flex: 1, paddingTop: 18 }}>
+      <Animated.View style={{ flex: 1, paddingTop: 18 }} layout={LinearTransition.springify().damping(20).stiffness(180)}>
         <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12, paddingHorizontal: 22 }}>
-          <View style={{ flexShrink: 1, gap: 1 }}>
-            <Text className="text-foreground dark:text-dark-foreground" style={{ fontSize: 17, fontWeight: '800', letterSpacing: -0.3 }}>
-              {agendaDayLabel(selected)}
-            </Text>
-            <Text className="text-muted" style={{ fontSize: 13, fontWeight: '700' }}>
-              {dayEvents.length} esemény
-            </Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4, flexShrink: 1 }}>
+            {viewMode === 'idovonal' ? (
+              <Pressable
+                onPress={() => shiftDay(-1)}
+                accessibilityLabel="Előző nap"
+                hitSlop={8}
+                className="bg-card dark:bg-dark-card"
+                style={{ width: 30, height: 30, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <ChevronLeft size={16} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2.4} />
+              </Pressable>
+            ) : null}
+            <Pressable
+              onPress={viewMode === 'idovonal' ? () => setCalendarOpen((v) => !v) : undefined}
+              accessibilityLabel={
+                viewMode === 'idovonal'
+                  ? calendarOpen
+                    ? 'Naptár összecsukása'
+                    : 'Naptár kinyitása'
+                  : undefined
+              }
+              style={{ flexShrink: 1, gap: 1 }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+                <Text
+                  numberOfLines={1}
+                  className="text-foreground dark:text-dark-foreground"
+                  style={{ fontSize: 17, fontWeight: '800', letterSpacing: -0.3, flexShrink: 1 }}
+                >
+                  {agendaDayLabel(selected)}
+                </Text>
+                {viewMode === 'idovonal' ? (
+                  calendarOpen ? (
+                    <ChevronUp size={15} color={colors.muted} strokeWidth={2.4} />
+                  ) : (
+                    <ChevronDown size={15} color={colors.muted} strokeWidth={2.4} />
+                  )
+                ) : null}
+              </View>
+              <Text className="text-muted" style={{ fontSize: 13, fontWeight: '700' }}>
+                {dayEvents.length} esemény
+              </Text>
+            </Pressable>
+            {viewMode === 'idovonal' ? (
+              <Pressable
+                onPress={() => shiftDay(1)}
+                accessibilityLabel="Következő nap"
+                hitSlop={8}
+                className="bg-card dark:bg-dark-card"
+                style={{ width: 30, height: 30, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <ChevronRight size={16} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2.4} />
+              </Pressable>
+            ) : null}
           </View>
 
           <View className="bg-surface-sunken dark:bg-dark-card" style={{ flexDirection: 'row', borderRadius: 12, padding: 3, gap: 2 }}>
             <Pressable
-              onPress={() => setViewMode('lista')}
+              onPress={() => changeViewMode('lista')}
               accessibilityRole="button"
               accessibilityLabel="Lista nézet"
               hitSlop={4}
@@ -203,7 +273,7 @@ export default function NaptarScreen() {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => setViewMode('idovonal')}
+              onPress={() => changeViewMode('idovonal')}
               accessibilityRole="button"
               accessibilityLabel="Idővonal nézet"
               hitSlop={4}
@@ -258,7 +328,7 @@ export default function NaptarScreen() {
             )}
           </ScrollView>
         )}
-      </View>
+      </Animated.View>
 
       {/* FAB */}
       <Pressable
