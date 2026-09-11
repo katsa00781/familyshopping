@@ -25,6 +25,52 @@ function toPayload(list: ShoppingList): SupabasePayload {
   return payload
 }
 
+// Egy vásárlás áras tételeit írja a statisztika + árhistória táblákba. Korábban
+// ez `void`-dal, hibakezelés nélkül futott – egy sikertelen insert (pl. átmeneti
+// hálózati hiba) így néma adatvesztést okozott. Most megvárjuk és naplózzuk a hibát.
+async function insertPriceRecords(
+  userId: string,
+  list: ShoppingList,
+  pricedItems: ShoppingItem[],
+  shoppingDate: string,
+): Promise<void> {
+  const statsRows = pricedItems.map((item) => ({
+    user_id: userId,
+    shopping_list_id: list.id,
+    product_name: item.name,
+    product_category: item.category as string,
+    store_name: list.store_name,
+    unit: item.unit,
+    unit_price: item.price!,
+    quantity: item.quantity,
+    total_price: item.price! * item.quantity,
+    shopping_date: shoppingDate,
+    source: 'list' as const,
+  }))
+
+  const priceRows = pricedItems.map((item) => ({
+    user_id: userId,
+    product_id: item.product_id,
+    product_name: item.name,
+    product_category: item.category as string,
+    store_name: list.store_name,
+    unit: item.unit,
+    unit_price: item.price!,
+    quantity: item.quantity,
+    total_price: item.price! * item.quantity,
+    price_date: shoppingDate,
+    source: 'list' as const,
+  }))
+
+  const [statsRes, priceRes] = await Promise.all([
+    supabase.from('shopping_statistics').insert(statsRows),
+    supabase.from('product_price_history').insert(priceRows),
+  ])
+
+  if (statsRes.error) console.warn('shopping_statistics insert sikertelen:', statsRes.error.message)
+  if (priceRes.error) console.warn('product_price_history insert sikertelen:', priceRes.error.message)
+}
+
 async function saveCache(lists: ShoppingList[]): Promise<void> {
   await AsyncStorage.setItem(CACHE_KEY, JSON.stringify(lists))
 }
@@ -233,41 +279,14 @@ export const useListStore = create<ListState>((set, get) => ({
           return
         }
 
-        // Áras tételeket rögzítjük a statisztika és árhistória táblákban
+        // Áras tételeket rögzítjük a statisztika és árhistória táblákban.
+        // A tényleges vásárlás dátuma a befejezés pillanata, NEM a lista
+        // (esetleg régen rögzített) `date` mezője – a lista újra megnyitható és
+        // többször is befejezhető, a `date` a listát nem frissíti minden vásárláskor.
         const pricedItems = list.items.filter((item) => item.price !== null && item.price > 0)
         if (pricedItems.length > 0) {
-          const shoppingDate = list.date || completedAt.split('T')[0]!
-
-          const statsRows = pricedItems.map((item) => ({
-            user_id: user.id,
-            shopping_list_id: list.id,
-            product_name: item.name,
-            product_category: item.category as string,
-            store_name: list.store_name,
-            unit: item.unit,
-            unit_price: item.price!,
-            quantity: item.quantity,
-            total_price: item.price! * item.quantity,
-            shopping_date: shoppingDate,
-            source: 'list' as const,
-          }))
-
-          const priceRows = pricedItems.map((item) => ({
-            user_id: user.id,
-            product_id: item.product_id,
-            product_name: item.name,
-            product_category: item.category as string,
-            store_name: list.store_name,
-            unit: item.unit,
-            unit_price: item.price!,
-            quantity: item.quantity,
-            total_price: item.price! * item.quantity,
-            price_date: shoppingDate,
-            source: 'list' as const,
-          }))
-
-          void supabase.from('shopping_statistics').insert(statsRows)
-          void supabase.from('product_price_history').insert(priceRows)
+          const shoppingDate = completedAt.split('T')[0]!
+          await insertPriceRecords(user.id, list, pricedItems, shoppingDate)
         }
       }
     }
@@ -326,41 +345,13 @@ export const useListStore = create<ListState>((set, get) => ({
       }
     }
 
-    // Áras tételeket rögzítjük a statisztika és árhistória táblákban
+    // Áras tételeket rögzítjük a statisztika és árhistória táblákban – a tényleges
+    // vásárlás dátuma a "Vásárlás kész" pillanata, NEM a lista `date` mezője (lásd
+    // fenti megjegyzés a `completeList`-nél: ugyanaz a lista többször is befejezhető).
     const pricedItems = purchasedItems.filter((item) => item.price !== null && item.price > 0)
     if (pricedItems.length > 0) {
-      const shoppingDate = list.date || new Date().toISOString().split('T')[0]!
-
-      const statsRows = pricedItems.map((item) => ({
-        user_id: user.id,
-        shopping_list_id: list.id,
-        product_name: item.name,
-        product_category: item.category as string,
-        store_name: list.store_name,
-        unit: item.unit,
-        unit_price: item.price!,
-        quantity: item.quantity,
-        total_price: item.price! * item.quantity,
-        shopping_date: shoppingDate,
-        source: 'list' as const,
-      }))
-
-      const priceRows = pricedItems.map((item) => ({
-        user_id: user.id,
-        product_id: item.product_id,
-        product_name: item.name,
-        product_category: item.category as string,
-        store_name: list.store_name,
-        unit: item.unit,
-        unit_price: item.price!,
-        quantity: item.quantity,
-        total_price: item.price! * item.quantity,
-        price_date: shoppingDate,
-        source: 'list' as const,
-      }))
-
-      void supabase.from('shopping_statistics').insert(statsRows)
-      void supabase.from('product_price_history').insert(priceRows)
+      const shoppingDate = new Date().toISOString().split('T')[0]!
+      await insertPriceRecords(user.id, list, pricedItems, shoppingDate)
     }
   },
 

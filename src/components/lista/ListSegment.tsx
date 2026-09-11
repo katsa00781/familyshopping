@@ -40,7 +40,7 @@ const ITEMS: SegmentItem[] = [
 export function ListSegment({ active, onSelect }: Props) {
   return (
     <View
-      className="flex-row bg-surface-sunken"
+      className="flex-row bg-surface-sunken dark:bg-dark-border"
       style={{ marginTop: 16, padding: 5, borderRadius: 16, gap: 8 }}
     >
       {ITEMS.map((item) => {
@@ -56,7 +56,7 @@ export function ListSegment({ active, onSelect }: Props) {
             style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}
           >
             <View
-              className={isActive ? 'bg-card' : ''}
+              className={isActive ? 'bg-card dark:bg-dark-card' : ''}
               style={{
                 paddingVertical: 9,
                 borderRadius: 12,
