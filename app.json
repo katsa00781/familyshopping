@@ -9,8 +9,9 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "icon": "./assets/images/icon.png",
+      "supportsTablet": true,
       "bundleIdentifier": "com.kacsorzsolt.familyshopping",
-      "buildNumber": "8",
+      "buildNumber": "9",
       "infoPlist": {
         "NSCalendarsUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
         "NSCalendarsFullAccessUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",

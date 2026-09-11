@@ -351,6 +351,11 @@
       (2) egy blokk duplikált sorai „figyelt terméknek" számítanak a KPI-ban, de árváltozást sosem adnak.
 - [ ] Következő build előtt: `ITSAppUsesNonExemptEncryption: false` az infoPlistbe (kimarad a kézi
       export compliance kérdés) + ASC app-név átírása egyedire
+- [x] iOS tablet (iPad) támogatás engedélyezve (2026-09-11): `app.json` → `ios.supportsTablet: true`.
+      Ez natív (Info.plist `UIDeviceFamily`) változás, **OTA update-tel nem terjeszthető** — új EAS Build
+      (és TestFlight-feltöltés) kell hozzá. UI-oldalon még nincs iPad-specifikus (split-view/reszponzív)
+      elrendezés — a meglévő layoutok nagyobb képernyőn nyújtva jelennek meg, ezt külön feladatként érdemes
+      átnézni, ha valódi iPad-optimalizálás a cél.
 
 ---
 
