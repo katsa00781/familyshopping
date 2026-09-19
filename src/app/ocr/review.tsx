@@ -360,14 +360,28 @@ function ReviewRow({ item, onUpdate, onSkip, onSearchProduct }: ReviewRowProps) 
       )}
 
       {item.isDuplicate && !item.skip && (
-        <View style={styles.duplicateBadge}>
+        <Pressable
+          style={styles.duplicateBadge}
+          onPress={() => {
+            if (item.matchedProductName && item.matchedProductName !== item.name) {
+              onUpdate({ name: item.matchedProductName })
+            }
+          }}
+          hitSlop={6}
+          disabled={!item.matchedProductName || item.matchedProductName === item.name}
+          accessibilityLabel={
+            item.matchedProductName && item.matchedProductName !== item.name
+              ? `Katalógusnév átvétele: ${item.matchedProductName}`
+              : 'Katalógusban van'
+          }
+        >
           <Link2 size={10} color="#60A5FA" />
           <Text style={styles.duplicateText}>
             {item.matchedProductName && item.matchedProductName !== item.name
-              ? `katalógus: "${item.matchedProductName}"`
+              ? `katalógus: "${item.matchedProductName}" (koppints az átvételhez)`
               : 'katalógusban van'}
           </Text>
-        </View>
+        </Pressable>
       )}
 
       <View style={styles.rowBody}>
