@@ -18,7 +18,7 @@ import { haptics } from '@/lib/haptics'
 import type { ItemCategory, Product, ShoppingItem } from '@/types'
 
 const UNITS = ['db', 'kg', 'g', 'l', 'ml']
-const CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const CATEGORIES: ItemCategory[] = ['Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb']
 
 function generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {

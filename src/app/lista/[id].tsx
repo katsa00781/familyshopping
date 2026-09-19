@@ -32,7 +32,9 @@ import { sortItemsByStore } from '@/lib/sortByStore'
 import type { ItemCategory, ShoppingItem } from '@/types'
 
 type FilterCategory = 'Összes' | ItemCategory
-const FILTERS: FilterCategory[] = ['Összes', 'Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const FILTERS: FilterCategory[] = [
+  'Összes', 'Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb',
+]
 
 export default function ListDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()

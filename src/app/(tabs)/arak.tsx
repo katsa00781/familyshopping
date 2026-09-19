@@ -22,7 +22,7 @@ const PERIODS: { label: string; value: Period }[] = [
   { label: '90n', value: 90 },
 ]
 
-const ALL_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const ALL_CATEGORIES: ItemCategory[] = ['Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb']
 
 export default function ArakScreen() {
   const handleSegment = useSegmentNav('arak')

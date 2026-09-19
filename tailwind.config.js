@@ -45,9 +45,13 @@ module.exports = {
 
         // Kategória tintok (pastel-300)
         'cat-produce': '#86EFAC',
+        'cat-fruit': '#FDBA74',
         'cat-dairy': '#93C5FD',
         'cat-meat': '#FCA5A5',
         'cat-bakery': '#FCD34D',
+        'cat-vegan': '#BEF264',
+        'cat-drink': '#67E8F9',
+        'cat-sweet': '#F9A8D4',
         'cat-other': '#CBD5E1',
       },
 

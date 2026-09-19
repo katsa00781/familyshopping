@@ -24,9 +24,13 @@
 
     /* Kategória tintok */
     --color-cat-produce: #86efac;
+    --color-cat-fruit: #fdba74;
     --color-cat-dairy: #93c5fd;
     --color-cat-meat: #fca5a5;
     --color-cat-bakery: #fcd34d;
+    --color-cat-vegan: #bef264;
+    --color-cat-drink: #67e8f9;
+    --color-cat-sweet: #f9a8d4;
     --color-cat-other: #cbd5e1;
 
     /* Spacing */
@@ -208,6 +212,9 @@
   .cat-produce {
     background-color: #86efac;
   }
+  .cat-fruit {
+    background-color: #fdba74;
+  }
   .cat-dairy {
     background-color: #93c5fd;
   }
@@ -216,6 +223,15 @@
   }
   .cat-bakery {
     background-color: #fcd34d;
+  }
+  .cat-vegan {
+    background-color: #bef264;
+  }
+  .cat-drink {
+    background-color: #67e8f9;
+  }
+  .cat-sweet {
+    background-color: #f9a8d4;
   }
   .cat-other {
     background-color: #cbd5e1;

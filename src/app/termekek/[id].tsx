@@ -47,7 +47,7 @@ const SOURCE_BG: Record<string, string> = {
   import: '#FCD34D',
 }
 
-const VALID_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const VALID_CATEGORIES: ItemCategory[] = ['Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb']
 
 // ─── Area chart ───────────────────────────────────────────────────────────────
 

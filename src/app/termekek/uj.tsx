@@ -20,7 +20,7 @@ import Button from '@/components/ui/Button'
 import { colors } from '@/constants/colors'
 import type { ItemCategory } from '@/types'
 
-const CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const CATEGORIES: ItemCategory[] = ['Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb']
 const UNITS = ['db', 'kg', 'g', 'l', 'ml']
 
 type FormState = {

@@ -44,9 +44,13 @@ export const colors = {
 
 export const category = {
   produce: '#86EFAC',
+  fruit: '#FDBA74',
   dairy: '#93C5FD',
   meat: '#FCA5A5',
   bakery: '#FCD34D',
+  vegan: '#BEF264',
+  drink: '#67E8F9',
+  sweet: '#F9A8D4',
   other: '#CBD5E1',
 } as const;
 export type Category = keyof typeof category;

@@ -9,7 +9,7 @@ import { catBg, catAbbr } from '@/constants/colors'
 import { formatHuf } from '@/lib/format'
 import type { ItemCategory, Product } from '@/types'
 
-const VALID_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+const VALID_CATEGORIES: ItemCategory[] = ['Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb']
 
 interface Props {
   product: Product

@@ -7,9 +7,13 @@ import type { ItemCategory } from '@/types'
 
 const CAT_BG: Record<ItemCategory, string> = {
   'Zöldség':   'bg-cat-produce',
+  'Gyümölcs':  'bg-cat-fruit',
   'Tejtermék': 'bg-cat-dairy',
   'Hús':       'bg-cat-meat',
   'Pékáru':    'bg-cat-bakery',
+  'Vegán':     'bg-cat-vegan',
+  'Ital':      'bg-cat-drink',
+  'Édesség':   'bg-cat-sweet',
   'Egyéb':     'bg-cat-other',
 }
 

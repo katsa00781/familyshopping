@@ -28,9 +28,13 @@ export const colors = {
 
   cat: {
     produce: '#86EFAC',
+    fruit:   '#FDBA74',
     dairy:   '#93C5FD',
     meat:    '#FCA5A5',
     bakery:  '#FCD34D',
+    vegan:   '#BEF264',
+    drink:   '#67E8F9',
+    sweet:   '#F9A8D4',
     other:   '#CBD5E1',
   },
 } as const
@@ -57,16 +61,24 @@ export function memberColorAt(index: number): string {
 
 export const catBg: Record<string, string> = {
   'Zöldség':   colors.cat.produce,
+  'Gyümölcs':  colors.cat.fruit,
   'Tejtermék': colors.cat.dairy,
   'Hús':       colors.cat.meat,
   'Pékáru':    colors.cat.bakery,
+  'Vegán':     colors.cat.vegan,
+  'Ital':      colors.cat.drink,
+  'Édesség':   colors.cat.sweet,
   'Egyéb':     colors.cat.other,
 }
 
 export const catAbbr: Record<string, string> = {
   'Zöldség':   'ZÖL',
+  'Gyümölcs':  'GYÜ',
   'Tejtermék': 'TEJ',
   'Hús':       'HÚS',
   'Pékáru':    'PÉK',
+  'Vegán':     'VEG',
+  'Ital':      'ITA',
+  'Édesség':   'ÉDE',
   'Egyéb':     'EGY',
 }

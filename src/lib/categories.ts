@@ -1,23 +1,26 @@
 import type { ItemCategory } from '@/types'
 
-// A kanonikus 5 kategória — egyetlen forrás a chipekhez, szűréshez és az
+// A kanonikus 9 kategória — egyetlen forrás a chipekhez, szűréshez és az
 // infláció-bontáshoz.
-export const ALL_CATEGORIES: ItemCategory[] = ['Zöldség', 'Tejtermék', 'Hús', 'Pékáru', 'Egyéb']
+export const ALL_CATEGORIES: ItemCategory[] = [
+  'Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb',
+]
 
 const VALID_CATEGORIES = new Set<ItemCategory>(ALL_CATEGORIES)
 
-// A tárolt category gyakran nem a kanonikus 5 egyike: a régi `import` adat, néhány
+// A tárolt category gyakran nem a kanonikus 9 egyike: a régi `import` adat, néhány
 // lista/kézi tétel és az OCR saját szabad szöveget használ (pl. "Tejtermékek",
-// "Húsáruk", "Zöldség és gyümölcs"). Ezeket a közeli variánsokat az 5 kategóriába
+// "Húsáruk", "Italok", "Édességek"). Ezeket a közeli variánsokat a 9 kategóriába
 // normalizáljuk, különben a kategória-szűrő és a személyes infláció torz lenne. Ami
-// taxonómiailag nem fér bele (Édesség, Élelmiszer, Ital, Snack, Háztartás, Gyógyszer…)
-// az szándékosan marad "Egyéb".
+// taxonómiailag nem fér bele (Élelmiszer, Snack, Háztartás, Gyógyszer…) az
+// szándékosan marad "Egyéb".
 const CATEGORY_ALIASES: Record<string, ItemCategory> = {
   'zöldség': 'Zöldség',
   'zöldség-gyümölcs': 'Zöldség',
   'zöldség és gyümölcs': 'Zöldség',
   'zöldség/gyümölcs': 'Zöldség',
-  'gyümölcs': 'Zöldség',
+  'gyümölcs': 'Gyümölcs',
+  'gyümölcsök': 'Gyümölcs',
   'tejtermék': 'Tejtermék',
   'tejtermékek': 'Tejtermék',
   'tej': 'Tejtermék',
@@ -33,9 +36,20 @@ const CATEGORY_ALIASES: Record<string, ItemCategory> = {
   'pékáruk': 'Pékáru',
   'péksütemény': 'Pékáru',
   'kenyér': 'Pékáru',
+  'vegán': 'Vegán',
+  'vegan': 'Vegán',
+  'ital': 'Ital',
+  'italok': 'Ital',
+  'üdítő': 'Ital',
+  'üdítők': 'Ital',
+  'ásványvíz': 'Ital',
+  'édesség': 'Édesség',
+  'édességek': 'Édesség',
+  'desszert': 'Édesség',
+  'keksz': 'Édesség',
 }
 
-// Bármilyen tárolt kategória-szöveget a kanonikus 5 kategória egyikére képez le.
+// Bármilyen tárolt kategória-szöveget a kanonikus 9 kategória egyikére képez le.
 export function toCategory(raw: string | null | undefined): ItemCategory {
   if (!raw) return 'Egyéb'
   const trimmed = raw.trim()
@@ -45,9 +59,20 @@ export function toCategory(raw: string | null | undefined): ItemCategory {
 
 // Kulcsszó-alapú besorolás terméknévből, ha nincs jobb forrás (pl. OCR-ből jött új
 // termék, amihez nem találtunk katalógus-párt). Konzervatív: bizonytalan esetben
-// inkább "Egyéb"-be esik, mintsem hibásan soroljon. A sorrend számít — az összetett
-// pékáruk (sajtos pogácsa, túrós táska) a Pékáru-nál akadnak fenn, nem a tej/hús-nál.
+// inkább "Egyéb"-be esik, mintsem hibásan soroljon. A sorrend számít:
+// - "Vegán" elöl van, hogy a "Vegán sajt"/"Vegán mascarpone" ne a Tejtermék
+//   kulcsszavakon akadjon fenn; az összetett pékáruk (sajtos pogácsa, túrós táska)
+//   a Pékáru-nál akadnak fenn, nem a tej/hús-nál.
+// - "Édesség" megelőzi az "Ital"-t, mert a "kola" (Ital) részstring a "csokoládé"
+//   szóban is benne van — a "csoki"/"csokolade" így előbb talál.
+// - "Ital" megelőzi a "Gyümölcs"-öt, mert a "gyümölcs" (Gyümölcs) részstring a
+//   "gyümölcsital" szóban is benne van — a gyümölcslé/-ital így Italként, nem
+//   Gyümölcsként azonosítódik.
 const CATEGORY_KEYWORDS: [ItemCategory, string[]][] = [
+  [
+    'Vegán',
+    ['vegan', 'tofu', 'szeitan', 'novenyi ital', 'novenyi tej'],
+  ],
   [
     'Pékáru',
     ['kenyer', 'kifli', 'zsemle', 'pekaru', 'bagett', 'peksut', 'croissant', 'pogacsa',
@@ -68,9 +93,24 @@ const CATEGORY_KEYWORDS: [ItemCategory, string[]][] = [
   [
     'Zöldség',
     ['paradicsom', 'paprika', 'hagyma', 'burgonya', 'krumpli', 'sargarepa', 'repa', 'uborka',
-      'salata', 'alma', 'banan', 'korte', 'szolo', 'citrom', 'narancs', 'gomba', 'cukkini',
-      'brokkoli', 'kaposzta', 'spenot', 'eper', 'malna', 'gyumolcs', 'zoldseg', 'fokhagyma',
-      'padlizsan', 'avokado', 'cekla', 'retek', 'karfiol', 'citromle'],
+      'salata', 'gomba', 'cukkini', 'brokkoli', 'kaposzta', 'spenot', 'zoldseg', 'fokhagyma',
+      'padlizsan', 'avokado', 'cekla', 'retek', 'karfiol'],
+  ],
+  [
+    'Édesség',
+    ['csokolade', 'csoki', 'bonbon', 'cukorka', 'nyaloka', 'szaloncukor', 'torta',
+      'fagylalt', 'jegkrem', 'nugat', 'marcipan'],
+  ],
+  [
+    'Ital',
+    ['asvanyviz', 'viz', 'udito', 'kave', 'tea', 'kola', 'dzsusz', 'juice', 'szorp',
+      'energiaital', 'pezsgo', 'limonade', 'ital'],
+  ],
+  [
+    'Gyümölcs',
+    ['alma', 'banan', 'korte', 'szolo', 'citrom', 'citromle', 'narancs', 'eper', 'malna',
+      'gyumolcs', 'barack', 'szilva', 'mandarin', 'dinnye', 'kiwi', 'ananasz', 'mango',
+      'afonya', 'cseresznye', 'meggy'],
   ],
 ]
 

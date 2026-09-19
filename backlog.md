@@ -12,7 +12,7 @@
 > - v1 funkciók: Kezdőlap dashboard, Naptár, Kassza, Étkezéstervező.
 > - **v1 adatmodell:** `user_id`-scoped (NEM family_id, profiles üres). Naptár = saját hónap-grid (nincs react-native-calendars).
 >
-> **Utolsó frissítés:** 2026-09-08
+> **Utolsó frissítés:** 2026-09-19
 
 ---
 
@@ -29,6 +29,12 @@
 - [x] Natív iOS build setup (bundle id `com.kacsorzsolt.familyshopping`, prebuild)
 
 > Részletek: a korábbi v0.1 backlog-bejegyzések (git history). Ezek **nem** változnak, csak a redesign érinti a megjelenésüket.
+
+- [x] **Termékkategória-bővítés: Vegán, Ital, Gyümölcs, Édesség (2026-09-19):** a korábbi 5 kategória (Zöldség, Tejtermék, Hús, Pékáru, Egyéb) kiegészítve némileg átrendezve 9-re: **Zöldség, Gyümölcs, Tejtermék, Hús, Pékáru, Vegán, Ital, Édesség, Egyéb**. A Gyümölcs a korábban Zöldségbe olvasztott gyümölcsöket önállósítja.
+  - Típus (`ItemCategory` → `src/types/index.ts`), kanonikus lista + alias-térkép + kulcsszó-alapú név-felismerés (`src/lib/categories.ts`) bővítve; minden kategória-chip lista (lista szűrő, termék szűrő, ár szűrő, tétel hozzáadás/szerkesztés, termék létrehozás/szerkesztés) frissítve.
+  - Új token-színek (pastel-300, a meglévő mintát követve): Gyümölcs `#FDBA74` (orange-300), Vegán `#BEF264` (lime-300), Ital `#67E8F9` (cyan-300), Édesség `#F9A8D4` (pink-300) → `handoff/tokens/tokens.json`, `tokens.ts`, `src/constants/colors.ts`, `src/global.css`, `tailwind.config.js`, `Badge.tsx` (`CategoryBadge`), rövidítések (`catAbbr`: GYÜ/VEG/ITA/ÉDE).
+  - **Meglévő termékek átsorolva a közös Supabase `products` táblában** (480 termékből 47 sor UPDATE-elve, id-alapú, ellenőrzött listával): pl. Alpro mandulaital/növényi ital/kókuszital, Barista zabital, Magnum vegán mangó, Viola/Violife vegán sajt → **Vegán**; Alma, Banán, Eper, Öszibarack, Fekete cseresznye, Gyorsfagyasztott meggy, "GYÜMÖLCS 750G" → **Gyümölcs**; BARACKLÉ, Kinley (üdítő), Szentkirályi ásványvíz/Csepp, Ice Tea, Ape Light Meggy → **Ital**; Dörmi, Magnum jégkrém, berlineri fánk, Detki vaníliás karika, Grízes puding → **Édesség**; a vegyes "Zöldség és gyümölcs" / "Zöldség-gyümölcs" bucket tételei (Paradicsom, Vöröshagyma) → **Zöldség**-re normalizálva. A `computeInflation`/`DonutChart` (személyes infláció) és a `toCategory` alias-normalizálás változtatás nélkül skálázódik a 9 kategóriára (generikus, `ALL_CATEGORIES`-alapú).
+  - Füstteszt: `tsc --noEmit` és `npm run lint` tiszta (0 hiba, csak meglévő, nem érintett figyelmeztetések).
 
 ---
 

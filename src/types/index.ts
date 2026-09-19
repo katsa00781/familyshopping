@@ -11,7 +11,16 @@ export interface Profile {
 }
 
 // ─── Bevásárlólista ───────────────────────────────────────────────────────────
-export type ItemCategory = 'Zöldség' | 'Tejtermék' | 'Hús' | 'Pékáru' | 'Egyéb'
+export type ItemCategory =
+  | 'Zöldség'
+  | 'Gyümölcs'
+  | 'Tejtermék'
+  | 'Hús'
+  | 'Pékáru'
+  | 'Vegán'
+  | 'Ital'
+  | 'Édesség'
+  | 'Egyéb'
 
 export interface ShoppingItem {
   id: string
