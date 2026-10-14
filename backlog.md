@@ -299,6 +299,19 @@
 - [x] `calendar_events` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21)
 - [x] `meal_plan_entries` (RLS: `user_id`) — létrehozva és alkalmazva (2026-06-21); tagonkénti/több tételes átalakítás (recipe_id nullable, member_id/item_name/product_id/quantity/unit) alkalmazva (2026-06-21)
 
+**Termék-adattisztítás (2026-10-14) — ✅ KÉSZ:** egy boltból egy termék = egy `products` sor, az árváltozás
+(`product_price_history`) megmarad. Migrációk: `20261014115900_…_1_backup_and_store_names`,
+`20261014120000_products_dedupe`, `…120100_products_unique_index`, `…130000_…_3_fuzzy_groups`,
+`…140000_…_4_followups`, `…150000_…_5_statistics_cleanup`.
+- [x] Bolt-nevek márka szintre (Aldi/Lidl/Tesco/EcoFamily/Hansa Italház/Müller Drogéria; BENU, Biobolt, Spar külön)
+- [x] `products` 482 → 430, árhistória 1702 → 1333 (csak azonos nap+egységár+mennyiség+összeg sorok); nincs árva `product_id`
+- [x] Egyedi index: `products_user_store_name_unit_uniq` (user, bolt, lower(név), egység) → az app `DUPLICATE` hibát kap
+- [x] `shopping_statistics`: ismeretlen bolt-nevek → NULL, 2025-12-12-i gramm-mennyiség hibák javítva, dupla CBA-nyugta törölve
+- [x] Kliens: `normalizeStoreName` (`lib/format.ts`) az `upsertProduct`-ban és az OCR-mentésben; az OCR-mentés a már létező (bolt, név, egység) terméket újrahasznosítja; meglévő termék boltját nem írja felül
+- [x] `…160000_…_6_final_cleanup`: a 2025-12-12-i `shopping_statistics` sorok (55 db, használhatatlan) törölve, a `*_backup_20261014` mentő táblák eldobva (felhasználói jóváhagyással, lefuttatva 2026-10-14)
+- [ ] Nyitott: Basmati rizs (Lidl) két sora (1 kg / db) külön termék
+- [ ] Nyitott: OCR-nyugtánál a `shopping_statistics` még nem deduplikál (azonos nap+bolt+tétel újra-beolvasásnál)
+
 **Lokális (nincs DB — AsyncStorage, v1 single-user):**
 - [x] `familyhub_members_v1` — családtagok (név + tagszín) az étrend tagonkénti tételeihez + a naptár esemény-hozzárendeléséhez; család-megosztáskor szinkronizálandó (v2.x)
 - [x] `familyhub_shifts_v1` — műszaksablon (műszaktípusok + ciklus-beosztás + generált esemény-id-k); a generált események valódi `calendar_events` sorok

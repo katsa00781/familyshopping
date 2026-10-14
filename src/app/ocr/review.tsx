@@ -26,7 +26,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { supabase, getSessionSafe } from '@/lib/supabase'
-import { formatHuf } from '@/lib/format'
+import { formatHuf, normalizeStoreName } from '@/lib/format'
 import { searchProducts } from '@/lib/productMatcher'
 import { inferCategory } from '@/lib/categories'
 import { useOcrStore } from '@/store/ocrStore'
@@ -116,7 +116,7 @@ export default function OCRReviewScreen() {
     if (!session) throw new Error('Nincs aktív munkamenet.')
 
     const userId = session.user.id
-    const store = ocrResponse?.store ?? null
+    const store = normalizeStoreName(ocrResponse?.store)
     const priceDate = ocrResponse?.date ?? new Date().toISOString().split('T')[0]!
 
     let newProductCount = 0
@@ -124,7 +124,20 @@ export default function OCRReviewScreen() {
     const statisticRows: Array<Omit<ShoppingStatistic, 'id' | 'created_at'>> = []
 
     for (const item of activeItems) {
-      let productId = item.existingProductId
+      // Ha az OCR-tétel nincs párosítva, de ugyanilyen (bolt, név, egység) termék már
+      // van, azt használjuk — a products egyedi indexe másképp DUPLICATE hibát adna.
+      const itemUnit = item.unit ?? 'db'
+      const sameProduct = item.existingProductId
+        ? null
+        : useProductStore
+            .getState()
+            .products.find(
+              (p) =>
+                (p.store_name ?? '') === (store ?? '') &&
+                p.name.toLowerCase() === item.name.toLowerCase() &&
+                p.unit === itemUnit,
+            )
+      let productId = item.existingProductId ?? sameProduct?.id ?? null
       // Katalógus-párnál örököljük a meglévő termék kategóriáját; új terméknél
       // névből következtetünk (kulcsszó-heurisztika, fallback 'Egyéb'). Így az OCR
       // tételek a megfelelő kategória-chip alá kerülnek, nem mind az 'Egyéb'-be.
@@ -153,7 +166,8 @@ export default function OCRReviewScreen() {
             name: existing.name,
             brand: existing.brand,
             category: existing.category,
-            store_name: store ?? existing.store_name,
+            // A meglévő termék boltját nem írjuk felül (egyedi index: bolt+név+egység).
+            store_name: existing.store_name ?? store,
             price: item.price,
             unit: existing.unit,
             barcode: existing.barcode,

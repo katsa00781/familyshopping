@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase, getSessionSafe } from '@/lib/supabase'
+import { normalizeStoreName } from '@/lib/format'
 import { mockProducts } from '@/data/mockProducts'
 import type { Product, PriceHistoryEntry } from '@/types'
 
@@ -120,7 +121,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       name: draft.name,
       brand: draft.brand,
       category: draft.category,
-      store_name: draft.store_name,
+      store_name: normalizeStoreName(draft.store_name),
       price: draft.price,
       unit: draft.unit,
       barcode: draft.barcode,
