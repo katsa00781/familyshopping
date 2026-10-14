@@ -309,6 +309,7 @@
 - [x] `shopping_statistics`: ismeretlen bolt-nevek → NULL, 2025-12-12-i gramm-mennyiség hibák javítva, dupla CBA-nyugta törölve
 - [x] Kliens: `normalizeStoreName` (`lib/format.ts`) az `upsertProduct`-ban és az OCR-mentésben; az OCR-mentés a már létező (bolt, név, egység) terméket újrahasznosítja; meglévő termék boltját nem írja felül
 - [x] `…160000_…_6_final_cleanup`: a 2025-12-12-i `shopping_statistics` sorok (55 db, használhatatlan) törölve, a `*_backup_20261014` mentő táblák eldobva (felhasználói jóváhagyással, lefuttatva 2026-10-14)
+- [x] Árváltozás-anomáliák (2026-10-14): `computePriceChanges`/`computeInflation` mostantól like-for-like csoportosít (termék + bolt + egység) — a kg-os és db-os, ill. boltonként eltérő árak nem adnak hamis ugrást; azonos napi sorok sorrendje `created_at`-tel stabil (régi nyitott hiba (1) javítva). Termék-részletek: valódi árnapló a `product_price_history`-ból (`lib/priceHistory.ts`) trend-grafikonnal; sorra koppintva ár/dátum szerkeszthető, a nem valós ár törölhető; módosítás után az Árak tab frissül.
 - [ ] Nyitott: Basmati rizs (Lidl) két sora (1 kg / db) külön termék
 - [ ] Nyitott: OCR-nyugtánál a `shopping_statistics` még nem deduplikál (azonos nap+bolt+tétel újra-beolvasásnál)
 

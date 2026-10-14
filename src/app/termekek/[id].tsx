@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
   Pressable,
@@ -18,11 +18,14 @@ import { Circle, Defs, Line, LinearGradient, Path, Stop, Svg } from 'react-nativ
 import { useProductStore } from '@/store/productStore'
 import { useListStore } from '@/store/listStore'
 import { useToastStore } from '@/store/toastStore'
+import { usePriceStore } from '@/store/priceStore'
+import { deletePriceEntry, fetchProductPriceHistory, updatePriceEntry } from '@/lib/priceHistory'
 import BottomSheet from '@/components/ui/BottomSheet'
 import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
 import { CategoryBadge, PriceBadge } from '@/components/ui/Badge'
 import { colors } from '@/constants/colors'
-import { formatHuf } from '@/lib/format'
+import { formatHuDate, formatHuf } from '@/lib/format'
 import type { ItemCategory, PriceHistoryEntry, ShoppingItem } from '@/types'
 
 function generateId(): string {
@@ -193,6 +196,89 @@ export default function ProductDetailScreen() {
 
   const [period, setPeriod] = useState<Period>('3hó')
   const [addSheetVisible, setAddSheetVisible] = useState(false)
+  const [history, setHistory] = useState<PriceHistoryEntry[]>([])
+  const [editing, setEditing] = useState<PriceHistoryEntry | null>(null)
+  const [editPrice, setEditPrice] = useState('')
+  const [editDate, setEditDate] = useState('')
+  const [editError, setEditError] = useState<string | undefined>()
+  const loadPriceData = usePriceStore((s) => s.loadPriceData)
+
+  const loadHistory = useCallback(async () => {
+    if (!id) return
+    try {
+      const rows = await fetchProductPriceHistory(id)
+      setHistory(
+        rows.map((r) => ({
+          id: r.id,
+          price: r.unit_price,
+          store_name: r.store_name,
+          date: r.price_date,
+          source: r.source,
+        })),
+      )
+    } catch {
+      showToast('Az árnapló betöltése sikertelen', 'error')
+    }
+  }, [id, showToast])
+
+  useEffect(() => {
+    void loadHistory()
+  }, [loadHistory])
+
+  function openEdit(entry: PriceHistoryEntry) {
+    setEditing(entry)
+    setEditPrice(String(entry.price))
+    setEditDate(entry.date.split('T')[0] ?? entry.date)
+    setEditError(undefined)
+  }
+
+  // Módosítás/törlés után az Árak tab (árváltozások, infláció) is frissül.
+  async function afterHistoryChange() {
+    setEditing(null)
+    await loadHistory()
+    void loadPriceData()
+  }
+
+  async function handleSaveEdit() {
+    if (!editing?.id) return
+    const price = Number(editPrice.replace(',', '.').replace(/\s/g, ''))
+    if (!Number.isFinite(price) || price <= 0) {
+      setEditError('Adj meg érvényes árat')
+      return
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(editDate) || Number.isNaN(new Date(editDate).getTime())) {
+      setEditError('A dátum formátuma: ÉÉÉÉ-HH-NN')
+      return
+    }
+    try {
+      await updatePriceEntry(editing.id, { unit_price: price, price_date: editDate })
+      showToast('Ár módosítva', 'success')
+      await afterHistoryChange()
+    } catch {
+      setEditError('A mentés sikertelen')
+    }
+  }
+
+  function handleDeleteEntry() {
+    const entry = editing
+    if (!entry?.id) return
+    Alert.alert('Ár törlése', `Biztosan törlöd ezt az árat: ${formatHuf(entry.price)}?`, [
+      {
+        text: 'Törlés',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            await deletePriceEntry(entry.id!)
+            showToast('Ár törölve', 'success')
+            await afterHistoryChange()
+          } catch {
+            setEditError('A törlés sikertelen')
+          }
+        },
+      },
+      { text: 'Mégse', style: 'cancel' },
+    ])
+  }
 
   if (!product) {
     return (
@@ -212,9 +298,7 @@ export default function ProductDetailScreen() {
   const changeFt =
     product.last_price && product.price ? product.price - product.last_price : null
 
-  const sortedHistory = [...product.price_history].sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  )
+  const sortedHistory = [...history].reverse()
 
   function handleDelete() {
     if (!product) return
@@ -334,7 +418,7 @@ export default function ProductDetailScreen() {
         </View>
 
         {/* Area chart section */}
-        {product.price_history.length > 0 && (
+        {history.length > 0 && (
           <View className="bg-card dark:bg-dark-card border border-border dark:border-dark-border rounded-card p-4 mb-4">
             {/* Period selector */}
             <View className="flex-row gap-2 mb-4">
@@ -361,11 +445,11 @@ export default function ProductDetailScreen() {
             </View>
 
             {/* Chart */}
-            <AreaChart history={product.price_history} period={period} chartWidth={chartWidth} />
+            <AreaChart history={history} period={period} chartWidth={chartWidth} />
 
             {/* Min/max labels below chart */}
             {(() => {
-              const filtered = filterByPeriod(product.price_history, period)
+              const filtered = filterByPeriod(history, period)
               if (filtered.length < 2) return null
               const prices = filtered.map((e) => e.price)
               const minP = Math.min(...prices)
@@ -391,17 +475,22 @@ export default function ProductDetailScreen() {
               <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
                 Árnapló
               </Text>
+              <Text className="text-caption text-muted">
+                Koppints egy sorra a szerkesztéshez vagy törléshez
+              </Text>
             </View>
             {sortedHistory.map((entry, idx) => {
               const srcLabel = SOURCE_LABELS[entry.source] ?? entry.source
               const srcBg = SOURCE_BG[entry.source] ?? '#CBD5E1'
               const isLast = idx === sortedHistory.length - 1
-              const dateStr = new Date(entry.date).toLocaleDateString('hu-HU', {
-                year: 'numeric', month: 'short', day: 'numeric',
-              })
+              const dateStr = formatHuDate(entry.date)
               return (
-                <View
-                  key={idx}
+                <Pressable
+                  key={entry.id ?? idx}
+                  onPress={() => openEdit(entry)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Ár szerkesztése: ${formatHuf(entry.price)}, ${formatHuDate(entry.date)}`}
+                  style={({ pressed }) => (pressed ? styles.pressed : undefined)}
                   className={`flex-row items-center px-4 py-3 ${!isLast ? 'border-b border-border dark:border-dark-border' : ''}`}
                 >
                   {/* Source badge */}
@@ -428,7 +517,7 @@ export default function ProductDetailScreen() {
                   <Text className="text-body-md font-semibold text-foreground dark:text-dark-foreground">
                     {formatHuf(entry.price)}
                   </Text>
-                </View>
+                </Pressable>
               )
             })}
           </View>
@@ -446,6 +535,37 @@ export default function ProductDetailScreen() {
           Hozzáadás listához
         </Button>
       </View>
+
+      {/* Ár szerkesztése / törlése */}
+      <BottomSheet
+        visible={editing !== null}
+        onClose={() => setEditing(null)}
+        title="Ár szerkesztése"
+        variant="full"
+      >
+        <View style={{ gap: 12 }}>
+          <Input
+            label="Egységár"
+            type="number"
+            suffix="Ft"
+            value={editPrice}
+            onChangeText={(t) => { setEditPrice(t); setEditError(undefined) }}
+          />
+          <Input
+            label="Dátum"
+            placeholder="ÉÉÉÉ-HH-NN"
+            value={editDate}
+            onChangeText={(t) => { setEditDate(t); setEditError(undefined) }}
+            error={editError}
+          />
+          <Button variant="primary" size="lg" fullWidth onPress={handleSaveEdit}>
+            Mentés
+          </Button>
+          <Button variant="destructive" size="lg" fullWidth onPress={handleDeleteEntry}>
+            Ár törlése
+          </Button>
+        </View>
+      </BottomSheet>
 
       {/* Lista választó sheet */}
       <BottomSheet

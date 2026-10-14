@@ -49,6 +49,7 @@ export interface ShoppingList {
 
 // ─── Termékek ─────────────────────────────────────────────────────────────────
 export interface PriceHistoryEntry {
+  id?: string
   price: number
   store_name: string | null
   date: string

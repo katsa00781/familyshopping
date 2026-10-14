@@ -36,6 +36,17 @@ interface PriceState {
   computeKpis: () => PriceKpi
 }
 
+// Like-for-like összehasonlítás: ugyanaz a termék, ugyanabban a boltban, ugyanabban az
+// egységben. Különben a kg-os és db-os, vagy boltonként eltérő árak hamis ugrást adnak.
+function groupKey(e: ProductPriceHistory): string {
+  return `${e.product_id ?? e.product_name}|${e.store_name ?? ''}|${e.unit}`
+}
+
+// Azonos napi sorok sorrendje a létrehozás ideje szerint stabil.
+function byDateAsc(a: ProductPriceHistory, b: ProductPriceHistory): number {
+  return a.price_date.localeCompare(b.price_date) || a.created_at.localeCompare(b.created_at)
+}
+
 type CacheData = { priceHistory: ProductPriceHistory[]; statistics: ShoppingStatistic[] }
 
 async function saveCache(data: CacheData): Promise<void> {
@@ -131,15 +142,16 @@ export const usePriceStore = create<PriceState>((set, get) => ({
 
     const grouped = new Map<string, ProductPriceHistory[]>()
     for (const entry of priceHistory) {
-      const list = grouped.get(entry.product_name) ?? []
+      const key = groupKey(entry)
+      const list = grouped.get(key) ?? []
       list.push(entry)
-      grouped.set(entry.product_name, list)
+      grouped.set(key, list)
     }
 
     const changes: PriceChange[] = []
-    for (const [name, entries] of grouped) {
+    for (const entries of grouped.values()) {
       if (entries.length < 2) continue
-      const sorted = [...entries].sort((a, b) => a.price_date.localeCompare(b.price_date))
+      const sorted = [...entries].sort(byDateAsc)
       const oldest = sorted[0]!
       const newest = sorted[sorted.length - 1]!
       if (oldest.unit_price === 0) continue
@@ -148,7 +160,7 @@ export const usePriceStore = create<PriceState>((set, get) => ({
       const change_pct = (change_ft / oldest.unit_price) * 100
       changes.push({
         product_id: newest.product_id ?? oldest.product_id,
-        product_name: name,
+        product_name: newest.product_name,
         product_category: newest.product_category,
         store_name: newest.store_name,
         old_price: oldest.unit_price,
@@ -170,9 +182,10 @@ export const usePriceStore = create<PriceState>((set, get) => ({
     for (const entry of priceHistory) {
       const cat = toCategory(entry.product_category)
       const catMap = grouped.get(cat)!
-      const list = catMap.get(entry.product_name) ?? []
+      const key = groupKey(entry)
+      const list = catMap.get(key) ?? []
       list.push(entry)
-      catMap.set(entry.product_name, list)
+      catMap.set(key, list)
     }
 
     // Költés-súlyozott árindex. Termékenként árváltozás (legrégebbi→legújabb
@@ -189,7 +202,7 @@ export const usePriceStore = create<PriceState>((set, get) => ({
 
       for (const [, entries] of products) {
         if (entries.length < 2) continue
-        const sorted = [...entries].sort((a, b) => a.price_date.localeCompare(b.price_date))
+        const sorted = [...entries].sort(byDateAsc)
         const oldest = sorted[0]!
         const newest = sorted[sorted.length - 1]!
         if (oldest.unit_price <= 0) continue
