@@ -84,7 +84,8 @@
         {
           "color": "#14B8A6"
         }
-      ]
+      ],
+      "./plugins/withIosMinDeploymentTarget.js"
     ],
     "experiments": {
       "typedRoutes": true,

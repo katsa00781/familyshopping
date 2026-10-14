@@ -375,6 +375,13 @@
       (és TestFlight-feltöltés) kell hozzá. UI-oldalon még nincs iPad-specifikus (split-view/reszponzív)
       elrendezés — a meglévő layoutok nagyobb képernyőn nyújtva jelennek meg, ezt külön feladatként érdemes
       átnézni, ha valódi iPad-optimalizálás a cél.
+- [x] Xcode build hiba javítva (2026-09-19): `IPHONEOS_DEPLOYMENT_TARGET 13.4` a `Pods.xcodeproj`-ban,
+      Xcode 27 min. 15.0-t követel. Ok: a `RNCAsyncStorage_resources` resource-bundle target a saját
+      podspecjéből örökli a 13.4-et, nem a Podfile `platform :ios, '15.1'` sorát. Mivel `/ios` gitignore-olt
+      (CNG, minden `prebuild`/`expo run:ios` újragenerálja), a Podfile közvetlen szerkesztése nem maradt
+      volna meg — helyette `plugins/withIosMinDeploymentTarget.js` Expo config plugin (regisztrálva az
+      `app.json` plugins tömb végén), ami minden prebuildnél befűzi a `post_install`-ba, hogy minden pod
+      target `IPHONEOS_DEPLOYMENT_TARGET`-jét felhúzza legalább 15.1-re.
 
 ---
 
