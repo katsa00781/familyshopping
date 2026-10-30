@@ -18,7 +18,7 @@
 
 ## ✅ ALAP KÉSZ (familyshopping v0.1 – öröklött)
 
-- [x] Expo + RN (SDK ~54) + TS strict + expo-router + NativeWind v4 + reanimated v4
+- [x] Expo + RN (SDK ~57) + TS strict + expo-router + NativeWind v4 + reanimated v4
 - [x] Supabase Auth + kliens (`src/lib/supabase.ts`), session-timing javítások (`getSessionSafe`, AppState/autoRefresh, halott-session takarítás)
 - [x] UI primitívek: Button, Input, Card, Badge, Checkbox, BottomSheet, EmptyState, Skeleton, Toast
 - [x] Bevásárlólisták (`shopping_lists`), ListOverview, ListDetail, ItemAdd/Edit, **Bolt mód** (keep-awake, medium haptika)
@@ -27,6 +27,7 @@
 - [x] OCR blokk-szkennelés (kamera + `ocr-receipt` Edge Function), per-tétel confidence, tanuló réteg (`ocr_corrections`), okos kategória-besorolás + termék-egyeztetés
 - [x] Profil (iOS grouped list), format/storage/haptics helperek, token-alapú színek
 - [x] Natív iOS build setup (bundle id `com.kacsorzsolt.familyshopping`, prebuild)
+- [x] iOS 27 / iPadOS 27 indítási összeomlás javítva: SDK 54→57 frissítés + `plugins/withIosSceneDelegate.js` (scene-alapú életciklus, `ExpoAppSceneDelegate`). A plugin törölhető, ha az SDK sablon már maga is scene-alapú (SDK 58)
 
 > Részletek: a korábbi v0.1 backlog-bejegyzések (git history). Ezek **nem** változnak, csak a redesign érinti a megjelenésüket.
 

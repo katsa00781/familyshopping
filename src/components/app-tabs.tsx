@@ -1,11 +1,11 @@
-import { Icon, Label, NativeTabs } from 'expo-router/unstable-native-tabs';
+import { NativeTabs } from 'expo-router/unstable-native-tabs';
 import React from 'react';
 import { useColorScheme } from 'react-native';
 
 import { Colors } from '@/constants/theme';
 
 export default function AppTabs() {
-  const scheme = useColorScheme() ?? 'light';
+  const scheme = useColorScheme() === 'dark' ? 'dark' : 'light';
   const colors = Colors[scheme];
 
   return (
@@ -14,18 +14,18 @@ export default function AppTabs() {
       indicatorColor={colors.backgroundElement}
       labelStyle={{ selected: { color: colors.text } }}>
       <NativeTabs.Trigger name="lists">
-        <Label>Listák</Label>
-        <Icon src={require('@/assets/images/tabIcons/home.png')} />
+        <NativeTabs.Trigger.Label>Listák</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/home.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="explore">
-        <Label>Fedezd fel</Label>
-        <Icon src={require('@/assets/images/tabIcons/explore.png')} />
+        <NativeTabs.Trigger.Label>Fedezd fel</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/explore.png')} />
       </NativeTabs.Trigger>
 
       <NativeTabs.Trigger name="profil">
-        <Label>Profil</Label>
-        <Icon src={require('@/assets/images/tabIcons/home.png')} />
+        <NativeTabs.Trigger.Label>Profil</NativeTabs.Trigger.Label>
+        <NativeTabs.Trigger.Icon src={require('@/assets/images/tabIcons/home.png')} />
       </NativeTabs.Trigger>
     </NativeTabs>
   );

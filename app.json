@@ -11,7 +11,7 @@
       "icon": "./assets/images/icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.kacsorzsolt.familyshopping",
-      "buildNumber": "11",
+      "buildNumber": "12",
       "infoPlist": {
         "NSCalendarsUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
         "NSCalendarsFullAccessUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
@@ -85,7 +85,10 @@
           "color": "#14B8A6"
         }
       ],
-      "./plugins/withIosMinDeploymentTarget.js"
+      "./plugins/withIosMinDeploymentTarget.js",
+      "./plugins/withIosSceneDelegate.js",
+      "expo-image",
+      "expo-status-bar"
     ],
     "experiments": {
       "typedRoutes": true,
