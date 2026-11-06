@@ -48,6 +48,51 @@ async function currentOwner(): Promise<{ userId: string; ownerId: string } | nul
   return { userId: session.user.id, ownerId: await resolveDataOwnerId(session.user.id) }
 }
 
+async function countRefs(
+  table: 'calendar_events' | 'meal_plan_entries',
+  ownerId: string,
+  memberIds: string[] | null,
+): Promise<number | null> {
+  let query = supabase
+    .from(table)
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', ownerId)
+  query = memberIds ? query.in('member_id', memberIds) : query.not('member_id', 'is', null)
+  const { count, error } = await query
+  return error ? null : (count ?? 0)
+}
+
+/** Ennyi esemény + étrend-tétel hivatkozik a megadott tagokra (hibánál null). */
+async function referenceCount(ownerId: string, ids: string[]): Promise<number | null> {
+  if (ids.length === 0) return 0
+  const [cal, meal] = await Promise.all([
+    countRefs('calendar_events', ownerId, ids),
+    countRefs('meal_plan_entries', ownerId, ids),
+  ])
+  return cal === null || meal === null ? null : cal + meal
+}
+
+/**
+ * Igaz, ha ez a telefon a „valódi" taglistát tartja: a tagjaira hivatkozik esemény
+ * vagy étrend-tétel, vagy még sehol nincs tag-hivatkozás. Hibánál (null) nem tölt fel.
+ */
+async function isCanonicalLocalList(
+  ownerId: string,
+  members: FamilyMemberLocal[],
+): Promise<boolean> {
+  const ids = members.map((m) => m.id)
+  if (ids.length === 0) return false
+  const counts = await Promise.all([
+    countRefs('calendar_events', ownerId, ids),
+    countRefs('meal_plan_entries', ownerId, ids),
+    countRefs('calendar_events', ownerId, null),
+    countRefs('meal_plan_entries', ownerId, null),
+  ])
+  if (counts.some((c) => c === null)) return false
+  const [calOwn, mealOwn, calAny, mealAny] = counts as number[]
+  return (calOwn ?? 0) + (mealOwn ?? 0) > 0 || (calAny ?? 0) + (mealAny ?? 0) === 0
+}
+
 async function upsertRemote(ownerId: string, members: FamilyMemberLocal[]): Promise<boolean> {
   if (members.length === 0) return true
   const rows = members.map((m, i) => ({
@@ -73,7 +118,12 @@ async function syncRemote(
 ): Promise<void> {
   const owner = await currentOwner()
   if (!owner) return
-  if (!remoteBacked && owner.userId !== owner.ownerId) return
+  if (!remoteBacked) {
+    // Szerverről még nem jött lista: családtag sosem, az adatgazda csak a „valódi"
+    // (hivatkozott) listával tölthet fel.
+    if (owner.userId !== owner.ownerId) return
+    if (!(await isCanonicalLocalList(owner.ownerId, members))) return
+  }
   if (deletedId) await supabase.from('household_members').delete().eq('id', deletedId)
   if (await upsertRemote(owner.ownerId, members)) useMemberStore.setState({ remoteBacked: true })
 }
@@ -125,6 +175,33 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     set({ lastRemoteSync: Date.now() })
 
     const rows = (data ?? []) as MemberRow[]
+
+    // Öngyógyítás (adatgazda telefonja, első szinkronnál): ha a szerveres tagokra
+    // semmi nem hivatkozik, a helyiekre viszont igen, akkor a szerverre egy friss
+    // telepítés seedelt alap-tagokat → a helyi (valódi) lista nyer és lecseréli.
+    if (rows.length > 0 && owner.userId === owner.ownerId && !get().remoteBacked) {
+      const localIds = get().members.map((m) => m.id)
+      const serverIds = rows.map((r) => r.id)
+      const sameList =
+        localIds.length === serverIds.length && localIds.every((id) => serverIds.includes(id))
+      if (!sameList) {
+        const [serverRefs, localRefs] = await Promise.all([
+          referenceCount(owner.ownerId, serverIds),
+          referenceCount(owner.ownerId, localIds),
+        ])
+        if (serverRefs === 0 && localRefs !== null && localRefs > 0) {
+          const stale = serverIds.filter((id) => !localIds.includes(id))
+          if (await upsertRemote(owner.ownerId, get().members)) {
+            if (stale.length > 0) {
+              await supabase.from('household_members').delete().in('id', stale)
+            }
+            set({ remoteBacked: true })
+          }
+          return
+        }
+      }
+    }
+
     if (rows.length > 0) {
       const members = rows.map((r) => ({ id: r.id, name: r.name, color: r.color }))
       set({ members, remoteBacked: true })
@@ -135,8 +212,14 @@ export const useMemberStore = create<MemberState>((set, get) => ({
     // Üres szerveres lista: CSAK az adatgazda telefonja tölti fel a saját tagjait
     // (az eddigi id-kkel → a meglévő esemény/étrend hozzárendelések megmaradnak).
     // Egy családtag telefonja sosem seedel, különben a véletlen id-jű alap-tagjai
-    // felülírnák a tulajdonos tagjait.
-    if (owner.userId === owner.ownerId) {
+    // felülírnák a tulajdonos tagjait. Az adatgazda fiókja is futhat friss telepítésen
+    // (szimulátor, újratelepítés) frissen seedelt tagokkal – ezért csak akkor tölt fel,
+    // ha a helyi tagokra tényleg hivatkozik esemény/étrend-tétel, vagy még egyáltalán
+    // nincs tag-hivatkozás (új család).
+    if (
+      owner.userId === owner.ownerId &&
+      (await isCanonicalLocalList(owner.ownerId, get().members))
+    ) {
       if (await upsertRemote(owner.ownerId, get().members)) set({ remoteBacked: true })
     }
   },
