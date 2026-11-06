@@ -14,7 +14,7 @@ import { useStoreOrderStore } from '@/store/storeOrderStore'
 import { colors } from '@/constants/colors'
 import { haptics } from '@/lib/haptics'
 import { formatHuf } from '@/lib/format'
-import { sortItemsByStore } from '@/lib/sortByStore'
+import { groupItemsByStore } from '@/lib/sortByStore'
 
 export default function BoltScreen() {
   useKeepAwake()
@@ -48,7 +48,19 @@ export default function BoltScreen() {
     return lists.find((l) => !l.completed) ?? null
   })()
 
-  const items = sortItemsByStore(activeList?.items ?? [], products, storeOrder)
+  const storeGroups = groupItemsByStore(activeList?.items ?? [], products, storeOrder)
+  const items = storeGroups.flatMap((g) => g.items)
+  // Egyetlen, bolt nélküli csoportnál nincs értelme fejlécnek.
+  const showStoreHeaders = !(storeGroups.length === 1 && storeGroups[0]?.store === null)
+  // Görgetéskor a bolt-fejlécek a tetején maradnak (sticky): fejléc-indexek a gyerekek közt.
+  const stickyHeaderIndices: number[] = []
+  if (showStoreHeaders) {
+    let index = 0
+    for (const group of storeGroups) {
+      stickyHeaderIndices.push(index)
+      index += 1 + group.items.length
+    }
+  }
   const checkedCount = items.filter((i) => i.checked).length
   const allChecked = items.length > 0 && checkedCount === items.length
   const ctaActive = allChecked || ctaForced
@@ -126,17 +138,36 @@ export default function BoltScreen() {
         style={{ flex: 1 }}
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingBottom: 8 }}
+        stickyHeaderIndices={stickyHeaderIndices}
       >
-        {items.map((item) => (
-          <BoltRow
-            key={item.id}
-            item={item}
-            onToggle={() => {
-              haptics.medium()
-              void toggleItem(activeList.id, item.id)
-            }}
-          />
-        ))}
+        {storeGroups.flatMap((group) => [
+          ...(showStoreHeaders
+            ? [
+                <View
+                  key={`store:${group.store ?? '__none__'}`}
+                  style={styles.storeHeader}
+                  accessibilityRole="header"
+                >
+                  <Text style={styles.storeHeaderTitle} numberOfLines={1}>
+                    {group.store ?? 'Bolt nélkül'}
+                  </Text>
+                  <Text style={styles.storeHeaderCount}>
+                    {group.items.filter((i) => i.checked).length}/{group.items.length}
+                  </Text>
+                </View>,
+              ]
+            : []),
+          ...group.items.map((item) => (
+            <BoltRow
+              key={item.id}
+              item={item}
+              onToggle={() => {
+                haptics.medium()
+                void toggleItem(activeList.id, item.id)
+              }}
+            />
+          )),
+        ])}
       </ScrollView>
 
       {/* List picker bottom sheet */}
@@ -249,6 +280,31 @@ const styles = StyleSheet.create({
     lineHeight: 28,
     fontWeight: '600',
     color: colors.darkForeground,
+  },
+  storeHeader: {
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    gap: 12,
+    backgroundColor: colors.boltBar,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.boltBorder,
+  },
+  storeHeaderTitle: {
+    flex: 1,
+    fontSize: 17,
+    lineHeight: 22,
+    fontWeight: '700',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+    color: colors.primary,
+  },
+  storeHeaderCount: {
+    fontSize: 15,
+    lineHeight: 20,
+    fontWeight: '600',
+    color: colors.muted,
   },
   pickerList: {
     paddingVertical: 8,

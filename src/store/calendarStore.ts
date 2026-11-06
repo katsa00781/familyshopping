@@ -11,8 +11,14 @@ import {
   scheduleEventReminder,
   syncEventReminders,
 } from '@/lib/notifications'
+import { useDeviceCalendarStore } from '@/store/deviceCalendarStore'
 import { useNotificationPrefsStore } from '@/store/notificationPrefsStore'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
+
+/** A közös naptár tükrözése a telefon „FamilyHub" naptárába (késleltetve, nem blokkol). */
+function mirrorToDevice(events: CalendarEvent[]): void {
+  useDeviceCalendarStore.getState().scheduleExport(events)
+}
 
 async function reminderPrefs() {
   await useNotificationPrefsStore.getState().load()
@@ -75,6 +81,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       // A családtagok által felvett/módosított/törölt eseményekhez is legyen
       // (vagy szűnjön meg) emlékeztető ezen a telefonon.
       if (prefs.calendarReminders) void syncEventReminders(result.data)
+      mirrorToDevice(result.data)
       return
     }
 
@@ -91,6 +98,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     // `empty`: a szerver megerősítette az üres naptárt (nincs esemény, vagy mind törölve).
     await saveCache([])
     set({ events: [], isLoading: false, error: null })
+    mirrorToDevice([])
   },
 
   createEvent: async (input) => {
@@ -120,6 +128,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
           .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
         set({ events: merged })
         await saveCache(merged)
+        mirrorToDevice(merged)
         const prefs = await reminderPrefs()
         if (prefs.calendarReminders) void scheduleEventReminder(saved)
       } catch {
@@ -147,6 +156,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     if (user) {
       try {
         await patchEvent(id, input)
+        mirrorToDevice(get().events)
       } catch {
         set({ events: prev, error: 'Esemény frissítése sikertelen' })
         await saveCache(prev)
@@ -166,6 +176,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     if (user) {
       try {
         await removeEvent(id)
+        mirrorToDevice(get().events)
       } catch {
         set({ events: prev, error: 'Esemény törlése sikertelen' })
         await saveCache(prev)
@@ -198,6 +209,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     if (user) {
       try {
         await insertEvents(ownerId, user.id, rows)
+        mirrorToDevice(get().events)
       } catch {
         set({ events: prev, error: 'Beosztás mentése sikertelen' })
         await saveCache(prev)
@@ -220,6 +232,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     if (user) {
       try {
         await removeEvents(ids)
+        mirrorToDevice(get().events)
       } catch {
         set({ events: prev, error: 'Beosztás törlése sikertelen' })
         await saveCache(prev)

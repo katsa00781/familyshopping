@@ -177,6 +177,13 @@ function parseRRule(rrule: string | null): RecurrenceRule | null {
   return { freq, interval, until, count }
 }
 
+/** `rrule` szerkezetten (FREQ/INTERVAL/UNTIL/COUNT) – pl. a telefon-naptár exporthoz. */
+export function parseRecurrence(
+  rrule: string | null,
+): { freq: 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'YEARLY'; interval: number; until: Date | null; count: number | null } | null {
+  return parseRRule(rrule)
+}
+
 /** Preset/egység + intervallum + vég-dátum → tárolható `rrule` string. */
 export function buildRRule(freq: RecurrenceFreq, interval: number, until: Date | null): string | null {
   if (freq === 'none') return null

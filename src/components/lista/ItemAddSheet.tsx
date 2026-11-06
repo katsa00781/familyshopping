@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { X } from 'lucide-react-native'
 import {
   Keyboard,
   Pressable,
@@ -49,6 +50,15 @@ const UNIT_STEP: Record<Unit, { step: number; initial: number }> = {
 
 type OpenSelect = 'unit' | 'category' | 'store' | null
 
+/** Léptetés a termék egységéhez (a listán kívüli egységnél – pl. „csomag” – darabos). */
+function stepFor(unit: string): { step: number; initial: number } {
+  return (UNITS as readonly string[]).includes(unit) ? UNIT_STEP[unit as Unit] : UNIT_STEP.db
+}
+
+function productLabel(product: Product): string {
+  return product.brand ? `${product.name} ${product.brand}` : product.name
+}
+
 function generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
     const r = (Math.random() * 16) | 0
@@ -73,11 +83,16 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
   // A StorePicker belső („Új bolt…") állapotát újranyitáskor a key cseréje törli.
   const [formKey, setFormKey] = useState(0)
   const [suggestions, setSuggestions] = useState<Product[]>([])
+  // Keresőből kiválasztott termék: egység/kategória/bolt/ár ebből jön, csak a
+  // mennyiség állítható, a „Hozzáadás” gomb teszi a listára.
+  const [selected, setSelected] = useState<Product | null>(null)
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const scrollRef = useRef<ScrollViewInstance>(null)
 
   function handleNameChange(text: string) {
     setName(text)
+    // A kiválasztott termék nevét átírva már új/másik terméket keres.
+    if (selected && text !== productLabel(selected)) setSelected(null)
 
     if (searchTimer.current) clearTimeout(searchTimer.current)
 
@@ -121,22 +136,39 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     }, 300)
   }
 
-  // A legördülő javaslatra koppintva a termék azonnal bekerül a listába –
-  // egység, kategória és ár a termékből jön, nem kell külön megadni.
+  // A találatra koppintva a termék KIVÁLASZTÓDIK (nem kerül azonnal a listára):
+  // a mennyiség még léptethető, a „Hozzáadás” gomb teszi fel. Egység, kategória,
+  // bolt és ár a termékből jön.
   function selectSuggestion(product: Product) {
+    if (searchTimer.current) clearTimeout(searchTimer.current)
+    Keyboard.dismiss()
+    haptics.selection()
+    setSelected(product)
+    setName(productLabel(product))
+    setSuggestions([])
+    setOpenSelect(null)
+    setQuantity(stepFor(product.unit).initial)
+  }
+
+  function clearSelection() {
+    setSelected(null)
+    setName('')
+    setQuantity(1)
+  }
+
+  function addSelected(product: Product) {
     const validCat = CATEGORIES.includes(product.category as ItemCategory)
       ? (product.category as ItemCategory)
       : 'Egyéb'
-    const resolvedPrice = product.last_price ?? product.price
 
     const item: ShoppingItem = {
       id: generateId(),
-      name: product.brand ? `${product.name} ${product.brand}` : product.name,
+      name: productLabel(product),
       quantity,
       unit: product.unit,
       category: validCat,
       checked: false,
-      price: resolvedPrice ?? null,
+      price: product.last_price ?? product.price ?? null,
       product_id: product.id,
     }
 
@@ -214,6 +246,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     setUnit('db')
     setCategory('Egyéb')
     setStore(null)
+    setSelected(null)
     setFormKey((k) => k + 1)
     setOpenSelect(null)
     setSuggestions([])
@@ -252,7 +285,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
           returnKeyType="done"
         />
 
-        {/* Termék-találatok: koppintásra azonnal a listába kerül */}
+        {/* Termék-találatok: koppintásra kiválasztódik (mennyiség után Hozzáadás) */}
         {suggestions.length > 0 && (
           <View className="mb-4 mt-1 rounded-[10px] overflow-hidden border border-border dark:border-dark-border bg-card dark:bg-dark-card">
             {suggestions.map((product, index) => (
@@ -260,7 +293,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
                 key={product.id}
                 onPress={() => selectSuggestion(product)}
                 accessibilityRole="button"
-                accessibilityLabel={`${product.name} hozzáadása`}
+                accessibilityLabel={`${productLabel(product)} kiválasztása`}
               >
                 {({ pressed }) => (
                   <View
@@ -295,59 +328,112 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
           </View>
         )}
 
-        {/* Mennyiség (léptető) + egység (select) */}
-        <View className="flex-row gap-3 mb-4">
-          <View className="flex-1">
-            <QuantityStepper
-              label="Mennyiség"
-              value={quantity}
-              step={UNIT_STEP[unit].step}
-              onChange={setQuantity}
-            />
-          </View>
-          <View className="flex-1">
-            <Select
-              label="Egység"
-              value={unit}
-              options={UNITS}
-              open={openSelect === 'unit'}
-              onOpenChange={(open) => handleOpenChange('unit', open)}
-              onChange={handleUnitChange}
-            />
-          </View>
-        </View>
+        {selected ? (
+          <>
+            {/* Kiválasztott termék: csak a mennyiség állítható */}
+            <View className="mb-4 rounded-[10px] border border-primary bg-card dark:bg-dark-card px-3 py-3 flex-row items-center gap-3">
+              <View className="flex-1">
+                <Text
+                  className="text-body-md font-semibold text-foreground dark:text-dark-foreground"
+                  numberOfLines={1}
+                >
+                  {productLabel(selected)}
+                </Text>
+                <Text className="text-body-sm text-muted mt-0.5">
+                  {[selected.store_name, selected.category, selected.unit]
+                    .filter(Boolean)
+                    .join(' · ')}
+                </Text>
+              </View>
+              {(selected.last_price ?? selected.price) != null && (
+                <Text className="text-body-sm font-semibold text-primary">
+                  {formatHuf(selected.last_price ?? selected.price ?? 0)}
+                </Text>
+              )}
+              <Pressable
+                onPress={clearSelection}
+                hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+                accessibilityRole="button"
+                accessibilityLabel="Kiválasztott termék törlése"
+              >
+                {({ pressed }) => (
+                  <View style={{ opacity: pressed ? 0.6 : 1 }}>
+                    <X size={20} color={colors.muted} strokeWidth={1.75} />
+                  </View>
+                )}
+              </Pressable>
+            </View>
 
-        {/* Kategória (select) */}
-        <View className="mb-4">
-          <Select
-            label="Kategória"
-            value={category}
-            options={CATEGORIES}
-            open={openSelect === 'category'}
-            onOpenChange={(open) => handleOpenChange('category', open)}
-            onChange={setCategory}
-          />
-        </View>
+            <View className="mb-6">
+              <QuantityStepper
+                label={`Mennyiség (${selected.unit})`}
+                value={quantity}
+                step={stepFor(selected.unit).step}
+                onChange={setQuantity}
+              />
+            </View>
+          </>
+        ) : (
+          <>
+            {/* Mennyiség (léptető) + egység (select) */}
+            <View className="flex-row gap-3 mb-4">
+              <View className="flex-1">
+                <QuantityStepper
+                  label="Mennyiség"
+                  value={quantity}
+                  step={UNIT_STEP[unit].step}
+                  onChange={setQuantity}
+                />
+              </View>
+              <View className="flex-1">
+                <Select
+                  label="Egység"
+                  value={unit}
+                  options={UNITS}
+                  open={openSelect === 'unit'}
+                  onOpenChange={(open) => handleOpenChange('unit', open)}
+                  onChange={handleUnitChange}
+                />
+              </View>
+            </View>
 
-        {/* Bolt – az új (kézzel beírt) termékhez; a találatok boltja a termékből jön */}
-        <View className="mb-6">
-          <StorePicker
-            key={formKey}
-            value={store}
-            onChange={setStore}
-            open={openSelect === 'store'}
-            onOpenChange={(open) => handleOpenChange('store', open)}
-          />
-        </View>
+            {/* Kategória (select) */}
+            <View className="mb-4">
+              <Select
+                label="Kategória"
+                value={category}
+                options={CATEGORIES}
+                open={openSelect === 'category'}
+                onOpenChange={(open) => handleOpenChange('category', open)}
+                onChange={setCategory}
+              />
+            </View>
+
+            {/* Bolt – az új (kézzel beírt) termékhez; a találatok boltja a termékből jön */}
+            <View className="mb-6">
+              <StorePicker
+                key={formKey}
+                value={store}
+                onChange={setStore}
+                open={openSelect === 'store'}
+                onOpenChange={(open) => handleOpenChange('store', open)}
+              />
+            </View>
+          </>
+        )}
 
         <Button
           variant="primary"
           size="lg"
           fullWidth
           disabled={!name.trim()}
-          onPress={() => void handleAdd()}
+          onPress={() => (selected ? addSelected(selected) : void handleAdd())}
         >
-          {name.trim() ? 'Új termékként hozzáadás' : 'Hozzáadás'}
+          {selected
+            ? 'Hozzáadás a listához'
+            : name.trim()
+              ? 'Új termékként hozzáadás'
+              : 'Hozzáadás'}
         </Button>
       </ScrollView>
     </BottomSheet>

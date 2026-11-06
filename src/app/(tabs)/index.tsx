@@ -14,6 +14,7 @@ import { useFamilyStore } from '@/store/familyStore'
 import { useListStore } from '@/store/listStore'
 import { useBudgetStore } from '@/store/budgetStore'
 import { useCalendarStore } from '@/store/calendarStore'
+import { useDeviceCalendarStore } from '@/store/deviceCalendarStore'
 import { useMemberStore } from '@/store/memberStore'
 import { summarizeBudget } from '@/lib/budget'
 import { dayKey, eventDayKey, eventTimeLabel, expandEvents } from '@/lib/calendar'
@@ -64,20 +65,24 @@ export default function KezdolapScreen() {
   const familyMembers = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
 
+  const deviceEvents = useDeviceCalendarStore((s) => s.deviceEvents)
+  const refreshDeviceEvents = useDeviceCalendarStore((s) => s.refreshDeviceEvents)
+
   useEffect(() => {
     loadFamily()
     loadLists()
     loadBudget()
     loadEvents()
     void loadMembers()
-  }, [loadFamily, loadLists, loadBudget, loadEvents, loadMembers])
+    void refreshDeviceEvents()
+  }, [loadFamily, loadLists, loadBudget, loadEvents, loadMembers, refreshDeviceEvents])
 
   // Mai naptáresemények a „Ma" kártyához (ismétlődő is kibontva, egész napos
   // elöl). Az Underground KB edzések ('workout' event_type) is normál
   // calendar_events sorként érkeznek (közös Supabase projekt).
   const now = new Date()
   const todayKey = dayKey(now)
-  const todayEvents: TodayEvent[] = expandEvents(events, now, now)
+  const todayEvents: TodayEvent[] = [...expandEvents(events, now, now), ...deviceEvents]
     .filter((e) => eventDayKey(e) === todayKey)
     .sort((a, b) => {
       if (a.all_day !== b.all_day) return a.all_day ? -1 : 1
@@ -87,7 +92,11 @@ export default function KezdolapScreen() {
       id: e.id,
       time: e.all_day ? '—' : eventTimeLabel(e.starts_at),
       title: e.title,
-      who: e.member_id ? familyMembers.find((m) => m.id === e.member_id)?.name ?? '' : '',
+      who: e.device_calendar
+        ? e.device_calendar
+        : e.member_id
+          ? (familyMembers.find((m) => m.id === e.member_id)?.name ?? '')
+          : '',
       color: e.color ?? colors.primary,
     }))
 

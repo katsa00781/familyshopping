@@ -211,6 +211,8 @@ export interface CalendarEvent extends CalendarEventInput {
   created_by: string | null
   created_at: string
   updated_at: string
+  /** Csak a telefon naptárából beolvasott (csak olvasható) eseményeken: a forrásnaptár neve. */
+  device_calendar?: string
 }
 
 // ─── Műszakbeosztás (lokális sablon → naptáreseményeket generál) ───────────────

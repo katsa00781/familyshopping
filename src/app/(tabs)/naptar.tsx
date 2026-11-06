@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pressable, ScrollView, Text, View } from 'react-native'
 import Animated, { FadeInUp, FadeOutUp, LinearTransition } from 'react-native-reanimated'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useColorScheme } from 'nativewind'
-import { Calendar, CalendarCheck, CalendarClock, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, List, Plus } from 'lucide-react-native'
+import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
+import { Calendar, CalendarCheck, CalendarClock, CalendarSync, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, List, Plus } from 'lucide-react-native'
 
 import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
 import { DayTimeline } from '@/components/naptar/DayTimeline'
 import { EventSheet } from '@/components/naptar/EventSheet'
 import { useCalendarStore } from '@/store/calendarStore'
+import { useDeviceCalendarStore } from '@/store/deviceCalendarStore'
+import { isDeviceEvent } from '@/lib/deviceCalendarSync'
 import { useMemberStore } from '@/store/memberStore'
 import { agendaDayLabel, dayKey, eventDayKey, expandEvents, monthGridRange, monthTitle, type CalendarDay } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
@@ -28,6 +30,10 @@ export default function NaptarScreen() {
   const members = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
 
+  // Apple/telefon naptárból beolvasott események (csak olvasható, csak ezen a telefonon).
+  const deviceEvents = useDeviceCalendarStore((s) => s.deviceEvents)
+  const refreshDeviceEvents = useDeviceCalendarStore((s) => s.refreshDeviceEvents)
+
   const today = useMemo(() => new Date(), [])
   const [viewYear, setViewYear] = useState(today.getFullYear())
   const [viewMonth, setViewMonth] = useState(today.getMonth())
@@ -43,7 +49,8 @@ export default function NaptarScreen() {
   useEffect(() => {
     loadEvents()
     void loadMembers()
-  }, [loadEvents, loadMembers])
+    void refreshDeviceEvents()
+  }, [loadEvents, loadMembers, refreshDeviceEvents])
 
   const memberNameById = useMemo(() => {
     const map = new Map<string, string>()
@@ -56,8 +63,13 @@ export default function NaptarScreen() {
   // normál calendar_events sorként érkeznek (közös Supabase projekt).
   const expanded = useMemo(() => {
     const { start, end } = monthGridRange(viewYear, viewMonth)
-    return expandEvents(events, start, end)
-  }, [events, viewYear, viewMonth])
+    // A telefonos események már előfordulásokra bontva érkeznek → csak az ablakra szűrjük.
+    const fromDevice = deviceEvents.filter((e) => {
+      const s = new Date(e.starts_at).getTime()
+      return s <= end.getTime() && new Date(e.ends_at ?? e.starts_at).getTime() >= start.getTime()
+    })
+    return [...expandEvents(events, start, end), ...fromDevice]
+  }, [events, deviceEvents, viewYear, viewMonth])
 
   // Napi pöttyök: kulcs → tagszínek (egyedi, max 3-at mutat a grid)
   const dotsByDay = useMemo(() => {
@@ -124,6 +136,13 @@ export default function NaptarScreen() {
   }
 
   function openEdit(ev: CalendarEvent) {
+    if (isDeviceEvent(ev)) {
+      Alert.alert(
+        ev.title,
+        `Ez az esemény az Apple Naptár „${ev.device_calendar ?? ''}” naptárából jön, ott szerkeszthető.`,
+      )
+      return
+    }
     // Ismétlődő előfordulásnál a mester-eseményt szerkesztjük (eredeti kezdettel).
     const master = events.find((e) => e.id === ev.id) ?? ev
     setEditing(master)
@@ -136,6 +155,7 @@ export default function NaptarScreen() {
   }
 
   function memberNameFor(ev: CalendarEvent): string | null {
+    if (ev.device_calendar) return ev.device_calendar
     if (ev.event_type === 'workout') return 'Edzés'
     return ev.member_id ? memberNameById.get(ev.member_id) ?? null : null
   }
@@ -156,6 +176,15 @@ export default function NaptarScreen() {
           </Pressable>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable
+            onPress={() => router.push('/naptar-szinkron')}
+            accessibilityLabel="Apple Naptár szinkron"
+            hitSlop={8}
+            className="bg-card dark:bg-dark-card"
+            style={{ width: 38, height: 38, borderRadius: 99, alignItems: 'center', justifyContent: 'center' }}
+          >
+            <CalendarSync size={19} color={dark ? colors.darkForeground : colors.foreground} strokeWidth={2} />
+          </Pressable>
           <Pressable
             onPress={() => router.push('/idopontok')}
             accessibilityLabel="Időpontok"
