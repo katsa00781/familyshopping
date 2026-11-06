@@ -25,6 +25,74 @@ function toPayload(list: ShoppingList): SupabasePayload {
   return payload
 }
 
+// ─── product_id egyeztetés a szerverrel ───────────────────────────────────────
+// A familybudget weben a termékek összevonhatók (`termekek_osszevonasa` RPC): a forrás
+// termék sora törlődik, és a szerveren a `shopping_lists.items[].product_id` hivatkozások
+// a megmaradó termékre íródnak át. A mobil a teljes listát a helyi példányból upsert-eli,
+// így egy régebbi helyi példány visszaírná a már törölt id-kat. Meglévő tétel `product_id`-ját
+// a mobil sosem módosítja, ezért mentés előtt a szerveren lévő tételek `product_id`-ja nyer.
+
+type ServerProductIds = Map<string, string | null>
+
+/** A lista szerveren tárolt tételeinek product_id-ja (tétel id → product_id). Hiba/offline → null. */
+async function fetchServerProductIds(listId: string): Promise<ServerProductIds | null> {
+  const { data, error } = await supabase
+    .from('shopping_lists')
+    .select('items')
+    .eq('id', listId)
+    .maybeSingle()
+  if (error || !data || !Array.isArray(data.items)) return null
+  const map: ServerProductIds = new Map()
+  for (const item of data.items as Partial<ShoppingItem>[]) {
+    if (typeof item.id === 'string') map.set(item.id, item.product_id ?? null)
+  }
+  return map
+}
+
+/** A szerveren is meglévő tételek product_id-ját a szerver értékére cseréli. */
+function withServerProductIds(items: ShoppingItem[], serverIds: ServerProductIds | null): ShoppingItem[] {
+  if (!serverIds) return items
+  let changed = false
+  const next = items.map((item) => {
+    if (!serverIds.has(item.id)) return item
+    const productId = serverIds.get(item.id) ?? null
+    if (productId === item.product_id) return item
+    changed = true
+    return { ...item, product_id: productId }
+  })
+  return changed ? next : items
+}
+
+type ListStoreSet = (partial: Partial<ListState>) => void
+type ListStoreGet = () => ListState
+
+/**
+ * Lista mentése a szerverre a product_id egyeztetés után. Ha a szerver átírt
+ * product_id-kat, azokat a helyi állapotba és a cache-be is átvezeti (tétel id szerint,
+ * hogy a közben történt helyi változtatások megmaradjanak).
+ */
+async function persistList(
+  list: ShoppingList,
+  set: ListStoreSet,
+  get: ListStoreGet,
+): Promise<{ ok: boolean; list: ShoppingList; serverIds: ServerProductIds | null }> {
+  const serverIds = await fetchServerProductIds(list.id)
+  const items = withServerProductIds(list.items, serverIds)
+  const reconciled = items === list.items ? list : { ...list, items }
+
+  const { error } = await supabase.from('shopping_lists').upsert(toPayload(reconciled))
+  if (error) return { ok: false, list, serverIds }
+
+  if (reconciled !== list) {
+    const next = get().lists.map((l) =>
+      l.id === list.id ? { ...l, items: withServerProductIds(l.items, serverIds) } : l,
+    )
+    set({ lists: next })
+    await saveCache(next)
+  }
+  return { ok: true, list: reconciled, serverIds }
+}
+
 // Egy vásárlás áras tételeit írja a statisztika + árhistória táblákba. Korábban
 // ez `void`-dal, hibakezelés nélkül futott – egy sikertelen insert (pl. átmeneti
 // hálózati hiba) így néma adatvesztést okozott. Most megvárjuk és naplózzuk a hibát.
@@ -68,7 +136,22 @@ async function insertPriceRecords(
   ])
 
   if (statsRes.error) console.warn('shopping_statistics insert sikertelen:', statsRes.error.message)
-  if (priceRes.error) console.warn('product_price_history insert sikertelen:', priceRes.error.message)
+
+  // 23503 = foreign key violation: egy tétel már törölt termékre mutat (webes termék-
+  // összevonás vagy -törlés után). Ilyenkor a teljes köteg elbukna, ezért a nem létező
+  // product_id-kat NULL-ra állítva egyszer újrapróbáljuk (a product_name megmarad).
+  let priceError = priceRes.error
+  if (priceError?.code === '23503') {
+    const ids = [...new Set(priceRows.map((r) => r.product_id).filter((id): id is string => !!id))]
+    const { data: existing } = await supabase.from('products').select('id').in('id', ids)
+    const existingIds = new Set((existing ?? []).map((p: { id: string }) => p.id))
+    const retryRows = priceRows.map((r) =>
+      r.product_id && !existingIds.has(r.product_id) ? { ...r, product_id: null } : r,
+    )
+    const retry = await supabase.from('product_price_history').insert(retryRows)
+    priceError = retry.error
+  }
+  if (priceError) console.warn('product_price_history insert sikertelen:', priceError.message)
 }
 
 async function saveCache(lists: ShoppingList[]): Promise<void> {
@@ -232,8 +315,8 @@ export const useListStore = create<ListState>((set, get) => ({
     if (user) {
       const list = next.find((l) => l.id === id)
       if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Lista frissítése sikertelen' })
           await saveCache(prev)
         }
@@ -270,10 +353,12 @@ export const useListStore = create<ListState>((set, get) => ({
     const session = await getSessionSafe()
     const user = session?.user
     if (user) {
-      const list = next.find((l) => l.id === id)
-      if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+      const local = next.find((l) => l.id === id)
+      if (local) {
+        // A mentett (product_id-egyeztetett) példányból rögzítjük az árakat, hogy az
+        // árhistória ne törölt termékre hivatkozzon.
+        const { ok, list } = await persistList(local, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Lista befejezése sikertelen' })
           await saveCache(prev)
           return
@@ -305,8 +390,8 @@ export const useListStore = create<ListState>((set, get) => ({
     if (user) {
       const list = next.find((l) => l.id === id)
       if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Lista visszaállítása sikertelen' })
           await saveCache(prev)
         }
@@ -336,19 +421,25 @@ export const useListStore = create<ListState>((set, get) => ({
     if (!user) return
 
     const updated = next.find((l) => l.id === id)
+    let serverIds: ServerProductIds | null = null
     if (updated) {
-      const { error } = await supabase.from('shopping_lists').upsert(toPayload(updated))
-      if (error) {
+      const result = await persistList(updated, set, get)
+      if (!result.ok) {
         set({ lists: prev, error: 'Vásárlás lezárása sikertelen' })
         await saveCache(prev)
         return
       }
+      serverIds = result.serverIds
     }
 
     // Áras tételeket rögzítjük a statisztika és árhistória táblákban – a tényleges
     // vásárlás dátuma a "Vásárlás kész" pillanata, NEM a lista `date` mezője (lásd
     // fenti megjegyzés a `completeList`-nél: ugyanaz a lista többször is befejezhető).
-    const pricedItems = purchasedItems.filter((item) => item.price !== null && item.price > 0)
+    // A megvett tételek már nincsenek a mentett listában, ezért a szerver product_id-it
+    // külön vezetjük át rajtuk.
+    const pricedItems = withServerProductIds(purchasedItems, serverIds).filter(
+      (item) => item.price !== null && item.price > 0,
+    )
     if (pricedItems.length > 0) {
       const shoppingDate = new Date().toISOString().split('T')[0]!
       await insertPriceRecords(user.id, list, pricedItems, shoppingDate)
@@ -370,8 +461,8 @@ export const useListStore = create<ListState>((set, get) => ({
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Tétel hozzáadása sikertelen' })
           await saveCache(prev)
         }
@@ -394,8 +485,8 @@ export const useListStore = create<ListState>((set, get) => ({
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Tétel frissítése sikertelen' })
           await saveCache(prev)
         }
@@ -418,8 +509,8 @@ export const useListStore = create<ListState>((set, get) => ({
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Tétel törlése sikertelen' })
           await saveCache(prev)
         }
@@ -444,8 +535,8 @@ export const useListStore = create<ListState>((set, get) => ({
     if (user) {
       const list = next.find((l) => l.id === listId)
       if (list) {
-        const { error } = await supabase.from('shopping_lists').upsert(toPayload(list))
-        if (error) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
           set({ lists: prev, error: 'Kipipálás sikertelen' })
           await saveCache(prev)
         }

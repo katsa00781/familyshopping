@@ -12,7 +12,7 @@
 > - v1 funkciók: Kezdőlap dashboard, Naptár, Kassza, Étkezéstervező.
 > - **v1 adatmodell:** `user_id`-scoped (NEM family_id, profiles üres). Naptár = saját hónap-grid (nincs react-native-calendars).
 >
-> **Utolsó frissítés:** 2026-09-19
+> **Utolsó frissítés:** 2026-11-06
 
 ---
 
@@ -170,6 +170,8 @@
 
 **Tényleges bevétel megjelenítése a Kasszában (2026-06-28):** a Kassza tab és a Kezdőlap Kassza-kártyája mostantól a Wallet tényleges havi bevételét mutatja (nem a tervezett keretet), és abból számolja a szabad keretet. A `wallet-spending` Edge Function (version 7) income rekordokat is lekér (`recordType=income`, transfer kihagyva) → `totalIncome` a válaszban. `WalletSpending.totalIncome` + `BudgetSummary.totalIncome`/`hasActualIncome` típusok. `summarizeBudget`: keret = `totalIncome` ha > 0, különben fallback a tervezett keretre. UI: `hasActualIncome` esetén „Havi bevétel + Kiadás + Szabad keret"; `BudgetCard` felirata „Kiadás" (volt: „Elköltve"). tsc/lint tiszta.
 
+**Kassza tortadiagram (2026-11-06):** új „Megoszlás” kártya az összegző kártya alatt. Saját SVG torta (`react-native-svg`, már meglévő dependency) jelmagyarázattal: szín, név, összeg, arány és egy összesen-sor. Új komponens: `src/components/kassza/BudgetPieChart.tsx`. Egy szeletre vagy jelmagyarázat-sorra koppintva kiemelődik, a többi elhalványul (reanimated spring a `fillOpacity`-n). **Tény/Terv** váltó, ha van Wallet-adat: a „Tény” a teljes havi költést mutatja (`spending.byCategory`, a terven kívüli „Egyéb” is benne van); a „Terv” a betervezett keretek megoszlását. Wallet nélkül csak a Terv látszik. Szelet-szabály a webes `MegoszlasTorta`-val azonosan (`src/lib/pie.ts` `buildPieSlices`): csak a pozitív tételek; a legnagyobb 7 saját színt kap eredeti sorrendben, a többi egy „Többi” szeletbe kerül. Bemenetek: `budgetPieInputs()` (`src/lib/budget.ts`). **Új tokenek:** `chart.series` (7 szín: a 6 tagszín + narancs `#FB923C`) és `chart.neutral` (`#CBD5E1`) → `handoff/tokens/tokens.json`, `tokens.ts`, `src/constants/colors.ts` (`chartSeries`, `chartNeutral`). tsc/lint tiszta.
+
 ---
 
 ## 6. Naptár — ✅ KÉSZ (2026-06-21)
@@ -227,6 +229,19 @@
   - `src/store/mealPlanStore.ts`: `assignRecipe` → `addEntry(input)` (általános, recept vagy termék); `removeEntry` változatlan
   - UI: `ProductPickerSheet` (új, kereshető termék-lista árral, újrahasznosított); `MealEntrySheet` (új — tag-választó chipek + Recept/Termék mód; recept-lista vagy katalógus-termék/szabad szöveg + mennyiség/egység; több tétel egymás után); `MealRow` átírva (slotonként tétel-lista tagszínes pöttyel + összegárral + tétel-törlés + „Tétel hozzáadása"); `DayCard` propok (entries lista, membersById, productsById); `MemberEditorSheet` (új — tagok hozzáadás/átnevezés/szín/törlés); `RecipeEditorSheet` hozzávaló-soronkénti termékhez kötés (Tag gomb → ProductPickerSheet, link-chip árral, kötés bontható). Az étrend slot-koppintása mostantól a `MealEntrySheet`-et nyitja; a „Receptkönyv" chip a `RecipePickerSheet`-et böngésző módban (recept-kezelés)
   - Füstteszt: tsc nem hozott új hibát (csak meglévő template-hibák), lint 0 az érintett fájlokon
+
+---
+
+## 8. familybudget → mobil szinkron (forrás: familybudget `docs/mobil-sync/`, 2026-11-06)
+
+> A familybudget web minden mobilt is érintő változásról jegyzetet ír a `docs/mobil-sync/` mappába. Átnézve 2026-11-06-ig (8 jegyzet). Az élő DB-n a migrációk lefutottak (`product_price_history.akcios`, `termekek_osszevonasa` RPC).
+
+- [x] **Akciós ár kiszűrése a számításokból (2026-11-06)** (`2026-11-06_arfigyeles-akcios-ar-es-szerkesztes.md`): `ProductPriceHistory.akcios?` és `PriceHistoryEntry.akcios?` (`src/types/index.ts`); új `isRegularPrice()` + `pricesForStatistics()` (`src/lib/priceHistory.ts`, a web szabályával azonos). A `computePriceChanges` és a `computeInflation` (`priceStore`) csak a rendes árakat nézi. Termék-részletek: a grafikon, a trend és a min/max a rendes árakból számol (ha az időszakban csak akciós ár van, akkor azokból); az árnapló továbbra is minden sort mutat. **Hibajavítás:** az `updatePriceEntry` újraszámolja a `total_price = unit_price × quantity` értéket, és írja az `updated_at`-et (eddig a javított ár mellett elavult maradt az összár, ami torzította a költés-súlyozott inflációt). A beszúrások (lista, OCR, kézi) nem küldenek `akcios`-t, a DB alapértéke `false`. Füstteszt: `tsc --noEmit` tiszta; lint: nincs új hiba (a `termekek/[id].tsx` `set-state-in-effect` hibája már korábban is megvolt).
+- [x] **Termék-összevonás miatt eltűnő `product_id`-k (2026-11-06)** (`2026-11-06_termekadatbazis-osszevonas.md`): a `listStore` a teljes listát a helyi példányból `upsert`-elte, így a webes összevonás után visszaírhatta a már törölt `items[].product_id`-kat. Új `persistList()` (`src/store/listStore.ts`), mind a 7 mentési ponton: mentés előtt beolvassa a szerveren tárolt tételeket, és a mindkét helyen meglévő tételeknél a szerver `product_id`-ja nyer (a mobil meglévő tétel `product_id`-ját sosem módosítja). A javított id-kat tétel id szerint a helyi állapotba és a cache-be is átvezeti. Ha a beolvasás offline vagy hibára fut, a régi viselkedés marad. A `completeList` és a `finishShopping` az egyeztetett id-kkal rögzíti az árakat; a megvett, a listából már kikerült tételekre is átvezeti az id-kat. **Árvesztés-védelem:** a `product_price_history.product_id` FK (`ON DELETE SET NULL`), ezért egy törölt termékre mutató tétel eddig a teljes ártörténet-köteg beszúrását elbuktatta (csak `console.warn` jelezte). Most 23503 hibánál a nem létező id-kat NULL-ra állítja, és egyszer újrapróbálja (a webes *törlés* is hagyhat ilyen id-t a listában, nem csak az összevonás). Termék-részletek: ha a termék nincs a helyi katalógusban, egyszer újratölti a `productStore`-t. Költség: listamentésenként +1 kis `select('items')` kérés (a UI optimista, nem vár rá). Füstteszt: `tsc --noEmit` tiszta, a `listStore` lint 0 hibás.
+- [ ] Opcionális: akciós címke és jelölés (be/ki), valamint a bolt szerkesztése a termék árnaplójában; akciós pontok a grafikonon (webes minta: narancs pont + a rendes átlag szaggatott vonallal).
+- [ ] Opcionális: termékek összevonása mobilról (`supabase.rpc('termekek_osszevonasa', …)`), illetve név szerinti átnevezés és összevonás.
+- [ ] Opcionális: havi egyenleg-pillanatkép (`egyenleg_pillanatkep`, csak olvasható) a Kassza tabon.
+- Nincs mobil teendő: Wallet kategória angol név és UUID (a `wallet-spending` már UUID alapján képez), `transferPlan.walletAccountId` (a mobil nem írja a `budget_data`-t), bérkalkulátor (a mobilban nincs), webes diagramok.
 
 ---
 

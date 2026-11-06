@@ -54,6 +54,23 @@ export const memberColors = [
   '#34D399', // zöld
 ] as const
 
+/**
+ * Kategória-diagram paletta (Kassza tortadiagram) – `handoff/tokens` `chart`.
+ * Rögzített sorrend; a legnagyobb `chartSeries.length` tétel kap színt, a többi
+ * a semleges `chartNeutral` „Többi” szeletbe kerül.
+ */
+export const chartSeries = [
+  '#14B8A6', // teal
+  '#FB7185', // korall
+  '#A78BFA', // lila
+  '#F59E0B', // sárga
+  '#38BDF8', // kék
+  '#34D399', // zöld
+  '#FB923C', // narancs
+] as const
+
+export const chartNeutral = '#CBD5E1'
+
 export function memberColorAt(index: number): string {
   const palette = memberColors
   return palette[((index % palette.length) + palette.length) % palette.length]!

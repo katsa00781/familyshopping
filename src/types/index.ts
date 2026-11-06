@@ -54,6 +54,7 @@ export interface PriceHistoryEntry {
   store_name: string | null
   date: string
   source: 'manual' | 'list' | 'ocr' | 'import'
+  akcios?: boolean
 }
 
 export interface Product {
@@ -87,6 +88,9 @@ export interface ProductPriceHistory {
   total_price: number
   price_date: string
   source: 'manual' | 'list' | 'ocr' | 'import'
+  // Akciós ár (familybudget 2026-11-06): nem valódi árváltozás, a számításokból kimarad.
+  // DB: NOT NULL DEFAULT false; régi cache-ből hiányozhat → rendes árnak számít.
+  akcios?: boolean
   created_at: string
 }
 

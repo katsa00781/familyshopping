@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   Alert,
   Pressable,
@@ -19,7 +19,12 @@ import { useProductStore } from '@/store/productStore'
 import { useListStore } from '@/store/listStore'
 import { useToastStore } from '@/store/toastStore'
 import { usePriceStore } from '@/store/priceStore'
-import { deletePriceEntry, fetchProductPriceHistory, updatePriceEntry } from '@/lib/priceHistory'
+import {
+  deletePriceEntry,
+  fetchProductPriceHistory,
+  pricesForStatistics,
+  updatePriceEntry,
+} from '@/lib/priceHistory'
 import BottomSheet from '@/components/ui/BottomSheet'
 import Button from '@/components/ui/Button'
 import Input from '@/components/ui/Input'
@@ -82,7 +87,7 @@ function AreaChart({ history, period, chartWidth }: AreaChartProps) {
   const padX = 10
   const padY = 16
 
-  const filtered = filterByPeriod(history, period)
+  const filtered = pricesForStatistics(filterByPeriod(history, period))
 
   if (filtered.length < 2) {
     return (
@@ -194,6 +199,16 @@ export default function ProductDetailScreen() {
 
   const product = products.find((p) => p.id === id)
 
+  // A termék a familybudget weben összevonással megszűnhetett, vagy a helyi katalógus
+  // régebbi a hivatkozásnál (pl. árváltozás-sor): ha nincs meg, egyszer frissítünk.
+  const loadProducts = useProductStore((s) => s.loadProducts)
+  const refreshedForMissing = useRef(false)
+  useEffect(() => {
+    if (product || refreshedForMissing.current) return
+    refreshedForMissing.current = true
+    void loadProducts()
+  }, [product, loadProducts])
+
   const [period, setPeriod] = useState<Period>('3hó')
   const [addSheetVisible, setAddSheetVisible] = useState(false)
   const [history, setHistory] = useState<PriceHistoryEntry[]>([])
@@ -214,6 +229,7 @@ export default function ProductDetailScreen() {
           store_name: r.store_name,
           date: r.price_date,
           source: r.source,
+          akcios: r.akcios === true,
         })),
       )
     } catch {
@@ -449,7 +465,7 @@ export default function ProductDetailScreen() {
 
             {/* Min/max labels below chart */}
             {(() => {
-              const filtered = filterByPeriod(history, period)
+              const filtered = pricesForStatistics(filterByPeriod(history, period))
               if (filtered.length < 2) return null
               const prices = filtered.map((e) => e.price)
               const minP = Math.min(...prices)

@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase } from '@/lib/supabase'
 import { loadWithSessionRetry } from '@/lib/loadWithRetry'
 import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
+import { isRegularPrice } from '@/lib/priceHistory'
 import type {
   ProductPriceHistory,
   ShoppingStatistic,
@@ -138,7 +139,8 @@ export const usePriceStore = create<PriceState>((set, get) => ({
   },
 
   computePriceChanges: () => {
-    const { priceHistory } = get()
+    // Az akciós ár nem valódi árváltozás: sem régi, sem új árként nem számít.
+    const priceHistory = get().priceHistory.filter(isRegularPrice)
 
     const grouped = new Map<string, ProductPriceHistory[]>()
     for (const entry of priceHistory) {
@@ -174,7 +176,8 @@ export const usePriceStore = create<PriceState>((set, get) => ({
   },
 
   computeInflation: () => {
-    const { priceHistory } = get()
+    // Az akciós árak a havi inflációszámításból is kimaradnak (familybudget szabály).
+    const priceHistory = get().priceHistory.filter(isRegularPrice)
 
     const grouped = new Map<ItemCategory, Map<string, ProductPriceHistory[]>>()
     for (const cat of ALL_CATEGORIES) grouped.set(cat, new Map())

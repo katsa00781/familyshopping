@@ -1,4 +1,5 @@
 import { supabase } from '@/lib/supabase'
+import type { PieInput } from '@/lib/pie'
 import type {
   BudgetCategorySummary,
   BudgetPlan,
@@ -195,6 +196,32 @@ export async function getWalletSpendingDetail(
 // Keret prioritás: tényleges bevétel (Wallet totalIncome) → actual_income → total_amount.
 // Ha van tényleges bevétel-adat (hasActualIncome), azt vesszük alapnak — a tervezett
 // összeg csak fallback (amikor a Wallet token nincs beállítva vagy a hónap elején 0).
+/**
+ * Tortadiagram-bemenetek a Kassza tabhoz.
+ *  - `planned`: a terv-kategóriák betervezett összegei.
+ *  - `spent`: a Wallet valós havi költése kategóriánként. A terv-kategóriák sorrendjében
+ *    (hogy a színek a két nézetben lehetőleg egyezzenek), utána a terven kívüli
+ *    kategóriák (pl. „Egyéb”) összeg szerint csökkenőben — így az összeg a teljes
+ *    havi költés, nem csak a betervezett kategóriáké.
+ */
+export function budgetPieInputs(
+  summary: BudgetSummary,
+  spending?: WalletSpending | null,
+): { planned: PieInput[]; spent: PieInput[] } {
+  const planned = summary.categories.map((c) => ({ name: c.name, amount: c.amount }))
+
+  const byCat = spending?.byCategory ?? {}
+  const planNames = new Set(summary.categories.map((c) => c.name))
+  const spent = [
+    ...summary.categories.map((c) => ({ name: c.name, amount: byCat[c.name] ?? 0 })),
+    ...Object.entries(byCat)
+      .filter(([name]) => !planNames.has(name))
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount),
+  ]
+  return { planned, spent }
+}
+
 export function summarizeBudget(
   plan: BudgetPlan,
   spending?: WalletSpending | null,

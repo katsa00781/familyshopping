@@ -55,6 +55,13 @@ export const category = {
 } as const;
 export type Category = keyof typeof category;
 
+// Kategória-diagram paletta (Kassza tortadiagram): a legnagyobb 7 tétel kap színt,
+// a többi a semleges „Többi” szeletbe kerül.
+export const chart = {
+  series: ['#14B8A6', '#FB7185', '#A78BFA', '#F59E0B', '#38BDF8', '#34D399', '#FB923C'],
+  neutral: '#CBD5E1',
+} as const;
+
 export const source = {
   ocr:    { bg: '#F3E8FF', fg: '#6B21A8' },
   list:   { bg: '#DBEAFE', fg: '#1E40AF' },
@@ -165,6 +172,7 @@ export const motion = {
 export const tokens = {
   colors,
   category,
+  chart,
   source,
   role,
   typography,
