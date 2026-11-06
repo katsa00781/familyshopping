@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { resolveDataOwnerId } from '@/lib/dataOwner'
 import { supabase } from '@/lib/supabase'
 import { loadWithSessionRetry } from '@/lib/loadWithRetry'
 import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
@@ -81,7 +82,8 @@ export const usePriceStore = create<PriceState>((set, get) => ({
     const sinceStr = since.toISOString().split('T')[0]!
 
     const result = await loadWithSessionRetry(
-      async (userId) => {
+      async (sessionUserId) => {
+        const userId = await resolveDataOwnerId(sessionUserId)
         const [histRes, statRes] = await Promise.all([
           supabase
             .from('product_price_history')

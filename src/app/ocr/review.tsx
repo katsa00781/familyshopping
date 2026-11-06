@@ -26,6 +26,7 @@ import {
 } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import { resolveDataOwnerId } from '@/lib/dataOwner'
 import { supabase, getSessionSafe } from '@/lib/supabase'
 import { formatHuf, normalizeStoreName } from '@/lib/format'
 import { searchProducts } from '@/lib/productMatcher'
@@ -116,7 +117,7 @@ export default function OCRReviewScreen() {
     const session = await getSessionSafe()
     if (!session) throw new Error('Nincs aktív munkamenet.')
 
-    const userId = session.user.id
+    const userId = await resolveDataOwnerId(session.user.id)
     const store = normalizeStoreName(ocrResponse?.store)
     const priceDate = ocrResponse?.date ?? new Date().toISOString().split('T')[0]!
 

@@ -10,6 +10,7 @@ import BoltRow from '@/components/bolt/BoltRow'
 import BottomSheet from '@/components/ui/BottomSheet'
 import { useListStore } from '@/store/listStore'
 import { useProductStore } from '@/store/productStore'
+import { useStoreOrderStore } from '@/store/storeOrderStore'
 import { colors } from '@/constants/colors'
 import { haptics } from '@/lib/haptics'
 import { formatHuf } from '@/lib/format'
@@ -33,6 +34,8 @@ export default function BoltScreen() {
 
   const products = useProductStore((s) => s.products)
   const loadProducts = useProductStore((s) => s.loadProducts)
+  const storeOrder = useStoreOrderStore((s) => s.order)
+  const loadStoreOrder = useStoreOrderStore((s) => s.loadOrder)
 
   const dark = useColorScheme() === 'dark'
   const activeLists = lists.filter((l) => !l.completed)
@@ -45,7 +48,7 @@ export default function BoltScreen() {
     return lists.find((l) => !l.completed) ?? null
   })()
 
-  const items = sortItemsByStore(activeList?.items ?? [], products)
+  const items = sortItemsByStore(activeList?.items ?? [], products, storeOrder)
   const checkedCount = items.filter((i) => i.checked).length
   const allChecked = items.length > 0 && checkedCount === items.length
   const ctaActive = allChecked || ctaForced
@@ -63,6 +66,10 @@ export default function BoltScreen() {
   useEffect(() => {
     void loadLists()
   }, [loadLists])
+
+  useEffect(() => {
+    void loadStoreOrder()
+  }, [loadStoreOrder])
 
   useEffect(() => {
     if (products.length === 0) void loadProducts()

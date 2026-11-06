@@ -298,13 +298,16 @@ export async function fetchEvents(userId: string): Promise<CalendarEvent[]> {
   return (data ?? []) as CalendarEvent[]
 }
 
+// Közös naptár: `ownerId` = a család adatgazdája (resolveDataOwnerId), `createdBy` = aki
+// ténylegesen felvette az eseményt.
 export async function insertEvent(
-  userId: string,
+  ownerId: string,
+  createdBy: string,
   input: CalendarEventInput,
 ): Promise<CalendarEvent> {
   const { data, error } = await supabase
     .from('calendar_events')
-    .insert({ ...input, user_id: userId, created_by: userId })
+    .insert({ ...input, user_id: ownerId, created_by: createdBy })
     .select('*')
     .single()
   if (error) throw error
@@ -332,11 +335,12 @@ export async function removeEvent(id: string): Promise<void> {
 
 /** Több esemény beszúrása explicit id-kkel (műszak-generálás – stabil id a követéshez). */
 export async function insertEvents(
-  userId: string,
+  ownerId: string,
+  createdBy: string,
   rows: (CalendarEventInput & { id: string })[],
 ): Promise<CalendarEvent[]> {
   if (rows.length === 0) return []
-  const payload = rows.map((r) => ({ ...r, user_id: userId, created_by: userId }))
+  const payload = rows.map((r) => ({ ...r, user_id: ownerId, created_by: createdBy }))
   const { data, error } = await supabase.from('calendar_events').insert(payload).select('*')
   if (error) throw error
   return (data ?? []) as CalendarEvent[]

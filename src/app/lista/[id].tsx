@@ -24,11 +24,14 @@ import { useOcrStore } from '@/store/ocrStore'
 import ListItem from '@/components/lista/ListItem'
 import ItemAddSheet from '@/components/lista/ItemAddSheet'
 import ItemEditSheet from '@/components/lista/ItemEditSheet'
+import { StoreOrderSheet } from '@/components/lista/StoreOrderSheet'
 import { useListStore } from '@/store/listStore'
 import { useProductStore } from '@/store/productStore'
+import { useStoreOrderStore } from '@/store/storeOrderStore'
+import { useToastStore } from '@/store/toastStore'
 import { colors } from '@/constants/colors'
 import { formatHuf } from '@/lib/format'
-import { sortItemsByStore } from '@/lib/sortByStore'
+import { groupItemsByStore } from '@/lib/sortByStore'
 import type { ItemCategory, ShoppingItem } from '@/types'
 
 type FilterCategory = 'Összes' | ItemCategory
@@ -48,6 +51,8 @@ export default function ListDetailScreen() {
   const toggleItem = useListStore((s) => s.toggleItem)
   const deleteItem = useListStore((s) => s.deleteItem)
   const updateItem = useListStore((s) => s.updateItem)
+  const assignItemStore = useListStore((s) => s.assignItemStore)
+  const showToast = useToastStore((s) => s.showToast)
   const addItem = useListStore((s) => s.addItem)
   const completeList = useListStore((s) => s.completeList)
   const deleteList = useListStore((s) => s.deleteList)
@@ -59,15 +64,26 @@ export default function ListDetailScreen() {
     if (products.length === 0) void loadProducts()
   }, [products.length, loadProducts])
 
+  const storeOrder = useStoreOrderStore((s) => s.order)
+  const loadStoreOrder = useStoreOrderStore((s) => s.loadOrder)
+
+  useEffect(() => {
+    void loadStoreOrder()
+  }, [loadStoreOrder])
+
   const [filter, setFilter] = useState<FilterCategory>('Összes')
   const [addVisible, setAddVisible] = useState(false)
   const [editItem, setEditItem] = useState<ShoppingItem | null>(null)
+  const [storeOrderVisible, setStoreOrderVisible] = useState(false)
 
   const items = list?.items ?? []
-  const filteredItems = sortItemsByStore(
+  const storeGroups = groupItemsByStore(
     filter === 'Összes' ? items : items.filter((i) => i.category === filter),
     products,
+    storeOrder,
   )
+  // Egyetlen, bolt nélküli csoportnál nincs értelme fejlécnek.
+  const showStoreHeaders = !(storeGroups.length === 1 && storeGroups[0]?.store === null)
   const checkedCount = items.filter((i) => i.checked).length
   const allChecked = items.length > 0 && checkedCount === items.length
 
@@ -99,6 +115,10 @@ export default function ListDetailScreen() {
 
   function showMenu() {
     Alert.alert(list?.name ?? 'Lista', undefined, [
+      {
+        text: 'Boltok sorrendje',
+        onPress: () => setStoreOrderVisible(true),
+      },
       {
         text: 'Lista törlése',
         style: 'destructive',
@@ -204,21 +224,41 @@ export default function ListDetailScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {filteredItems.length === 0 ? (
+        {storeGroups.length === 0 ? (
           <View className="flex-1 items-center justify-center py-16">
             <Text className="text-body-md text-muted">
               {filter === 'Összes' ? 'Még nincs tétel' : `Nincs ${filter} tétel`}
             </Text>
           </View>
         ) : (
-          filteredItems.map((item) => (
-            <ListItem
-              key={item.id}
-              item={item}
-              onToggle={() => toggleItem(list.id, item.id)}
-              onDelete={() => deleteItem(list.id, item.id)}
-              onEdit={() => setEditItem(item)}
-            />
+          storeGroups.map((group) => (
+            <View key={group.store ?? '__no_store__'}>
+              {showStoreHeaders && (
+                <Pressable
+                  onPress={() => setStoreOrderVisible(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`${group.store ?? 'Bolt nélkül'} – boltok sorrendjének módosítása`}
+                >
+                  <View className="flex-row items-end px-screen-x pt-5 pb-2">
+                    <Text className="flex-1 text-caption font-semibold text-muted uppercase tracking-widest">
+                      {group.store ?? 'Bolt nélkül'}
+                    </Text>
+                    <Text className="text-caption text-muted">
+                      {group.items.filter((i) => i.checked).length}/{group.items.length}
+                    </Text>
+                  </View>
+                </Pressable>
+              )}
+              {group.items.map((item) => (
+                <ListItem
+                  key={item.id}
+                  item={item}
+                  onToggle={() => toggleItem(list.id, item.id)}
+                  onDelete={() => deleteItem(list.id, item.id)}
+                  onEdit={() => setEditItem(item)}
+                />
+              ))}
+            </View>
           ))
         )}
         {/* Bottom padding so last item is not hidden behind bar */}
@@ -293,7 +333,18 @@ export default function ListDetailScreen() {
         visible={editItem !== null}
         item={editItem}
         onClose={() => setEditItem(null)}
-        onSave={(itemId, patch) => updateItem(list.id, itemId, patch)}
+        onSave={(itemId, patch, store) => {
+          void (async () => {
+            await updateItem(list.id, itemId, patch)
+            if (store && !(await assignItemStore(list.id, itemId, store))) {
+              showToast('A bolt mentése nem sikerült', 'error')
+            }
+          })()
+        }}
+      />
+      <StoreOrderSheet
+        visible={storeOrderVisible}
+        onClose={() => setStoreOrderVisible(false)}
       />
     </View>
   )

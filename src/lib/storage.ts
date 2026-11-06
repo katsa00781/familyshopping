@@ -5,9 +5,12 @@ export const StorageKeys = {
   productViewMode: 'product.viewMode',
   pricePeriod: 'price.period',
   listLastActive: 'list.lastActive',
+  listStoreOrder: 'list.storeOrder',
+  familyDataOwner: 'family.dataOwner',
   authToken: 'auth.token',
   notificationPrefs: 'notification.prefs',
   eventReminderMap: 'notification.eventReminderMap',
+  eventReminderVersion: 'notification.eventReminderVersion',
   shiftConflictNotified: 'notification.shiftConflictNotified',
 } as const
 

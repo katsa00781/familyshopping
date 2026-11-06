@@ -165,7 +165,8 @@ export interface FamilyMemberLocal {
 export type FamilyRole = 'admin' | 'member' | 'viewer'
 
 export interface FamilyMember {
-  id: string
+  id: string // family_members sor id-ja
+  userId: string // auth felhasználó id
   name: string
   email: string
   role: FamilyRole
@@ -174,6 +175,7 @@ export interface FamilyMember {
 
 export interface Family {
   id: string
+  ownerId: string // a közös bevásárló-adatok gazdája
   name: string
   inviteLink: string
   inviteExpiresAt: string
@@ -197,7 +199,7 @@ export interface CalendarEventInput {
   starts_at: string // ISO timestamp (UTC)
   ends_at: string | null
   all_day: boolean
-  member_id: string | null // a lokális tag-store azonosítója (null = közös/mindenki)
+  member_id: string | null // household_members.id (közös taglista; null = közös/mindenki)
   color: string | null
   rrule: string | null // ismétlődés (RFC 5545 részhalmaz); null = egyszeri
   event_type: CalendarEventType

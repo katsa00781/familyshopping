@@ -2,7 +2,10 @@ import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase, getSessionSafe } from '@/lib/supabase'
 import { mockLists } from '@/data/mockLists'
-import type { ShoppingList, ShoppingItem } from '@/types'
+import { resolveDataOwnerId } from '@/lib/dataOwner'
+import { normalizeStoreName } from '@/lib/format'
+import { useProductStore } from '@/store/productStore'
+import type { Product, ShoppingList, ShoppingItem } from '@/types'
 
 const CACHE_KEY = 'bevasarlo_lists'
 
@@ -16,6 +19,21 @@ function generateId(): string {
 
 function calcTotal(items: ShoppingItem[]): number {
   return Math.round(items.reduce((sum, item) => sum + (item.price ?? 0) * item.quantity, 0))
+}
+
+function findStoreProduct(
+  products: Product[],
+  name: string,
+  unit: string,
+  store: string,
+): Product | undefined {
+  const lower = name.trim().toLowerCase()
+  return products.find(
+    (p) =>
+      p.name.trim().toLowerCase() === lower &&
+      p.unit === unit &&
+      normalizeStoreName(p.store_name) === store,
+  )
 }
 
 type SupabasePayload = Omit<ShoppingList, 'updated_at' | 'completed_at'>
@@ -184,6 +202,7 @@ interface ListState {
   updateItem: (listId: string, itemId: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => Promise<void>
   deleteItem: (listId: string, itemId: string) => Promise<void>
   toggleItem: (listId: string, itemId: string) => Promise<void>
+  assignItemStore: (listId: string, itemId: string, storeName: string) => Promise<boolean>
 }
 
 export const useListStore = create<ListState>((set, get) => ({
@@ -212,7 +231,7 @@ export const useListStore = create<ListState>((set, get) => ({
       const { data, error } = await supabase
         .from('shopping_lists')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', await resolveDataOwnerId(user.id))
         .order('created_at', { ascending: false })
 
       if (error) throw error
@@ -237,7 +256,8 @@ export const useListStore = create<ListState>((set, get) => ({
   createList: async (name, date) => {
     const session = await getSessionSafe()
     const user = session?.user
-    const userId = user?.id ?? 'mock-user'
+    // Családban a lista a család adatgazdájához (tulajdonos) kerül → közös.
+    const userId = user ? await resolveDataOwnerId(user.id) : 'mock-user'
     const now = new Date().toISOString()
 
     const newList: ShoppingList = {
@@ -271,7 +291,8 @@ export const useListStore = create<ListState>((set, get) => ({
   createListWithItems: async (name, date, items) => {
     const session = await getSessionSafe()
     const user = session?.user
-    const userId = user?.id ?? 'mock-user'
+    // Családban a lista a család adatgazdájához (tulajdonos) kerül → közös.
+    const userId = user ? await resolveDataOwnerId(user.id) : 'mock-user'
     const now = new Date().toISOString()
 
     const newList: ShoppingList = {
@@ -371,7 +392,7 @@ export const useListStore = create<ListState>((set, get) => ({
         const pricedItems = list.items.filter((item) => item.price !== null && item.price > 0)
         if (pricedItems.length > 0) {
           const shoppingDate = completedAt.split('T')[0]!
-          await insertPriceRecords(user.id, list, pricedItems, shoppingDate)
+          await insertPriceRecords(await resolveDataOwnerId(user.id), list, pricedItems, shoppingDate)
         }
       }
     }
@@ -442,7 +463,7 @@ export const useListStore = create<ListState>((set, get) => ({
     )
     if (pricedItems.length > 0) {
       const shoppingDate = new Date().toISOString().split('T')[0]!
-      await insertPriceRecords(user.id, list, pricedItems, shoppingDate)
+      await insertPriceRecords(await resolveDataOwnerId(user.id), list, pricedItems, shoppingDate)
     }
   },
 
@@ -541,6 +562,90 @@ export const useListStore = create<ListState>((set, get) => ({
           await saveCache(prev)
         }
       }
+    }
+  },
+  // Bolt hozzárendelése egy bolt nélküli tételhez. A tétel termékét kapja meg a bolt;
+  // ha ebben a boltban már van ilyen termék (DUPLICATE), vagy a tételnek nincs terméke,
+  // akkor a tétel ÚJ id-vel, a bolti termékhez kötve cserélődik ki – a meglévő tétel
+  // product_id-ját a mobil nem írhatja át (lásd `withServerProductIds`).
+  assignItemStore: async (listId, itemId, storeName) => {
+    const store = normalizeStoreName(storeName)
+    const item = get()
+      .lists.find((l) => l.id === listId)
+      ?.items.find((i) => i.id === itemId)
+    if (!store || !item) return false
+
+    const productStore = useProductStore.getState()
+    const product = item.product_id
+      ? productStore.products.find((p) => p.id === item.product_id)
+      : undefined
+    if (product?.store_name) return true
+
+    try {
+      if (product) {
+        try {
+          await productStore.upsertProduct({ ...product, store_name: store })
+          return true
+        } catch (e) {
+          if (!(e instanceof Error && e.message === 'DUPLICATE')) throw e
+        }
+      }
+
+      const name = product?.name ?? item.name
+      const unit = product?.unit ?? item.unit
+      let target = findStoreProduct(useProductStore.getState().products, name, unit, store)
+      if (!target) {
+        try {
+          target = await productStore.upsertProduct({
+            name,
+            brand: product?.brand ?? null,
+            category: product?.category ?? item.category,
+            store_name: store,
+            price: null,
+            unit,
+            barcode: null,
+          })
+        } catch (e) {
+          if (!(e instanceof Error && e.message === 'DUPLICATE')) throw e
+          // A helyi katalógus elavult: frissítés után újra keressük.
+          await useProductStore.getState().loadProducts()
+          target = findStoreProduct(useProductStore.getState().products, name, unit, store)
+        }
+      }
+      if (!target) return false
+
+      const linked = target
+      const prev = get().lists
+      const next = prev.map((l) => {
+        if (l.id !== listId) return l
+        const items = l.items.map((i) =>
+          i.id === itemId
+            ? {
+                ...i,
+                id: generateId(),
+                product_id: linked.id,
+                price: i.price ?? linked.last_price ?? linked.price ?? null,
+              }
+            : i,
+        )
+        return { ...l, items, total_amount: calcTotal(items) }
+      })
+      set({ lists: next })
+      await saveCache(next)
+
+      const session = await getSessionSafe()
+      const list = next.find((l) => l.id === listId)
+      if (session?.user && list) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
+          set({ lists: prev, error: 'Bolt hozzárendelése sikertelen' })
+          await saveCache(prev)
+          return false
+        }
+      }
+      return true
+    } catch {
+      return false
     }
   },
 }))

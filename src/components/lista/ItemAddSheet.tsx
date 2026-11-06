@@ -1,24 +1,53 @@
 import { useRef, useState } from 'react'
 import {
+  Keyboard,
   Pressable,
   ScrollView,
-  StyleSheet,
+  type ScrollViewInstance,
   Text,
   TextInput,
-  useColorScheme,
   View,
 } from 'react-native'
 
+import { StorePicker } from '@/components/lista/StorePicker'
 import BottomSheet from '@/components/ui/BottomSheet'
 import Button from '@/components/ui/Button'
+import { QuantityStepper } from '@/components/ui/QuantityStepper'
+import { Select } from '@/components/ui/Select'
+import { colors } from '@/constants/colors'
+import { resolveDataOwnerId } from '@/lib/dataOwner'
+import { formatHuf, normalizeStoreName } from '@/lib/format'
 import { supabase } from '@/lib/supabase'
 import { useAuthStore } from '@/store/authStore'
-import { formatHuf } from '@/lib/format'
+import { useProductStore } from '@/store/productStore'
 import { haptics } from '@/lib/haptics'
 import type { ItemCategory, Product, ShoppingItem } from '@/types'
 
-const UNITS = ['db', 'kg', 'g', 'l', 'ml']
-const CATEGORIES: ItemCategory[] = ['Zöldség', 'Gyümölcs', 'Tejtermék', 'Hús', 'Pékáru', 'Vegán', 'Ital', 'Édesség', 'Egyéb']
+const UNITS = ['db', 'kg', 'g', 'l', 'ml'] as const
+type Unit = (typeof UNITS)[number]
+
+const CATEGORIES: readonly ItemCategory[] = [
+  'Zöldség',
+  'Gyümölcs',
+  'Tejtermék',
+  'Hús',
+  'Pékáru',
+  'Vegán',
+  'Ital',
+  'Édesség',
+  'Egyéb',
+]
+
+// Egységenkénti léptetés és alapmennyiség (egységváltáskor erre áll vissza).
+const UNIT_STEP: Record<Unit, { step: number; initial: number }> = {
+  db: { step: 1, initial: 1 },
+  kg: { step: 0.5, initial: 1 },
+  g: { step: 50, initial: 100 },
+  l: { step: 0.5, initial: 1 },
+  ml: { step: 100, initial: 500 },
+}
+
+type OpenSelect = 'unit' | 'category' | 'store' | null
 
 function generateId(): string {
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
@@ -35,24 +64,20 @@ interface Props {
 }
 
 export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
-  const dark = useColorScheme() === 'dark'
-
   const [name, setName] = useState('')
-  const [quantity, setQuantity] = useState('1')
-  const [unit, setUnit] = useState<string>('db')
+  const [quantity, setQuantity] = useState(1)
+  const [unit, setUnit] = useState<Unit>('db')
   const [category, setCategory] = useState<ItemCategory>('Egyéb')
-  const [price, setPrice] = useState('')
-  const [productId, setProductId] = useState<string | null>(null)
+  const [store, setStore] = useState<string | null>(null)
+  const [openSelect, setOpenSelect] = useState<OpenSelect>(null)
+  // A StorePicker belső („Új bolt…") állapotát újranyitáskor a key cseréje törli.
+  const [formKey, setFormKey] = useState(0)
   const [suggestions, setSuggestions] = useState<Product[]>([])
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  const inputBg = dark ? '#0F172A' : '#F8FAFC'
-  const inputBorder = dark ? '#334155' : '#E2E8F0'
-  const textColor = dark ? '#F8FAFC' : '#0F172A'
+  const scrollRef = useRef<ScrollViewInstance>(null)
 
   function handleNameChange(text: string) {
     setName(text)
-    setProductId(null)
 
     if (searchTimer.current) clearTimeout(searchTimer.current)
 
@@ -63,8 +88,9 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     }
 
     searchTimer.current = setTimeout(async () => {
-      const userId = useAuthStore.getState().user?.id
-      if (!userId) return
+      const sessionUserId = useAuthStore.getState().user?.id
+      if (!sessionUserId) return
+      const userId = await resolveDataOwnerId(sessionUserId)
 
       const { data } = await supabase
         .from('products')
@@ -77,9 +103,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
 
       const deduped = ((data as Product[]) ?? [])
         .reduce<Product[]>((acc, product) => {
-          const existing = acc.find(
-            (p) => p.name.toLowerCase() === product.name.toLowerCase(),
-          )
+          const existing = acc.find((p) => p.name.toLowerCase() === product.name.toLowerCase())
           if (!existing) {
             acc.push(product)
           } else {
@@ -98,7 +122,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
   }
 
   // A legördülő javaslatra koppintva a termék azonnal bekerül a listába –
-  // nem kell külön "Hozzáadás" gombot keresni.
+  // egység, kategória és ár a termékből jön, nem kell külön megadni.
   function selectSuggestion(product: Product) {
     const validCat = CATEGORIES.includes(product.category as ItemCategory)
       ? (product.category as ItemCategory)
@@ -108,7 +132,7 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     const item: ShoppingItem = {
       id: generateId(),
       name: product.brand ? `${product.name} ${product.brand}` : product.name,
-      quantity: parseFloat(quantity) || 1,
+      quantity,
       unit: product.unit,
       category: validCat,
       checked: false,
@@ -122,58 +146,76 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     onClose()
   }
 
-  async function handleAdd(createProduct: boolean) {
+  // Kézzel beírt név = új termék: a katalógusba is felvesszük (ár nélkül – az első
+  // vásárlás / blokk-beolvasás rögzíti), a választott bolttal. A productStore-on át
+  // megy, hogy a lista bolt-csoportosítása azonnal lássa az új terméket.
+  async function handleAdd() {
     const trimmed = name.trim()
     if (!trimmed) return
 
-    let resolvedProductId = productId
-
-    if (createProduct && !resolvedProductId) {
-      const userId = useAuthStore.getState().user?.id
-      if (userId) {
-        const { data } = await supabase
-          .from('products')
-          .upsert({
-            user_id: userId,
-            name: trimmed,
-            category,
-            unit,
-            price: price ? parseInt(price, 10) : null,
-            last_price: price ? parseInt(price, 10) : null,
-            available: true,
-            price_history: [],
-            brand: null,
-            barcode: null,
-            store_name: null,
-          })
-          .select('id')
-          .single()
-        resolvedProductId = (data as { id: string } | null)?.id ?? null
+    let productId: string | null = null
+    let productPrice: number | null = null
+    try {
+      const product = await useProductStore.getState().upsertProduct({
+        name: trimmed,
+        brand: null,
+        category,
+        store_name: store,
+        price: null,
+        unit,
+        barcode: null,
+      })
+      productId = product.id
+    } catch (e) {
+      // Ugyanez a termék (bolt + név + egység) már létezik → arra kötjük.
+      if (e instanceof Error && e.message === 'DUPLICATE') {
+        const storeKey = normalizeStoreName(store)
+        const existing = useProductStore
+          .getState()
+          .products.find(
+            (p) =>
+              p.name.trim().toLowerCase() === trimmed.toLowerCase() &&
+              p.unit === unit &&
+              normalizeStoreName(p.store_name) === storeKey,
+          )
+        productId = existing?.id ?? null
+        productPrice = existing ? (existing.last_price ?? existing.price) : null
       }
     }
 
     const item: ShoppingItem = {
       id: generateId(),
       name: trimmed,
-      quantity: parseFloat(quantity) || 1,
+      quantity,
       unit,
       category,
       checked: false,
-      price: price ? parseInt(price, 10) : null,
-      product_id: resolvedProductId,
+      price: productPrice,
+      product_id: productId,
     }
     onAdd(item)
     reset()
     onClose()
   }
 
+  function handleUnitChange(next: Unit) {
+    setUnit(next)
+    setQuantity(UNIT_STEP[next].initial)
+  }
+
+  function handleOpenChange(which: Exclude<OpenSelect, null>, open: boolean) {
+    if (open) Keyboard.dismiss()
+    setOpenSelect(open ? which : null)
+  }
+
   function reset() {
     setName('')
-    setQuantity('1')
+    setQuantity(1)
     setUnit('db')
     setCategory('Egyéb')
-    setPrice('')
-    setProductId(null)
+    setStore(null)
+    setFormKey((k) => k + 1)
+    setOpenSelect(null)
     setSuggestions([])
     if (searchTimer.current) clearTimeout(searchTimer.current)
   }
@@ -183,180 +225,131 @@ export default function ItemAddSheet({ visible, onClose, onAdd }: Props) {
     onClose()
   }
 
-  const isNewProduct = !productId && name.trim().length > 0
-  const ctaLabel = isNewProduct ? 'Új termékként hozzáadás' : 'Hozzáadás'
-
   return (
     <BottomSheet visible={visible} onClose={handleClose} title="Tétel hozzáadása">
       <ScrollView
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          {/* Név */}
-          <Text className="text-body-sm font-medium text-[#475569] dark:text-muted mb-1.5">
-            Megnevezés *
-          </Text>
-          <TextInput
-            value={name}
-            onChangeText={handleNameChange}
-            placeholder="pl. Tej 2,8%"
-            placeholderTextColor="#94A3B8"
-            className={`h-tap rounded-[10px] px-3 text-[17px] ${suggestions.length > 0 ? 'mb-0' : 'mb-4'}`}
-            style={[
-              styles.input,
-              { backgroundColor: inputBg, borderColor: inputBorder, color: textColor },
-            ]}
-            autoFocus
-            returnKeyType="next"
-          />
+        ref={scrollRef}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        onContentSizeChange={() => {
+          // Kinyitott select-lista legyen látható a fél-magas sheetben is.
+          if (openSelect) scrollRef.current?.scrollToEnd({ animated: true })
+        }}
+      >
+        {/* Név / kereső */}
+        <Text className="text-body-sm font-medium text-muted mb-1.5">Megnevezés *</Text>
+        <TextInput
+          value={name}
+          onChangeText={handleNameChange}
+          onFocus={() => setOpenSelect(null)}
+          placeholder="Keresés vagy új termék, pl. Tej 2,8%"
+          placeholderTextColor={colors.muted}
+          className={`h-tap rounded-[10px] px-3 text-[17px] border border-border dark:border-dark-border bg-card dark:bg-dark-card text-foreground dark:text-dark-foreground ${
+            suggestions.length > 0 ? 'mb-0' : 'mb-4'
+          }`}
+          accessibilityLabel="Megnevezés vagy termék keresése"
+          autoFocus
+          returnKeyType="done"
+        />
 
-          {/* Autocomplete suggestions */}
-          {suggestions.length > 0 && (
-            <View
-              className="mb-4 mt-1 rounded-[10px] overflow-hidden"
-              style={[styles.suggestions, { backgroundColor: inputBg, borderColor: inputBorder }]}
-            >
-              {suggestions.map((product, index) => (
-                <Pressable
-                  key={product.id}
-                  onPress={() => selectSuggestion(product)}
-                  style={({ pressed }) => [
-                    { opacity: pressed ? 0.7 : 1 },
-                    index > 0 && { borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: inputBorder },
-                  ]}
-                  className="px-3 py-3 flex-row items-center"
-                >
-                  <View className="flex-1">
-                    <Text
-                      className="text-body-md font-medium text-foreground dark:text-dark-foreground"
-                      numberOfLines={1}
-                    >
-                      {product.name}{product.brand ? ` ${product.brand}` : ''}
-                    </Text>
-                    <Text className="text-body-sm text-muted mt-0.5">
-                      {product.category} · {product.unit}
-                    </Text>
-                  </View>
-                  {(product.last_price ?? product.price) != null && (
-                    <Text className="text-body-sm font-semibold text-primary ml-2">
-                      {formatHuf((product.last_price ?? product.price) ?? 0)}
-                    </Text>
-                  )}
-                </Pressable>
-              ))}
-            </View>
-          )}
-
-          {/* Mennyiség + egység */}
-          <View className="flex-row gap-3 mb-4">
-            <View className="flex-1">
-              <Text className="text-body-sm font-medium text-[#475569] dark:text-muted mb-1.5">
-                Mennyiség
-              </Text>
-              <TextInput
-                value={quantity}
-                onChangeText={setQuantity}
-                keyboardType="numeric"
-                className="h-tap rounded-[10px] px-3 text-[17px]"
-                style={[
-                  styles.input,
-                  { backgroundColor: inputBg, borderColor: inputBorder, color: textColor },
-                ]}
-              />
-            </View>
-
-            <View className="flex-1">
-              <Text className="text-body-sm font-medium text-[#475569] dark:text-muted mb-1.5">
-                Egység
-              </Text>
-              <View className="flex-row flex-wrap gap-1.5">
-                {UNITS.map((u) => (
-                  <Pressable
-                    key={u}
-                    onPress={() => setUnit(u)}
-                    className={`px-3 h-9 rounded-badge items-center justify-center ${
-                      unit === u
-                        ? 'bg-primary'
-                        : 'bg-[#F1F5F9] dark:bg-[#1E293B]'
-                    }`}
-                  >
-                    <Text
-                      className={`text-body-sm font-medium ${
-                        unit === u ? 'text-white' : 'text-foreground dark:text-dark-foreground'
-                      }`}
-                    >
-                      {u}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
-            </View>
-          </View>
-
-          {/* Kategória */}
-          <Text className="text-body-sm font-medium text-[#475569] dark:text-muted mb-1.5">
-            Kategória
-          </Text>
-          <View className="flex-row flex-wrap gap-1.5 mb-4">
-            {CATEGORIES.map((cat) => (
+        {/* Termék-találatok: koppintásra azonnal a listába kerül */}
+        {suggestions.length > 0 && (
+          <View className="mb-4 mt-1 rounded-[10px] overflow-hidden border border-border dark:border-dark-border bg-card dark:bg-dark-card">
+            {suggestions.map((product, index) => (
               <Pressable
-                key={cat}
-                onPress={() => setCategory(cat)}
-                className={`px-3 h-9 rounded-badge items-center justify-center ${
-                  category === cat
-                    ? 'bg-primary'
-                    : 'bg-[#F1F5F9] dark:bg-[#1E293B]'
-                }`}
+                key={product.id}
+                onPress={() => selectSuggestion(product)}
+                accessibilityRole="button"
+                accessibilityLabel={`${product.name} hozzáadása`}
               >
-                <Text
-                  className={`text-body-sm font-medium ${
-                    category === cat ? 'text-white' : 'text-foreground dark:text-dark-foreground'
-                  }`}
-                >
-                  {cat}
-                </Text>
+                {({ pressed }) => (
+                  <View
+                    className={`px-3 py-3 flex-row items-center ${
+                      index > 0 ? 'border-t border-border dark:border-dark-border' : ''
+                    }`}
+                    style={{ opacity: pressed ? 0.7 : 1 }}
+                  >
+                    <View className="flex-1">
+                      <Text
+                        className="text-body-md font-medium text-foreground dark:text-dark-foreground"
+                        numberOfLines={1}
+                      >
+                        {product.name}
+                        {product.brand ? ` ${product.brand}` : ''}
+                      </Text>
+                      <Text className="text-body-sm text-muted mt-0.5">
+                        {[product.store_name, product.category, product.unit]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </Text>
+                    </View>
+                    {(product.last_price ?? product.price) != null && (
+                      <Text className="text-body-sm font-semibold text-primary ml-2">
+                        {formatHuf(product.last_price ?? product.price ?? 0)}
+                      </Text>
+                    )}
+                  </View>
+                )}
               </Pressable>
             ))}
           </View>
+        )}
 
-          {/* Ár (opcionális) */}
-          <Text className="text-body-sm font-medium text-[#475569] dark:text-muted mb-1.5">
-            Ár (Ft) – nem kötelező
-          </Text>
-          <TextInput
-            value={price}
-            onChangeText={setPrice}
-            placeholder="pl. 499"
-            placeholderTextColor="#94A3B8"
-            keyboardType="numeric"
-            className="h-tap rounded-[10px] px-3 text-[17px] mb-6"
-            style={[
-              styles.input,
-              { backgroundColor: inputBg, borderColor: inputBorder, color: textColor },
-            ]}
+        {/* Mennyiség (léptető) + egység (select) */}
+        <View className="flex-row gap-3 mb-4">
+          <View className="flex-1">
+            <QuantityStepper
+              label="Mennyiség"
+              value={quantity}
+              step={UNIT_STEP[unit].step}
+              onChange={setQuantity}
+            />
+          </View>
+          <View className="flex-1">
+            <Select
+              label="Egység"
+              value={unit}
+              options={UNITS}
+              open={openSelect === 'unit'}
+              onOpenChange={(open) => handleOpenChange('unit', open)}
+              onChange={handleUnitChange}
+            />
+          </View>
+        </View>
+
+        {/* Kategória (select) */}
+        <View className="mb-4">
+          <Select
+            label="Kategória"
+            value={category}
+            options={CATEGORIES}
+            open={openSelect === 'category'}
+            onOpenChange={(open) => handleOpenChange('category', open)}
+            onChange={setCategory}
           />
+        </View>
 
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            disabled={!name.trim()}
-            onPress={() => handleAdd(isNewProduct)}
-          >
-            {ctaLabel}
-          </Button>
-        </ScrollView>
+        {/* Bolt – az új (kézzel beírt) termékhez; a találatok boltja a termékből jön */}
+        <View className="mb-6">
+          <StorePicker
+            key={formKey}
+            value={store}
+            onChange={setStore}
+            open={openSelect === 'store'}
+            onOpenChange={(open) => handleOpenChange('store', open)}
+          />
+        </View>
+
+        <Button
+          variant="primary"
+          size="lg"
+          fullWidth
+          disabled={!name.trim()}
+          onPress={() => void handleAdd()}
+        >
+          {name.trim() ? 'Új termékként hozzáadás' : 'Hozzáadás'}
+        </Button>
+      </ScrollView>
     </BottomSheet>
   )
 }
-
-const styles = StyleSheet.create({
-  input: {
-    borderWidth: 1,
-    borderRadius: 10,
-  },
-  suggestions: {
-    borderWidth: 1,
-    borderRadius: 10,
-  },
-})

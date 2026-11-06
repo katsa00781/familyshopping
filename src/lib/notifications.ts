@@ -107,6 +107,56 @@ export async function cancelEventReminder(eventId: string): Promise<void> {
   await setReminderMap(map)
 }
 
+// Közös naptár: a családtagok által felvett/módosított/törölt események emlékeztetőit
+// betöltéskor egyeztetjük. Az ütemezett emlékeztető „verzióját" (kezdés + cím) tároljuk,
+// hogy csak a ténylegesen változott eseményeket ütemezzük újra.
+type ReminderVersionMap = Record<string, string> // calendar_events.id → verzió
+
+const SYNC_HORIZON_DAYS = 30
+// iOS legfeljebb 64 ütemezett lokális értesítést tart meg – hagyunk helyet másnak is.
+const SYNC_MAX_REMINDERS = 40
+
+function reminderVersion(event: CalendarEvent): string {
+  return `${event.starts_at}|${event.all_day ? 1 : 0}|${event.title}`
+}
+
+/**
+ * Emlékeztetők egyeztetése a (közös) naptárral: a következő 30 nap `event` /
+ * `appointment` eseményeihez ütemez vagy újraütemez, a már nem létező (más által
+ * törölt) események emlékeztetőit törli. `loadEvents` után hívandó.
+ */
+export async function syncEventReminders(events: CalendarEvent[]): Promise<void> {
+  const now = Date.now()
+  const horizon = now + SYNC_HORIZON_DAYS * 24 * 60 * 60 * 1000
+  const versions =
+    (await getStorageItem<ReminderVersionMap>(StorageKeys.eventReminderVersion)) ?? {}
+
+  const existingIds = new Set(events.map((e) => e.id))
+  for (const id of Object.keys(await getReminderMap())) {
+    if (!existingIds.has(id)) {
+      await cancelEventReminder(id)
+      delete versions[id]
+    }
+  }
+
+  const upcoming = events
+    .filter((e) => e.event_type === 'event' || e.event_type === 'appointment')
+    .filter((e) => {
+      const when = reminderDate(e)?.getTime() ?? 0
+      return when > now && when <= horizon
+    })
+    .slice(0, SYNC_MAX_REMINDERS)
+
+  for (const event of upcoming) {
+    const version = reminderVersion(event)
+    if (versions[event.id] === version) continue
+    await scheduleEventReminder(event)
+    versions[event.id] = version
+  }
+
+  await setStorageItem(StorageKeys.eventReminderVersion, versions)
+}
+
 async function getNotifiedConflictIds(): Promise<string[]> {
   return (await getStorageItem<string[]>(StorageKeys.shiftConflictNotified)) ?? []
 }
@@ -146,8 +196,8 @@ export async function notifyShiftConflicts(events: CalendarEvent[]): Promise<voi
       for (const { event, shift } of toNotify) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: 'Ütközés a beosztásoddal',
-            body: `„${event.title}" ütközik a műszakoddal (${shift.title}).`,
+            title: 'Ütközés a beosztással',
+            body: `„${event.title}" ütközik egy műszakkal (${shift.title}).`,
           },
           trigger: null,
         })

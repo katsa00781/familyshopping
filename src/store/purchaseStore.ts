@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import { resolveDataOwnerId } from '@/lib/dataOwner'
 import { supabase, getSessionSafe } from '@/lib/supabase'
 import type { Purchase, ShoppingStatistic } from '@/types'
 
@@ -87,7 +88,7 @@ export const usePurchaseStore = create<PurchaseState>((set, get) => ({
         const { data, error } = await supabase
           .from('shopping_statistics')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_id', await resolveDataOwnerId(user.id))
           .order('shopping_date', { ascending: false })
 
         if (error) throw error

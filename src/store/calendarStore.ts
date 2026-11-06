@@ -1,10 +1,16 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 
+import { resolveDataOwnerId } from '@/lib/dataOwner'
 import { getSessionSafe } from '@/lib/supabase'
 import { loadWithSessionRetry } from '@/lib/loadWithRetry'
 import { fetchEvents, insertEvent, insertEvents, patchEvent, removeEvent, removeEvents } from '@/lib/calendar'
-import { cancelEventReminder, notifyShiftConflicts, scheduleEventReminder } from '@/lib/notifications'
+import {
+  cancelEventReminder,
+  notifyShiftConflicts,
+  scheduleEventReminder,
+  syncEventReminders,
+} from '@/lib/notifications'
 import { useNotificationPrefsStore } from '@/store/notificationPrefsStore'
 import type { CalendarEvent, CalendarEventInput } from '@/types'
 
@@ -55,8 +61,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     set({ isLoading: true, error: null })
 
     // Cold-start-biztos betöltés (session a retry-cikluson belül). Lásd loadWithRetry.
+    // Közös naptár: a család adatgazdájának eseményei (család nélkül a sajátok).
     const result = await loadWithSessionRetry(
-      (userId) => fetchEvents(userId),
+      async (userId) => fetchEvents(await resolveDataOwnerId(userId)),
       (events) => events.length === 0,
     )
 
@@ -65,6 +72,9 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
       set({ events: result.data, isLoading: false, error: null })
       const prefs = await reminderPrefs()
       if (prefs.shiftConflictAlerts) void notifyShiftConflicts(result.data)
+      // A családtagok által felvett/módosított/törölt eseményekhez is legyen
+      // (vagy szűnjön meg) emlékeztető ezen a telefonon.
+      if (prefs.calendarReminders) void syncEventReminders(result.data)
       return
     }
 
@@ -91,7 +101,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     const optimistic: CalendarEvent = {
       ...input,
       id: generateId(),
-      user_id: user?.id ?? 'mock-user',
+      user_id: user ? await resolveDataOwnerId(user.id) : 'mock-user',
       created_by: user?.id ?? null,
       created_at: now,
       updated_at: now,
@@ -104,7 +114,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
     if (user) {
       try {
-        const saved = await insertEvent(user.id, input)
+        const saved = await insertEvent(optimistic.user_id, user.id, input)
         const merged = get()
           .events.map((e) => (e.id === optimistic.id ? saved : e))
           .sort((a, b) => a.starts_at.localeCompare(b.starts_at))
@@ -171,9 +181,10 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
     const now = new Date().toISOString()
 
     const rows = inputs.map((input) => ({ ...input, id: generateId() }))
+    const ownerId = user ? await resolveDataOwnerId(user.id) : 'mock-user'
     const optimistic: CalendarEvent[] = rows.map((r) => ({
       ...r,
-      user_id: user?.id ?? 'mock-user',
+      user_id: ownerId,
       created_by: user?.id ?? null,
       created_at: now,
       updated_at: now,
@@ -186,7 +197,7 @@ export const useCalendarStore = create<CalendarState>((set, get) => ({
 
     if (user) {
       try {
-        await insertEvents(user.id, rows)
+        await insertEvents(ownerId, user.id, rows)
       } catch {
         set({ events: prev, error: 'Beosztás mentése sikertelen' })
         await saveCache(prev)

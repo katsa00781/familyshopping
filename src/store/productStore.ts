@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { supabase, getSessionSafe } from '@/lib/supabase'
+import { resolveDataOwnerId } from '@/lib/dataOwner'
 import { normalizeStoreName } from '@/lib/format'
 import { mockProducts } from '@/data/mockProducts'
 import type { Product, PriceHistoryEntry } from '@/types'
@@ -51,7 +52,7 @@ interface ProductState {
 
   loadProducts: () => Promise<void>
   searchProducts: (query: string) => void
-  upsertProduct: (draft: ProductDraft) => Promise<void>
+  upsertProduct: (draft: ProductDraft) => Promise<Product>
   deleteProduct: (id: string) => Promise<void>
 }
 
@@ -85,7 +86,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       const { data, error } = await supabase
         .from('products')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', await resolveDataOwnerId(user.id))
         .order('name')
 
       if (error) throw error
@@ -109,7 +110,8 @@ export const useProductStore = create<ProductState>((set, get) => ({
   upsertProduct: async (draft) => {
     const session = await getSessionSafe()
     const user = session?.user
-    const userId = user?.id ?? 'mock-user'
+    // Családban a termék a közös katalógusba (adatgazda) kerül.
+    const userId = user ? await resolveDataOwnerId(user.id) : 'mock-user'
     const now = new Date().toISOString()
     const isNew = !draft.id
 
@@ -157,7 +159,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
       if (product.price !== null && priceChanged) {
         const today = new Date().toISOString().split('T')[0]!
         void supabase.from('product_price_history').insert({
-          user_id: user.id,
+          user_id: userId,
           product_id: product.id,
           product_name: product.name,
           product_category: product.category,
@@ -171,6 +173,7 @@ export const useProductStore = create<ProductState>((set, get) => ({
         })
       }
     }
+    return product
   },
 
   deleteProduct: async (id) => {

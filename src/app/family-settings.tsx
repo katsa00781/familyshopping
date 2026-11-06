@@ -26,6 +26,9 @@ import {
 import * as Clipboard from 'expo-clipboard'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 
+import Button from '@/components/ui/Button'
+import { colors } from '@/constants/colors'
+import { formatHuDate } from '@/lib/format'
 import { useFamilyStore } from '@/store/familyStore'
 import { useAuthStore } from '@/store/authStore'
 import { useToastStore } from '@/store/toastStore'
@@ -41,6 +44,13 @@ const ROLE_COLORS: Record<FamilyRole, { bg: string; text: string }> = {
   admin: { bg: '#DBEAFE', text: '#1E40AF' },
   member: { bg: '#DCFCE7', text: '#166534' },
   viewer: { bg: '#FEF3C7', text: '#92400E' },
+}
+
+function inviteValidText(expiresAt: string): string {
+  if (!expiresAt) return 'A meghívókód 7 napig érvényes.'
+  const expires = new Date(expiresAt)
+  if (expires.getTime() < Date.now()) return 'A meghívókód lejárt – generálj újat.'
+  return `A meghívókód érvényes: ${formatHuDate(expiresAt)}`
 }
 
 function getInitials(name: string): string {
@@ -62,13 +72,31 @@ function avatarColor(id: string): string {
 export default function FamilySettingsScreen() {
   const insets = useSafeAreaInsets()
   const dark = useColorScheme() === 'dark'
-  const { family, isLoading, loadFamily, renameFamily, regenerateInvite, changeRole, removeMember } =
-    useFamilyStore()
+  const {
+    family,
+    isLoading,
+    loadFamily,
+    createFamily,
+    joinFamily,
+    leaveFamily,
+    renameFamily,
+    regenerateInvite,
+    changeRole,
+    removeMember,
+  } = useFamilyStore()
   const session = useAuthStore((s) => s.session)
   const showToast = useToastStore((s) => s.showToast)
 
   const [editingName, setEditingName] = useState(false)
   const [nameInput, setNameInput] = useState('')
+  const [newFamilyName, setNewFamilyName] = useState('')
+  const [joinCode, setJoinCode] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const myId = session?.user.id
+  const me = family?.members.find((m) => m.userId === myId)
+  const isAdmin = me?.role === 'admin'
+  const isOwner = !!family && family.ownerId === myId
 
   useEffect(() => {
     void loadFamily()
@@ -83,25 +111,27 @@ export default function FamilySettingsScreen() {
   async function handleCopyLink() {
     if (!family?.inviteLink) return
     await Clipboard.setStringAsync(family.inviteLink)
-    showToast('Meghívó link másolva', 'success')
+    showToast('Meghívókód másolva', 'success')
   }
 
   async function handleShareLink() {
     if (!family?.inviteLink) return
-    await Share.share({ message: `Csatlakozz a Bevásárló családunkhoz: ${family.inviteLink}` })
+    await Share.share({
+      message: `Csatlakozz a családunkhoz a FamilyHub appban (Profil → Család → Csatlakozás kóddal). Meghívókód: ${family.inviteLink}`,
+    })
   }
 
   function handleRegenerate() {
     Alert.alert(
       'Új meghívó',
-      'A régi link érvénytelenné válik. Biztosan generálsz újat?',
+      'A régi kód érvénytelenné válik. Biztosan generálsz újat?',
       [
         { text: 'Mégse', style: 'cancel' },
         {
           text: 'Generálás',
           onPress: () => {
             void regenerateInvite()
-            showToast('Új meghívó link generálva', 'success')
+            showToast('Új meghívókód generálva', 'success')
           },
         },
       ]
@@ -120,54 +150,93 @@ export default function FamilySettingsScreen() {
     setEditingName(false)
   }
 
+  async function handleCreate() {
+    setBusy(true)
+    const error = await createFamily(newFamilyName)
+    setBusy(false)
+    if (error) Alert.alert('Hiba', error)
+    else showToast('Család létrehozva', 'success')
+  }
+
+  async function handleJoin() {
+    if (joinCode.trim().length < 6) return
+    setBusy(true)
+    const error = await joinFamily(joinCode)
+    setBusy(false)
+    if (error) Alert.alert('Hiba', error)
+    else showToast('Csatlakoztál a családhoz', 'success')
+  }
+
+  function handleLeave() {
+    Alert.alert(
+      'Kilépés a családból',
+      'Kilépés után nem látod a család közös listáit és termékeit.',
+      [
+        { text: 'Mégse', style: 'cancel' },
+        {
+          text: 'Kilépés',
+          style: 'destructive',
+          onPress: () => {
+            void (async () => {
+              const error = await leaveFamily()
+              if (error) Alert.alert('Hiba', error)
+            })()
+          },
+        },
+      ],
+    )
+  }
+
+  function confirmRemove(member: FamilyMember) {
+    Alert.alert('Eltávolítás', `Biztosan eltávolítod: ${member.name}?`, [
+      { text: 'Mégse', style: 'cancel' },
+      {
+        text: 'Eltávolítás',
+        style: 'destructive',
+        onPress: () => void removeMember(member.id),
+      },
+    ])
+  }
+
   function handleMemberMenu(member: FamilyMember) {
-    const myId = session?.user.id
-    const isSelf = member.id === myId
-    const adminCount = family?.members.filter((m) => m.role === 'admin').length ?? 0
-    const cantRemoveSelf = isSelf && member.role === 'admin' && adminCount <= 1
+    const isSelf = member.userId === myId
+    const isFamilyOwner = member.userId === family?.ownerId
+
+    // Nem admin: csak a saját során léphet ki.
+    if (!isAdmin) {
+      if (isSelf && !isFamilyOwner) handleLeave()
+      return
+    }
+
+    // A tulajdonos nem távolítható el (a közös adatok az ő fiókjához tartoznak).
+    const canRemove = !isFamilyOwner
+    const removeLabel = isSelf ? 'Kilépés' : 'Eltávolítás'
+    const onRemove = () => (isSelf ? handleLeave() : confirmRemove(member))
 
     if (Platform.OS === 'ios') {
-      const options: string[] = ['Admin', 'Tag', 'Néző', 'Eltávolítás', 'Mégse']
-      const destructiveIndex = cantRemoveSelf ? undefined : 3
+      const options = ['Admin', 'Tag', 'Néző', ...(canRemove ? [removeLabel] : []), 'Mégse']
       ActionSheetIOS.showActionSheetWithOptions(
-        { options, destructiveButtonIndex: destructiveIndex, cancelButtonIndex: 4 },
+        {
+          options,
+          destructiveButtonIndex: canRemove ? 3 : undefined,
+          cancelButtonIndex: options.length - 1,
+        },
         (idx) => {
           if (idx === 0) void changeRole(member.id, 'admin')
           else if (idx === 1) void changeRole(member.id, 'member')
           else if (idx === 2) void changeRole(member.id, 'viewer')
-          else if (idx === 3) {
-            if (cantRemoveSelf) {
-              Alert.alert('Nem törölhető', 'Te vagy az egyetlen admin. Előbb adjon admin szerepet egy másik tagnak.')
-              return
-            }
-            Alert.alert('Eltávolítás', `Biztosan eltávolítod: ${member.name}?`, [
-              { text: 'Mégse', style: 'cancel' },
-              {
-                text: 'Eltávolítás',
-                style: 'destructive',
-                onPress: () => void removeMember(member.id),
-              },
-            ])
-          }
-        }
+          else if (idx === 3 && canRemove) onRemove()
+        },
       )
     } else {
       Alert.alert(member.name, 'Szerepkör módosítása', [
         { text: 'Admin', onPress: () => void changeRole(member.id, 'admin') },
         { text: 'Tag', onPress: () => void changeRole(member.id, 'member') },
         { text: 'Néző', onPress: () => void changeRole(member.id, 'viewer') },
-        {
-          text: 'Eltávolítás',
-          style: 'destructive',
-          onPress: () => {
-            if (cantRemoveSelf) {
-              Alert.alert('Nem törölhető', 'Te vagy az egyetlen admin.')
-              return
-            }
-            void removeMember(member.id)
-          },
-        },
-        { text: 'Mégse', style: 'cancel' },
+        ...(canRemove
+          ? [{ text: removeLabel, style: 'destructive' as const, onPress: onRemove }]
+          : []),
+        { text: 'Mégse', style: 'cancel' as const },
       ])
     }
   }
@@ -193,11 +262,56 @@ export default function FamilySettingsScreen() {
 
       <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: insets.bottom + 24 }]}>
         {!family ? (
-          <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
-            <Text style={[styles.emptyText, { color: muted }]}>
-              Még nem tartozsz családhoz. Hozz létre egyet a Profil oldalon.
-            </Text>
-          </View>
+          <>
+            <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
+              <Text style={[styles.sectionTitle, { color: text }]}>Új család létrehozása</Text>
+              <Text style={[styles.hintText, { color: muted }]}>
+                A listáid és termékeid közösek lesznek a családtagokkal. Utána meghívókóddal
+                hívhatod meg őket.
+              </Text>
+              <TextInput
+                className="h-tap rounded-[10px] px-3 text-[17px] border border-border dark:border-dark-border bg-card dark:bg-dark-card text-foreground dark:text-dark-foreground"
+                value={newFamilyName}
+                onChangeText={setNewFamilyName}
+                placeholder="Család neve, pl. Kovács család"
+                placeholderTextColor={colors.muted}
+                accessibilityLabel="Család neve"
+                returnKeyType="done"
+              />
+              <Button variant="primary" size="lg" fullWidth loading={busy} onPress={() => void handleCreate()}>
+                Család létrehozása
+              </Button>
+            </View>
+
+            <View style={[styles.card, { backgroundColor: card, borderColor: border }]}>
+              <Text style={[styles.sectionTitle, { color: text }]}>Csatlakozás kóddal</Text>
+              <Text style={[styles.hintText, { color: muted }]}>
+                Írd be a családtagodtól kapott 6 karakteres meghívókódot.
+              </Text>
+              <TextInput
+                className="h-tap rounded-[10px] px-3 text-[20px] tracking-[4px] text-center border border-border dark:border-dark-border bg-card dark:bg-dark-card text-foreground dark:text-dark-foreground"
+                value={joinCode}
+                onChangeText={(t) => setJoinCode(t.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6))}
+                placeholder="ABC123"
+                placeholderTextColor={colors.muted}
+                autoCapitalize="characters"
+                autoCorrect={false}
+                accessibilityLabel="Meghívókód"
+                returnKeyType="done"
+                onSubmitEditing={() => void handleJoin()}
+              />
+              <Button
+                variant="secondary"
+                size="lg"
+                fullWidth
+                disabled={joinCode.length < 6}
+                loading={busy}
+                onPress={() => void handleJoin()}
+              >
+                Csatlakozás
+              </Button>
+            </View>
+          </>
         ) : (
           <>
             {/* Family name card */}
@@ -254,15 +368,19 @@ export default function FamilySettingsScreen() {
                   <Text style={[styles.linkBtnSecondary, { color: text }]}>Megosztás</Text>
                 </Pressable>
               </View>
-              <Text style={[styles.ttlText, { color: muted }]}>A meghívó 7 napig érvényes.</Text>
-              <Pressable
-                style={styles.regenBtn}
-                onPress={handleRegenerate}
-                accessibilityLabel="Új meghívó generálása"
-              >
-                <RefreshCw size={15} color="#2563EB" />
-                <Text style={styles.regenText}>Új meghívó</Text>
-              </Pressable>
+              <Text style={[styles.ttlText, { color: muted }]}>
+                {inviteValidText(family.inviteExpiresAt)}
+              </Text>
+              {isAdmin && (
+                <Pressable
+                  style={styles.regenBtn}
+                  onPress={handleRegenerate}
+                  accessibilityLabel="Új meghívókód generálása"
+                >
+                  <RefreshCw size={15} color="#2563EB" />
+                  <Text style={styles.regenText}>Új meghívókód</Text>
+                </Pressable>
+              )}
             </View>
 
             {/* Members */}
@@ -275,7 +393,8 @@ export default function FamilySettingsScreen() {
                   {i > 0 && <View style={[styles.divider, { backgroundColor: border }]} />}
                   <MemberRow
                     member={member}
-                    isSelf={member.id === session?.user.id}
+                    isSelf={member.userId === myId}
+                    isOwner={member.userId === family.ownerId}
                     dark={dark}
                     text={text}
                     muted={muted}
@@ -284,6 +403,12 @@ export default function FamilySettingsScreen() {
                 </View>
               ))}
             </View>
+
+            {!isOwner && (
+              <Button variant="ghost" size="md" fullWidth onPress={handleLeave}>
+                Kilépés a családból
+              </Button>
+            )}
           </>
         )}
       </ScrollView>
@@ -294,13 +419,14 @@ export default function FamilySettingsScreen() {
 interface MemberRowProps {
   member: FamilyMember
   isSelf: boolean
+  isOwner: boolean
   dark: boolean
   text: string
   muted: string
   onMenu: () => void
 }
 
-function MemberRow({ member, isSelf, text, muted, onMenu }: MemberRowProps) {
+function MemberRow({ member, isSelf, isOwner, text, muted, onMenu }: MemberRowProps) {
   const roleColor = ROLE_COLORS[member.role]
   const initials = getInitials(member.name)
   const color = avatarColor(member.id)
@@ -314,6 +440,7 @@ function MemberRow({ member, isSelf, text, muted, onMenu }: MemberRowProps) {
         <Text style={[styles.memberName, { color: text }]}>
           {member.name}
           {isSelf ? ' (én)' : ''}
+          {isOwner ? ' · tulajdonos' : ''}
         </Text>
         <Text style={[styles.memberEmail, { color: muted }]} numberOfLines={1}>
           {member.email}
@@ -495,6 +622,10 @@ const styles = StyleSheet.create({
     height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  hintText: {
+    fontSize: 13,
+    lineHeight: 18,
   },
   emptyText: {
     fontSize: 15,

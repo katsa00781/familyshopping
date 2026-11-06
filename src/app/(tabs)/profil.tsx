@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { ChevronLeft, ChevronRight, Copy } from 'lucide-react-native'
@@ -6,7 +6,10 @@ import type { ReactNode } from 'react'
 import { router } from 'expo-router'
 
 import { supabase } from '@/lib/supabase'
+import * as Clipboard from 'expo-clipboard'
 import { useAuthStore } from '@/store/authStore'
+import { useFamilyStore } from '@/store/familyStore'
+import { useToastStore } from '@/store/toastStore'
 import { useAppearance, type AppearanceMode } from '@/lib/theme'
 import { colors } from '@/constants/colors'
 
@@ -99,6 +102,22 @@ export default function ProfilScreen() {
   const user = useAuthStore((s) => s.user)
   const { appearance, setAppearance } = useAppearance()
   const [signingOut, setSigningOut] = useState(false)
+  const family = useFamilyStore((s) => s.family)
+  const loadFamily = useFamilyStore((s) => s.loadFamily)
+  const showToast = useToastStore((s) => s.showToast)
+
+  useEffect(() => {
+    void loadFamily()
+  }, [loadFamily])
+
+  const myRole = family?.members.find((m) => m.userId === user?.id)?.role
+  const ROLE_LABEL = { admin: 'Admin', member: 'Tag', viewer: 'Néző' } as const
+
+  async function copyInviteCode() {
+    if (!family?.inviteLink) return
+    await Clipboard.setStringAsync(family.inviteLink)
+    showToast('Meghívókód másolva', 'success')
+  }
 
   const name = (user?.user_metadata?.['full_name'] as string | undefined) ?? 'Felhasználó'
   const email = user?.email ?? ''
@@ -165,11 +184,15 @@ export default function ProfilScreen() {
               <Text className="text-body-sm text-muted">{email}</Text>
             </View>
             <View className="flex-row gap-2">
-              <View className="rounded-badge bg-primary px-2 py-1">
-                <Text className="text-caption font-semibold text-white">Admin</Text>
-              </View>
+              {myRole && (
+                <View className="rounded-badge bg-primary px-2 py-1">
+                  <Text className="text-caption font-semibold text-white">{ROLE_LABEL[myRole]}</Text>
+                </View>
+              )}
               <View className="rounded-badge bg-border dark:bg-dark-border px-2 py-1">
-                <Text className="text-caption text-muted">Kácsor család · 3 tag</Text>
+                <Text className="text-caption text-muted">
+                  {family ? `${family.name} · ${family.members.length} tag` : 'Nincs család'}
+                </Text>
               </View>
             </View>
           </View>
@@ -177,21 +200,25 @@ export default function ProfilScreen() {
           {/* Családi beállítások */}
           <Group title="Családi beállítások">
             <Row
-              label="Csatlakozási link"
-              value="bvr.so/kac…7d"
+              label="Meghívókód"
+              value={family?.inviteLink || '—'}
               trailing={
                 <Pressable
-                  onPress={notImplemented}
+                  onPress={() => void copyInviteCode()}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1 })}
-                  accessibilityLabel="Link másolása"
+                  accessibilityLabel="Meghívókód másolása"
                 >
                   <Copy size={18} color={colors.muted} />
                 </Pressable>
               }
             />
             <Separator />
-            <Row label="Tagok kezelése" value="3 tag" onPress={() => router.push('/family-settings')} />
+            <Row
+              label="Tagok kezelése"
+              value={family ? `${family.members.length} tag` : 'Létrehozás / csatlakozás'}
+              onPress={() => router.push('/family-settings')}
+            />
           </Group>
 
           {/* App beállítások */}
