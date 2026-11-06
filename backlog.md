@@ -28,6 +28,14 @@
 - [x] Profil (iOS grouped list), format/storage/haptics helperek, token-alapú színek
 - [x] Natív iOS build setup (bundle id `com.kacsorzsolt.familyshopping`, prebuild)
 - [x] iOS 27 / iPadOS 27 indítási összeomlás javítva: SDK 54→57 frissítés + `plugins/withIosSceneDelegate.js` (scene-alapú életciklus, `ExpoAppSceneDelegate`). A plugin törölhető, ha az SDK sablon már maga is scene-alapú (SDK 58)
+- [x] **Expo SDK 57→58 frissítés (2026-11-06):** `expo ~58.0.23`, RN 0.88.1, React 19.3.0, reanimated 4.7.1, worklets 0.13.0, gesture-handler 3.3, screens 4.30; `expo-doctor` 20/20, `tsc` tiszta, lint 0 hiba, iOS bundle export OK.
+  - `plugins/withIosSceneDelegate.js` **törölve**: az SDK 58 prebuild sablon már scene-alapú (`ExpoReactNativeFactoryProvider` + `SceneDelegate.swift`); prebuild-del ellenőrizve. `withIosMinDeploymentTarget.js` marad.
+  - **expo-calendar 58:** a gyökér-importból hívott régi `*Async` metódusok futásidőben dobnak → `deviceCalendarSync.ts` az `expo-calendar/legacy`-t importálja (műszak-szinkron).
+  - **gesture-handler 3:** a régi `Swipeable` megszűnt → `ListItem`, `ProductRow` a `ReanimatedSwipeable`-re állítva (azonos propok, mint a `Card.tsx`-ben).
+  - **RN 0.88 strict TS API:** ref-típusok `TextInputInstance` / `ScrollViewInstance` (login, register, ocr/review, DayTimeline); `app-tabs.web.tsx` (nem használt sablon-maradék) típusszűkítés.
+  - Lockfile újragenerálva (npm peer-feloldási hiba a régi `@expo/ui`/`expo-symbols` 57-es bejegyzések miatt).
+  - **expo-router 58 – rejtett tabok:** a `href: null` mostantól `hidden` tabot jelent, és a fókuszba kerülő rejtett tabról a router visszairányít a kezdő tabra → a Termékek / Árak / Bolt mód / Profil nem nyílt meg, mindig a Kezdőlapra ugrott. Javítva: `(tabs)/_layout.tsx` `HIDDEN_TAB_OPTIONS` (`tabBarButton: () => null` + `tabBarItemStyle: display none`), így a route látható marad, csak a gombja nem renderelődik (a korábbi viselkedés).
+  - ⚠️ Eszközön tesztelendő (EAS build kell, natív váltás → új fingerprint/runtimeVersion): swipe a listákon/termékeken, műszak → telefon-naptár szinkron, BottomSheet gesztusok.
 
 > Részletek: a korábbi v0.1 backlog-bejegyzések (git history). Ezek **nem** változnak, csak a redesign érinti a megjelenésüket.
 
@@ -242,6 +250,12 @@
 - [ ] Opcionális: termékek összevonása mobilról (`supabase.rpc('termekek_osszevonasa', …)`), illetve név szerinti átnevezés és összevonás.
 - [ ] Opcionális: havi egyenleg-pillanatkép (`egyenleg_pillanatkep`, csak olvasható) a Kassza tabon.
 - Nincs mobil teendő: Wallet kategória angol név és UUID (a `wallet-spending` már UUID alapján képez), `transferPlan.walletAccountId` (a mobil nem írja a `budget_data`-t), bérkalkulátor (a mobilban nincs), webes diagramok.
+
+---
+
+## 9. React Compiler lint-adósság (SDK 58 után)
+
+- [ ] Az `eslint-config-expo@58` (react-hooks v7) compiler-szabályai ideiglenesen `warn`-ra állítva az `eslint.config.js`-ben. 37 hely 21 fájlban: `set-state-in-effect` (14), `refs` (12), `immutability` (10), `purity` (2). Érintett pl. `ui/BottomSheet`, `ui/Toast`, `ui/Skeleton`, a sheet-ek (etrend, naptar, lista, kassza), `(auth)/login`, `ocr/*`. Ezeket a komponenseket a React Compiler most kihagyja (nem optimalizálja). Javítás fájlonként, utána a szabály vissza `error`-ra.
 
 ---
 

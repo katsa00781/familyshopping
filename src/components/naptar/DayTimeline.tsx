@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Pressable, ScrollView, Text, useColorScheme, View } from 'react-native'
+import {
+  Pressable,
+  ScrollView,
+  type ScrollViewInstance,
+  Text,
+  useColorScheme,
+  View,
+} from 'react-native'
 
 import { dayKey, eventTimeLabel, minutesOfDay } from '@/lib/calendar'
 import { colors } from '@/constants/colors'
@@ -82,7 +89,7 @@ export function DayTimeline({ date, events, memberNameFor, onPressEvent }: DayTi
   const dark = useColorScheme() === 'dark'
   const fg = dark ? colors.darkForeground : colors.foreground
   const border = dark ? colors.darkBorder : colors.border
-  const scrollRef = useRef<ScrollView>(null)
+  const scrollRef = useRef<ScrollViewInstance>(null)
 
   const allDayEvents = useMemo(() => events.filter((e) => e.all_day), [events])
   const timedEvents = useMemo(() => events.filter((e) => !e.all_day), [events])

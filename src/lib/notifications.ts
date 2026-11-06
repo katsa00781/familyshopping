@@ -38,6 +38,8 @@ export async function ensureNotificationPermissions(): Promise<boolean> {
   if (Platform.OS === 'android') {
     await Notifications.setNotificationChannelAsync('default', {
       name: 'Általános',
+      // Exported at runtime; eslint-plugin-import can't see the SDK 58 compiled enum.
+      // eslint-disable-next-line import/namespace
       importance: Notifications.AndroidImportance.DEFAULT,
     })
   }

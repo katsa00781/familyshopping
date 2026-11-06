@@ -10,6 +10,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   useColorScheme,
   View,
 } from 'react-native'
@@ -45,7 +46,7 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState<string | null>(null)
   const showToast = useToastStore((s) => s.showToast)
 
-  const passwordRef = useRef<TextInput>(null)
+  const passwordRef = useRef<TextInputInstance>(null)
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const isDark = useSharedValue(dark ? 1 : 0)

@@ -34,7 +34,10 @@ export default function AppTabs() {
   );
 }
 
-export function TabButton({ children, isFocused, ...props }: TabTriggerSlotProps) {
+// expo-router 58 types the slot ref as RefAttributes<View>, which no longer
+// matches RN 0.88's strict Pressable ref type. React 19 still forwards `ref`
+// through `...props` at runtime, so only the type is narrowed here.
+export function TabButton({ children, isFocused, ...props }: Omit<TabTriggerSlotProps, 'ref'>) {
   return (
     <Pressable {...props} style={({ pressed }) => pressed && styles.pressed}>
       <ThemedView

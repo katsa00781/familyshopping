@@ -1,6 +1,8 @@
 import { useRef } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Swipeable } from 'react-native-gesture-handler'
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable'
 import { useRouter } from 'expo-router'
 import { Pencil, Trash2 } from 'lucide-react-native'
 
@@ -18,7 +20,7 @@ interface Props {
 
 export default function ProductRow({ product, onDelete }: Props) {
   const router = useRouter()
-  const swipeRef = useRef<Swipeable>(null)
+  const swipeRef = useRef<SwipeableMethods>(null)
   const tileBg = catBg[product.category] ?? catBg['Egyéb']
   const abbr = catAbbr[product.category] ?? product.category.slice(0, 3).toUpperCase()
   const isValidCat = VALID_CATEGORIES.includes(product.category as ItemCategory)
@@ -56,7 +58,7 @@ export default function ProductRow({ product, onDelete }: Props) {
   }
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeRef}
       renderRightActions={renderRightActions}
       renderLeftActions={renderLeftActions}
@@ -92,7 +94,7 @@ export default function ProductRow({ product, onDelete }: Props) {
         {/* Category badge */}
         {isValidCat && <CategoryBadge category={product.category as ItemCategory} />}
       </Pressable>
-    </Swipeable>
+    </ReanimatedSwipeable>
   )
 }
 

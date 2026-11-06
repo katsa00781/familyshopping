@@ -18,6 +18,7 @@ import {
   Platform,
   Pressable,
   ScrollView,
+  type ScrollViewInstance,
   StyleSheet,
   Text,
   TextInput,
@@ -75,7 +76,7 @@ export default function OCRReviewScreen() {
 
   const [saving, setSaving] = useState(false)
   const [pickerItemId, setPickerItemId] = useState<string | null>(null)
-  const scrollRef = useRef<ScrollView>(null)
+  const scrollRef = useRef<ScrollViewInstance>(null)
 
   // Biztosítsuk, hogy a katalógus be van töltve a kézi termékkereséshez és a
   // duplikátum-jelzéshez — kézi bevitelnél a feldolgozó képernyő (ami egyébként

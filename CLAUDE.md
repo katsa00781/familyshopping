@@ -39,7 +39,7 @@ A `familyshopping` appra épül, amelyben már kész:
 ## Tech stack (rögzített)
 
 Változatlan a `familyshopping` stackhez képest:
-- **Runtime:** Expo (managed), SDK ~57 · React Native 0.86 · React 19
+- **Runtime:** Expo (managed), SDK ~58 · React Native 0.88 · React 19.3
 - **Nyelv:** TypeScript strict, `src/`-ben nincs JS
 - **Styling:** NativeWind v4. `StyleSheet.create` csak elkerülhetetlen esetben
 - **Navigáció:** `expo-router` (file-based, Tabs + Stack)

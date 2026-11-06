@@ -5,6 +5,11 @@ import { useColorScheme } from 'react-native'
 import { useAuthStore } from '@/store/authStore'
 import { colors } from '@/constants/colors'
 
+const HIDDEN_TAB_OPTIONS = {
+  tabBarButton: () => null,
+  tabBarItemStyle: { display: 'none' },
+} as const
+
 export default function TabsLayout() {
   const { session, initialized } = useAuthStore()
   const dark = useColorScheme() === 'dark'
@@ -60,13 +65,16 @@ export default function TabsLayout() {
         }}
       />
 
-      {/* Rejtett route-ok – nem külön tab, a Bevásárlás / Kezdőlap fejléc alól érhetők el */}
-      <Tabs.Screen name="termekek" options={{ href: null }} />
-      <Tabs.Screen name="arak" options={{ href: null }} />
-      <Tabs.Screen name="bolt" options={{ href: null }} />
-      <Tabs.Screen name="profil" options={{ href: null }} />
-      <Tabs.Screen name="lists" options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ href: null }} />
+      {/* Rejtett route-ok – nem külön tab, a Bevásárlás / Kezdőlap fejléc alól érhetők el.
+          NEM `href: null`: expo-router 58 óta az `hidden` tabot jelöl, és ha egy rejtett tab
+          kap fókuszt, a router `replace`-szel visszadob a kezdő tabra (Kezdőlap). Helyette a
+          route deklarált/látható marad, csak a tab-gombja nem renderelődik (= a régi viselkedés). */}
+      <Tabs.Screen name="termekek" options={HIDDEN_TAB_OPTIONS} />
+      <Tabs.Screen name="arak" options={HIDDEN_TAB_OPTIONS} />
+      <Tabs.Screen name="bolt" options={HIDDEN_TAB_OPTIONS} />
+      <Tabs.Screen name="profil" options={HIDDEN_TAB_OPTIONS} />
+      <Tabs.Screen name="lists" options={HIDDEN_TAB_OPTIONS} />
+      <Tabs.Screen name="explore" options={HIDDEN_TAB_OPTIONS} />
     </Tabs>
   )
 }

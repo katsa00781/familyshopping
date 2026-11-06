@@ -1,6 +1,8 @@
 import { useEffect, useRef } from 'react'
 import { Pressable, Text, View } from 'react-native'
-import { Swipeable } from 'react-native-gesture-handler'
+import ReanimatedSwipeable, {
+  type SwipeableMethods,
+} from 'react-native-gesture-handler/ReanimatedSwipeable'
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -21,7 +23,7 @@ interface Props {
 }
 
 export default function ListItem({ item, onToggle, onDelete, onEdit }: Props) {
-  const swipeRef = useRef<Swipeable>(null)
+  const swipeRef = useRef<SwipeableMethods>(null)
   const checkScale = useSharedValue(item.checked ? 1 : 0)
 
   useEffect(() => {
@@ -70,7 +72,7 @@ export default function ListItem({ item, onToggle, onDelete, onEdit }: Props) {
   }
 
   return (
-    <Swipeable
+    <ReanimatedSwipeable
       ref={swipeRef}
       renderRightActions={renderRightActions}
       renderLeftActions={renderLeftActions}
@@ -124,6 +126,6 @@ export default function ListItem({ item, onToggle, onDelete, onEdit }: Props) {
           <CategoryBadge category={item.category} />
         </View>
       </Pressable>
-    </Swipeable>
+    </ReanimatedSwipeable>
   )
 }
