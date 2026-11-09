@@ -3,7 +3,7 @@ import { Platform } from 'react-native'
 
 import { expandEvents, rangesOverlap } from '@/lib/calendar'
 import { StorageKeys, getStorageItem, setStorageItem } from '@/lib/storage'
-import type { CalendarEvent } from '@/types'
+import type { CalendarEvent, FamilyTask } from '@/types'
 
 // Csak lokális (a készüléken ütemezett) értesítések – nincs push/szerver oldal.
 // Két funkció: (1) esemény-emlékeztető a naptár/időpont események starts_at
@@ -212,4 +212,77 @@ export async function notifyShiftConflicts(events: CalendarEvent[]): Promise<voi
 function dayKeyOf(iso: string): string {
   const d = new Date(iso)
   return `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
+}
+
+// ─── Családi feladatok: határidő-emlékeztető ──────────────────────────────────
+// Időponttal → pontosan a határidőkor; csak dátummal → aznap 08:00. Kész, törölt
+// vagy már elmúlt határidejű feladathoz nincs emlékeztető. A közös lista miatt a
+// családtagok változásait betöltéskor egyeztetjük (verzió = határidő + cím + kész).
+
+const TASK_MAX_REMINDERS = 15 // a naptár 40-e mellé, az iOS 64-es limitje alatt
+
+function taskReminderDate(task: FamilyTask): Date | null {
+  if (!task.due_at || task.completed_at) return null
+  const due = new Date(task.due_at)
+  if (task.due_has_time) return due
+  return new Date(due.getFullYear(), due.getMonth(), due.getDate(), ALL_DAY_REMINDER_HOUR, 0, 0, 0)
+}
+
+function taskReminderVersion(task: FamilyTask, assigneeName: string | null): string {
+  return `${task.due_at ?? ''}|${task.due_has_time ? 1 : 0}|${task.title}|${assigneeName ?? ''}`
+}
+
+async function cancelTaskReminder(taskId: string, map: ReminderMap): Promise<void> {
+  const notificationId = map[taskId]
+  if (!notificationId) return
+  await Notifications.cancelScheduledNotificationAsync(notificationId).catch(() => {})
+  delete map[taskId]
+}
+
+/**
+ * Feladat-emlékeztetők egyeztetése a (közös) feladatlistával: ütemez / újraütemez
+ * a nyitott, jövőbeli határidejű feladatokhoz (a legközelebbi 15-höz), a többit
+ * törli. Betöltés és minden írás után hívandó. `assigneeName` a tag nevét adja.
+ */
+export async function syncTaskReminders(
+  tasks: FamilyTask[],
+  assigneeName: (assigneeId: string | null) => string | null,
+): Promise<void> {
+  const now = Date.now()
+  const map = (await getStorageItem<ReminderMap>(StorageKeys.taskReminderMap)) ?? {}
+  const versions = (await getStorageItem<ReminderVersionMap>(StorageKeys.taskReminderVersion)) ?? {}
+
+  const wanted = tasks
+    .map((task) => ({ task, when: taskReminderDate(task) }))
+    .filter((x): x is { task: FamilyTask; when: Date } => x.when !== null && x.when.getTime() > now)
+    .sort((a, b) => a.when.getTime() - b.when.getTime())
+    .slice(0, TASK_MAX_REMINDERS)
+  const wantedIds = new Set(wanted.map((x) => x.task.id))
+
+  for (const id of Object.keys(map)) {
+    if (!wantedIds.has(id)) {
+      await cancelTaskReminder(id, map)
+      delete versions[id]
+    }
+  }
+
+  if (wanted.length > 0 && (await ensureNotificationPermissions())) {
+    for (const { task, when } of wanted) {
+      const name = assigneeName(task.assignee_id)
+      const version = taskReminderVersion(task, name)
+      if (versions[task.id] === version && map[task.id]) continue
+      await cancelTaskReminder(task.id, map)
+      map[task.id] = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: `Határidő: ${task.title}`,
+          body: name ? `${name} feladata` : 'Közös feladat',
+        },
+        trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
+      })
+      versions[task.id] = version
+    }
+  }
+
+  await setStorageItem(StorageKeys.taskReminderMap, map)
+  await setStorageItem(StorageKeys.taskReminderVersion, versions)
 }

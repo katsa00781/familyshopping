@@ -14,10 +14,10 @@ import {
   View,
 } from 'react-native'
 import Animated, { useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated'
-import { Check, Clock, Info, Repeat, Trash2, Users, UsersRound, X } from 'lucide-react-native'
+import { Check, Clock, Info, Repeat, Trash2, X } from 'lucide-react-native'
 
 import { DateTimePickerModal } from './DateTimePickerModal'
-import { MemberEditorSheet } from '@/components/etrend/MemberEditorSheet'
+import { MemberPicker } from '@/components/MemberPicker'
 import {
   RECURRENCE_OPTIONS,
   RECURRENCE_UNITS,
@@ -72,7 +72,6 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
   const [location, setLocation] = useState('')
   const [note, setNote] = useState('')
   const [picker, setPicker] = useState<PickerTarget>(null)
-  const [membersOpen, setMembersOpen] = useState(false)
 
   useEffect(() => {
     void loadMembers()
@@ -254,58 +253,11 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
             {/* Kinek – családtag-hozzárendelés (tagszín lesz az esemény színe) */}
             <View style={{ marginBottom: 18 }}>
               <Text style={styles.label} className="text-muted">KINEK</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                <Pressable
-                  onPress={() => setMemberId(null)}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected: memberId === null }}
-                  accessibilityLabel="Közös esemény"
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, paddingLeft: 8, paddingRight: 14,
-                    borderRadius: 99, borderWidth: 1.5,
-                    borderColor: memberId === null ? colors.muted : fieldBorder,
-                    backgroundColor: memberId === null ? `${colors.muted}1A` : fieldBg,
-                  }}
-                >
-                  <View style={{ width: 22, height: 22, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.muted }}>
-                    <Users size={12} color="#FFFFFF" strokeWidth={2.4} />
-                  </View>
-                  <Text style={{ fontSize: 13.5, fontWeight: '800', color: memberId === null ? colors.muted : colors.muted }}>Közös</Text>
-                </Pressable>
-
-                {members.map((m) => {
-                  const active = memberId === m.id
-                  return (
-                    <Pressable
-                      key={m.id}
-                      onPress={() => selectMember(m)}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected: active }}
-                      accessibilityLabel={`${m.name} kiválasztása`}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center', gap: 7, height: 38, paddingLeft: 8, paddingRight: 14,
-                        borderRadius: 99, borderWidth: 1.5,
-                        borderColor: active ? m.color : fieldBorder,
-                        backgroundColor: active ? `${m.color}1A` : fieldBg,
-                      }}
-                    >
-                      <View style={{ width: 22, height: 22, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: m.color }}>
-                        <Text style={{ fontSize: 11, fontWeight: '800', color: '#FFFFFF' }}>{m.name.charAt(0).toUpperCase()}</Text>
-                      </View>
-                      <Text style={{ fontSize: 13.5, fontWeight: '800', color: active ? m.color : colors.muted }}>{m.name}</Text>
-                    </Pressable>
-                  )
-                })}
-
-                <Pressable
-                  onPress={() => setMembersOpen(true)}
-                  accessibilityLabel="Tagok kezelése"
-                  style={{ flexDirection: 'row', alignItems: 'center', gap: 6, height: 38, paddingHorizontal: 13, borderRadius: 99, borderWidth: 1.5, borderStyle: 'dashed', borderColor: fieldBorder }}
-                >
-                  <UsersRound size={15} color={colors.muted} strokeWidth={2} />
-                  <Text className="text-muted" style={{ fontSize: 13, fontWeight: '800' }}>Tagok</Text>
-                </Pressable>
-              </View>
+              <MemberPicker
+                value={memberId}
+                onSelect={(m) => (m ? selectMember(m) : setMemberId(null))}
+                commonAccessibilityLabel="Közös esemény"
+              />
             </View>
 
             {/* Egész napos */}
@@ -582,7 +534,6 @@ export function EventSheet({ visible, event, defaultDate, onClose, onSave, onDel
         onClose={() => setPicker(null)}
       />
 
-      <MemberEditorSheet visible={membersOpen} onClose={() => setMembersOpen(false)} />
     </Modal>
   )
 }

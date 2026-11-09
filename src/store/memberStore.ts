@@ -49,27 +49,31 @@ async function currentOwner(): Promise<{ userId: string; ownerId: string } | nul
 }
 
 async function countRefs(
-  table: 'calendar_events' | 'meal_plan_entries',
+  table: 'calendar_events' | 'meal_plan_entries' | 'family_tasks',
   ownerId: string,
   memberIds: string[] | null,
 ): Promise<number | null> {
+  const column = table === 'family_tasks' ? 'assignee_id' : 'member_id'
   let query = supabase
     .from(table)
     .select('id', { count: 'exact', head: true })
     .eq('user_id', ownerId)
-  query = memberIds ? query.in('member_id', memberIds) : query.not('member_id', 'is', null)
+  query = memberIds ? query.in(column, memberIds) : query.not(column, 'is', null)
   const { count, error } = await query
-  return error ? null : (count ?? 0)
+  // A feladat-tábla hiánya (még nem alkalmazott migráció) ne blokkolja a taglista-szinkront.
+  if (error) return table === 'family_tasks' ? 0 : null
+  return count ?? 0
 }
 
-/** Ennyi esemény + étrend-tétel hivatkozik a megadott tagokra (hibánál null). */
+/** Ennyi esemény + étrend-tétel + feladat hivatkozik a megadott tagokra (hibánál null). */
 async function referenceCount(ownerId: string, ids: string[]): Promise<number | null> {
   if (ids.length === 0) return 0
-  const [cal, meal] = await Promise.all([
+  const [cal, meal, task] = await Promise.all([
     countRefs('calendar_events', ownerId, ids),
     countRefs('meal_plan_entries', ownerId, ids),
+    countRefs('family_tasks', ownerId, ids),
   ])
-  return cal === null || meal === null ? null : cal + meal
+  return cal === null || meal === null || task === null ? null : cal + meal + task
 }
 
 /**
@@ -85,12 +89,17 @@ async function isCanonicalLocalList(
   const counts = await Promise.all([
     countRefs('calendar_events', ownerId, ids),
     countRefs('meal_plan_entries', ownerId, ids),
+    countRefs('family_tasks', ownerId, ids),
     countRefs('calendar_events', ownerId, null),
     countRefs('meal_plan_entries', ownerId, null),
+    countRefs('family_tasks', ownerId, null),
   ])
   if (counts.some((c) => c === null)) return false
-  const [calOwn, mealOwn, calAny, mealAny] = counts as number[]
-  return (calOwn ?? 0) + (mealOwn ?? 0) > 0 || (calAny ?? 0) + (mealAny ?? 0) === 0
+  const [calOwn, mealOwn, taskOwn, calAny, mealAny, taskAny] = counts as number[]
+  return (
+    (calOwn ?? 0) + (mealOwn ?? 0) + (taskOwn ?? 0) > 0 ||
+    (calAny ?? 0) + (mealAny ?? 0) + (taskAny ?? 0) === 0
+  )
 }
 
 async function upsertRemote(ownerId: string, members: FamilyMemberLocal[]): Promise<boolean> {

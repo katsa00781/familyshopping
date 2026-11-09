@@ -4,8 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useColorScheme } from 'nativewind'
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
-import { Calendar, CalendarCheck, CalendarClock, CalendarSync, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, List, Plus } from 'lucide-react-native'
+import { Calendar, CalendarCheck, CalendarClock, CalendarSync, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Clock, List } from 'lucide-react-native'
 
+import { Fab } from '@/components/ui/Fab'
 import { MonthGrid } from '@/components/naptar/MonthGrid'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
 import { DayTimeline } from '@/components/naptar/DayTimeline'
@@ -360,14 +361,7 @@ export default function NaptarScreen() {
       </Animated.View>
 
       {/* FAB */}
-      <Pressable
-        onPress={openCreate}
-        accessibilityLabel="Új esemény"
-        accessibilityRole="button"
-        style={{ position: 'absolute', right: 20, bottom: 24, width: 58, height: 58, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.45, shadowRadius: 22, elevation: 8 }}
-      >
-        <Plus size={26} color={colors.primaryForeground} strokeWidth={2.6} />
-      </Pressable>
+      <Fab onPress={openCreate} accessibilityLabel="Új esemény" />
 
       <EventSheet
         visible={sheetVisible}

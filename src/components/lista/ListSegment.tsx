@@ -1,7 +1,7 @@
 import { Pressable, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 
-export type ListSegmentKey = 'listak' | 'termekek' | 'arak'
+export type ListSegmentKey = 'listak' | 'feladatok' | 'termekek' | 'arak'
 
 interface SegmentItem {
   key: ListSegmentKey
@@ -10,12 +10,13 @@ interface SegmentItem {
 
 const SEGMENT_ROUTES = {
   listak: '/(tabs)/bevasarlas',
+  feladatok: '/(tabs)/feladatok',
   termekek: '/(tabs)/termekek',
   arak: '/(tabs)/arak',
 } as const
 
 /**
- * Közös szegmens-navigáció a Bevásárlás aldnézetei közt (Listák / Termékek / Árak).
+ * Közös szegmens-navigáció a Bevásárlás aldnézetei közt (Listák / Feladatok / Termékek / Árak).
  * `navigate` (nem `push`), hogy ne épüljön fel duplikált back-stack a váltogatásnál.
  */
 export function useSegmentNav(current: ListSegmentKey) {
@@ -33,6 +34,7 @@ interface Props {
 
 const ITEMS: SegmentItem[] = [
   { key: 'listak', label: 'Listák' },
+  { key: 'feladatok', label: 'Feladatok' },
   { key: 'termekek', label: 'Termékek' },
   { key: 'arak', label: 'Árak' },
 ]
@@ -76,6 +78,9 @@ export function ListSegment({ active, onSelect }: Props) {
               <Text
                 className={isActive ? 'text-foreground dark:text-dark-foreground' : 'text-muted'}
                 style={{ fontSize: 14.5, fontWeight: '800', letterSpacing: -0.2 }}
+                numberOfLines={1}
+                adjustsFontSizeToFit
+                minimumFontScale={0.85}
               >
                 {item.label}
               </Text>

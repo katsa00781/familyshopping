@@ -232,6 +232,26 @@ function stepDate(base: Date, freq: RecurrenceRule['freq'], steps: number): Date
 }
 
 /**
+ * A `base` utáni első előfordulás, amelyre `isPast(next)` hamis (pl. ismétlődő feladat
+ * kipipálásakor: az elmúlt, kihagyott alkalmakat átugorja). null, ha nincs (érvényes)
+ * ismétlődés, vagy az UNTIL miatt véget ért. (COUNT-ot a feladatok nem használnak.)
+ */
+export function nextOccurrence(base: Date, rrule: string | null, isPast: (d: Date) => boolean): Date | null {
+  const rule = parseRRule(rrule)
+  if (!rule) return null
+  const untilMs = rule.until
+    ? new Date(rule.until.getFullYear(), rule.until.getMonth(), rule.until.getDate(), 23, 59, 59, 999).getTime()
+    : null
+  // Biztonsági korlát: napi ismétlődésnél is bőven elég (~10 év kihagyás).
+  for (let i = 1; i <= 4000; i++) {
+    const next = stepDate(base, rule.freq, rule.interval * i)
+    if (untilMs != null && next.getTime() > untilMs) return null
+    if (!isPast(next)) return next
+  }
+  return null
+}
+
+/**
  * Az ismétlődő eseményeket konkrét előfordulásokká bontja a [rangeStart, rangeEnd]
  * ablakban (a nem-ismétlődők változatlanul átmennek). Minden előfordulás a mester
  * `id`-jét őrzi (a szerkesztés a mestert nyitja), de a saját `starts_at`/`ends_at`

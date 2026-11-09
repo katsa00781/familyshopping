@@ -8,6 +8,7 @@ import { Settings } from 'lucide-react-native'
 import { TodayCard, type TodayEvent } from '@/components/dashboard/TodayCard'
 import { ActiveListCard } from '@/components/dashboard/ActiveListCard'
 import { BudgetCard } from '@/components/dashboard/BudgetCard'
+import { TasksCard } from '@/components/dashboard/TasksCard'
 import ListCreateSheet from '@/components/lista/ListCreateSheet'
 import { useAuthStore } from '@/store/authStore'
 import { useFamilyStore } from '@/store/familyStore'
@@ -16,6 +17,7 @@ import { useBudgetStore } from '@/store/budgetStore'
 import { useCalendarStore } from '@/store/calendarStore'
 import { useDeviceCalendarStore } from '@/store/deviceCalendarStore'
 import { useMemberStore } from '@/store/memberStore'
+import { useTaskStore } from '@/store/taskStore'
 import { summarizeBudget } from '@/lib/budget'
 import { dayKey, eventDayKey, eventTimeLabel, expandEvents } from '@/lib/calendar'
 import { colors, memberColorAt } from '@/constants/colors'
@@ -65,6 +67,9 @@ export default function KezdolapScreen() {
   const familyMembers = useMemberStore((s) => s.members)
   const loadMembers = useMemberStore((s) => s.loadMembers)
 
+  const tasks = useTaskStore((s) => s.tasks)
+  const loadTasks = useTaskStore((s) => s.loadTasks)
+
   const deviceEvents = useDeviceCalendarStore((s) => s.deviceEvents)
   const refreshDeviceEvents = useDeviceCalendarStore((s) => s.refreshDeviceEvents)
 
@@ -74,8 +79,9 @@ export default function KezdolapScreen() {
     loadBudget()
     loadEvents()
     void loadMembers()
+    void loadTasks()
     void refreshDeviceEvents()
-  }, [loadFamily, loadLists, loadBudget, loadEvents, loadMembers, refreshDeviceEvents])
+  }, [loadFamily, loadLists, loadBudget, loadEvents, loadMembers, loadTasks, refreshDeviceEvents])
 
   // Mai naptáresemények a „Ma" kártyához (ismétlődő is kibontva, egész napos
   // elöl). Az Underground KB edzések ('workout' event_type) is normál
@@ -180,6 +186,12 @@ export default function KezdolapScreen() {
           onOpen={() => activeList && router.push(`/lista/${activeList.id}`)}
           onOpenBolt={() => router.navigate('/(tabs)/bolt')}
           onCreate={() => setCreateVisible(true)}
+        />
+
+        <TasksCard
+          tasks={tasks}
+          members={familyMembers}
+          onPress={() => router.navigate('/(tabs)/feladatok')}
         />
 
         <BudgetCard summary={budgetSummary} onPress={() => router.navigate('/(tabs)/kassza')} />

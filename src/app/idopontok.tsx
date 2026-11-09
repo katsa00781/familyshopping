@@ -3,8 +3,9 @@ import { Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { router } from 'expo-router'
 import { useColorScheme } from 'nativewind'
-import { CalendarCheck, ChevronLeft, ChevronRight, Plus } from 'lucide-react-native'
+import { CalendarCheck, ChevronLeft, ChevronRight } from 'lucide-react-native'
 
+import { Fab } from '@/components/ui/Fab'
 import { AgendaEvent } from '@/components/naptar/AgendaEvent'
 import { AppointmentSheet } from '@/components/naptar/AppointmentSheet'
 import { useCalendarStore } from '@/store/calendarStore'
@@ -159,14 +160,7 @@ export default function IdopontokScreen() {
       </ScrollView>
 
       {/* FAB */}
-      <Pressable
-        onPress={openCreate}
-        accessibilityLabel="Új időpont"
-        accessibilityRole="button"
-        style={{ position: 'absolute', right: 20, bottom: 24, width: 58, height: 58, borderRadius: 99, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, shadowColor: colors.primary, shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.45, shadowRadius: 22, elevation: 8 }}
-      >
-        <Plus size={26} color={colors.primaryForeground} strokeWidth={2.6} />
-      </Pressable>
+      <Fab onPress={openCreate} accessibilityLabel="Új időpont" />
 
       <AppointmentSheet
         visible={sheetVisible}

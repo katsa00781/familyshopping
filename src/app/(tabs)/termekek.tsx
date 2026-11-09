@@ -12,8 +12,9 @@ import { useColorScheme } from 'nativewind'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useFocusEffect, useRouter } from 'expo-router'
-import { Grid3X3, List, Plus } from 'lucide-react-native'
+import { Grid3X3, List } from 'lucide-react-native'
 
+import { Fab } from '@/components/ui/Fab'
 import { ListSegment, useSegmentNav } from '@/components/lista/ListSegment'
 import { useProductStore } from '@/store/productStore'
 import { ALL_CATEGORIES, toCategory } from '@/lib/categories'
@@ -243,13 +244,7 @@ export default function TermekekScreen() {
       )}
 
       {/* FAB */}
-      <Pressable
-        className="absolute bottom-6 right-5 w-14 h-14 rounded-fab bg-primary items-center justify-center"
-        style={styles.fab}
-        onPress={() => router.push('/termekek/uj')}
-      >
-        <Plus size={26} color={colors.card} strokeWidth={2.2} />
-      </Pressable>
+      <Fab onPress={() => router.push('/termekek/uj')} accessibilityLabel="Új termék" />
     </SafeAreaView>
   )
 }
@@ -257,11 +252,4 @@ export default function TermekekScreen() {
 const styles = StyleSheet.create({
   safeArea: { flex: 1 },
   pressed: { opacity: 0.75 },
-  fab: {
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.35,
-    shadowRadius: 12,
-    elevation: 8,
-  },
 })

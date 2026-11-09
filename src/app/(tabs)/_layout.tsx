@@ -69,6 +69,7 @@ export default function TabsLayout() {
           NEM `href: null`: expo-router 58 óta az `hidden` tabot jelöl, és ha egy rejtett tab
           kap fókuszt, a router `replace`-szel visszadob a kezdő tabra (Kezdőlap). Helyette a
           route deklarált/látható marad, csak a tab-gombja nem renderelődik (= a régi viselkedés). */}
+      <Tabs.Screen name="feladatok" options={HIDDEN_TAB_OPTIONS} />
       <Tabs.Screen name="termekek" options={HIDDEN_TAB_OPTIONS} />
       <Tabs.Screen name="arak" options={HIDDEN_TAB_OPTIONS} />
       <Tabs.Screen name="bolt" options={HIDDEN_TAB_OPTIONS} />

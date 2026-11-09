@@ -12,7 +12,7 @@
 > - v1 funkciók: Kezdőlap dashboard, Naptár, Kassza, Étkezéstervező.
 > - **v1 adatmodell:** `user_id`-scoped (NEM family_id, profiles üres). Naptár = saját hónap-grid (nincs react-native-calendars).
 >
-> **Utolsó frissítés:** 2026-11-06
+> **Utolsó frissítés:** 2026-11-09
 
 ---
 
@@ -265,6 +265,23 @@
 
 ---
 
+## 10. Családi feladatok (Feladatok fül + Kezdőlap kártya)
+
+> Felhasználói döntések (2026-11-09): a Bevásárlás szegmensben új „Feladatok" fül (Listák | Feladatok | Termékek | Árak) + Kezdőlap kártya; közös a családdal (adatgazda-modell, viewer csak olvas); 1 fotó / feladat; határidő = dátum + opcionális időpont + lokális emlékeztető.
+
+- [x] **Migráció (2026-11-09, alkalmazva):** `supabase/migrations/20261109120000_family_tasks.sql` — `family_tasks` tábla („own" + 4 családi RLS policy, `is_family_peer`), privát `task-photos` Storage bucket (10 MB, jpeg/png/heic; útvonal `{adatgazda}/{taskId}-{ts}.jpg`), `task_photo_owner()` + 4 `storage.objects` policy. Ellenőrizve: saját sor írható/olvasható, idegen `user_id`-ra írás és idegen sor olvasása RLS-sel tiltva, fotó csak a saját/családi mappába tölthető (visszagörgetett tranzakcióban tesztelve). Security advisor: nincs új figyelmeztetés. Családtag-oldali teszt még hátra (jelenleg nincs család a DB-ben).
+- [x] **Kliens (2026-11-09):** típusok `FamilyTaskInput`/`FamilyTask` (`src/types/index.ts`); `src/lib/tasks.ts` (CRUD, fotó-feltöltés `expo-file-system` `File.arrayBuffer()`-rel – nincs új dependency –, aláírt URL cache, `isOverdue`/`dueLabel`/`groupTasks`/`filterByAssignee`); `src/store/taskStore.ts` (zustand, `loadWithSessionRetry` + `resolveDataOwnerId`, `familyhub_tasks_v1` cache, optimista írás + rollback + hiba-toast, `pendingPhotos` a feltöltés alatti helyi képhez).
+- [x] **UI (2026-11-09):** `src/app/(tabs)/feladatok.tsx` (rejtett tab, `HIDDEN_TAB_OPTIONS`); tag-szűrő (Mind / tagok / Közös); szekciók Lejárt (korall) / Hamarosan / Határidő nélkül / Kész (összecsukható, utolsó 20); `components/feladatok/TaskRow` (kör checkbox, spring-dimmelés, határidő-chip, tag-pötty, fotó-bélyegkép, balra húzás → törlés), `TaskSheet` (MIT / KINEK / HATÁRIDŐ / FOTÓ / MEGJEGYZÉS, kamera + galéria, teljes méretű fotó-nézet), `TaskPhoto`; `dashboard/TasksCard` a Kezdőlapon (nyitott/lejárt szám + 3 legsürgősebb).
+- [x] **Ismétlődő feladatok (2026-11-09):** migráció `20261109130000_family_tasks_rrule.sql` (`family_tasks.rrule text`, alkalmazva). Szerkesztőben ISMÉTLŐDÉS (Nincs / Naponta / Hetente / Havonta / Évente / Egyéni „minden N nap/hét/hónap/év") – csak határidővel. Kipipáláskor NEM lesz kész: a `due_at` a következő esedékességre lép (`nextDueAt` → `lib/calendar.ts` `nextOccurrence`, az elmúlt alkalmakat átugorja), toast „Kész! Következő: …" + haptika; az emlékeztető a sync-kel átütemeződik. A sorban ismétlődés-ikon + gyakoriság (pl. „hetente"). Nincs vég-dátum (a feladat törléséig / az ismétlődés kikapcsolásáig ismétlődik), nincs előzmény a Kész szekcióban.
+- [x] **Egységes FAB (2026-11-09):** új `src/components/ui/Fab.tsx` (fő szín / teal, 58 pt kör, objektum-style – a NativeWind Pressable függvény-style hibája miatt a Feladatok és a Bevásárlás „+" gombja nem látszott). Használja: Feladatok, Bevásárlás, Naptár, Időpontok, Termékek, (régi mock) `lists`. A Feladatok tag-szűrője tördelt sor (nincs oldalra görgetés), a fotó-gombok paddingot kaptak.
+- [x] **Közös `MemberPicker`** (`src/components/MemberPicker.tsx`) – az `EventSheet` KINEK pill-sora kiemelve, az esemény-szerkesztő is ezt használja (viselkedés változatlan).
+- [x] **Emlékeztető:** `syncTaskReminders` (`lib/notifications.ts`) – időponttal a határidőkor, csak dátummal aznap 08:00; max. 15 db; kész/törölt/lejárt feladatnál törlődik. Nincs külön kapcsoló az Értesítések képernyőn (később, ha kell).
+- [x] `memberStore` taglista-védelem a `family_tasks.assignee_id` hivatkozásokat is számolja (hiányzó táblánál 0).
+- [x] `app.json` kamera/fotó engedélyszövegek általánosítva → **natív változás, új EAS build kell** (OTA nem elég).
+- Füstteszt: `tsc` ✅, lint 0 error (1 új `set-state-in-effect` warning a `TaskSheet` nyitáskori mezőfeltöltésében – ugyanaz a minta, mint az `EventSheet`, lásd 9. pont). Eszközön/szimulátorban még nem tesztelve.
+
+---
+
 ## Visszamaradt v0.1 feladatok (nyitott, beolvasztva)
 
 > A Bevásárló v0.1-ből át nem fejlesztett, még nyitott tételek. Prioritás a v2 funkciók (1–7) után, hacsak nem blokkolnak.
@@ -370,6 +387,9 @@
 - [ ] Nyitott: Basmati rizs (Lidl) két sora (1 kg / db) külön termék
 - [ ] Nyitott: OCR-nyugtánál a `shopping_statistics` még nem deduplikál (azonos nap+bolt+tétel újra-beolvasásnál)
 
+**Közös (adatgazda-modell, családi RLS):**
+- [x] `family_tasks` + `task-photos` Storage bucket — létrehozva és alkalmazva (2026-11-09, `20261109120000_family_tasks.sql`); `rrule` oszlop (`20261109130000_family_tasks_rrule.sql`, alkalmazva)
+
 **Lokális (nincs DB — AsyncStorage, v1 single-user):**
 - [x] `familyhub_members_v1` — családtagok (név + tagszín) az étrend tagonkénti tételeihez + a naptár esemény-hozzárendeléséhez; család-megosztáskor szinkronizálandó (v2.x)
 - [x] `familyhub_shifts_v1` — műszaksablon (műszaktípusok + ciklus-beosztás + generált esemény-id-k); a generált események valódi `calendar_events` sorok
@@ -446,7 +466,7 @@
 ## Out of scope (v2)
 
 - Helymegosztás / safe zone (FamilyWall fő különbsége — későbbi nagy feladat)
-- Fotó/videó megosztás
+- Fotó/videó megosztás (általános, pl. családi album) — a feladatokhoz csatolt egy fotó kész (10. pont)
 - Családi chat / üzenetküldő
 - Több külön csoport (multi-group)
 - Push értesítések (naptár emlékeztetők) — v2.1

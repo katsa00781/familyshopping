@@ -3,8 +3,9 @@ import { Alert, Pressable, ScrollView, Text, View } from 'react-native'
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { useRouter } from 'expo-router'
 import { useColorScheme } from 'nativewind'
-import { Plus, ScanLine, ShoppingCart } from 'lucide-react-native'
+import { ScanLine, ShoppingCart } from 'lucide-react-native'
 
+import { Fab } from '@/components/ui/Fab'
 import { ListSegment, useSegmentNav } from '@/components/lista/ListSegment'
 import { ListCardActive } from '@/components/lista/ListCardActive'
 import { ListCardPast } from '@/components/lista/ListCardPast'
@@ -208,30 +209,7 @@ export default function BevasarlasScreen() {
       </ScrollView>
 
       {/* FAB – új lista */}
-      <Pressable
-        onPress={() => setCreateVisible(true)}
-        accessibilityRole="button"
-        accessibilityLabel="Új lista létrehozása"
-        style={({ pressed }) => ({
-          position: 'absolute',
-          right: 22,
-          bottom: 24,
-          width: 60,
-          height: 60,
-          borderRadius: 21,
-          alignItems: 'center',
-          justifyContent: 'center',
-          backgroundColor: colors.accent,
-          shadowColor: colors.accent,
-          shadowOffset: { width: 0, height: 8 },
-          shadowOpacity: 0.42,
-          shadowRadius: 22,
-          elevation: 8,
-          opacity: pressed ? 0.9 : 1,
-        })}
-      >
-        <Plus size={28} color="#FFFFFF" strokeWidth={2.4} />
-      </Pressable>
+      <Fab onPress={() => setCreateVisible(true)} accessibilityLabel="Új lista létrehozása" />
 
       <ListCreateSheet
         visible={createVisible}

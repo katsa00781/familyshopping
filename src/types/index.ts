@@ -215,6 +215,31 @@ export interface CalendarEvent extends CalendarEventInput {
   device_calendar?: string
 }
 
+// ─── Családi feladatok ──────────────────────────────────────────────────────────
+// Közös (adatgazda-modell, mint a naptár): `user_id` = a család tulajdonosa.
+// `due_at` ISO timestamp; ha `due_has_time` hamis, csak a dátum számít (helyi nap).
+// `photo_path` a privát `task-photos` bucket objektuma (`{ownerId}/{taskId}.jpg`).
+export interface FamilyTaskInput {
+  title: string
+  notes: string | null
+  assignee_id: string | null // household_members.id; null = közös
+  due_at: string | null
+  due_has_time: boolean
+  photo_path: string | null
+  /** Ismétlődés (RFC 5545 részhalmaz, mint a naptárnál); csak határidővel értelmes. null = egyszeri. */
+  rrule: string | null
+}
+
+export interface FamilyTask extends FamilyTaskInput {
+  id: string
+  user_id: string
+  created_by: string | null
+  completed_at: string | null
+  completed_by: string | null
+  created_at: string
+  updated_at: string
+}
+
 // ─── Műszakbeosztás (lokális sablon → naptáreseményeket generál) ───────────────
 // v1: a sablon lokális (AsyncStorage), a generált események viszont valódi
 // `calendar_events` sorok (heti ismétlődés, INTERVAL = ciklus hossza hétben). A

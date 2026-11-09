@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context'
 import { Plus, ShoppingCart } from 'lucide-react-native'
 
+import { Fab } from '@/components/ui/Fab'
 import { ListCard } from '@/components/lista/ListCard'
 import { mockLists } from '@/data/mockLists'
 import { formatHuf } from '@/lib/format'
@@ -174,25 +175,7 @@ export default function ListsScreen() {
           transform: [{ translateY: fabY }],
         }}
       >
-        <Pressable
-          onPress={() => {}}
-          style={({ pressed }) => ({
-            width: 56,
-            height: 56,
-            borderRadius: 9999,
-            backgroundColor: '#2563EB',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: pressed ? 0.85 : 1,
-            shadowColor: '#000',
-            shadowOffset: { width: 0, height: 4 },
-            shadowOpacity: 0.2,
-            shadowRadius: 8,
-            elevation: 6,
-          })}
-        >
-          <Plus size={24} color="#FFFFFF" strokeWidth={2.5} />
-        </Pressable>
+        <Fab position="inline" onPress={() => {}} accessibilityLabel="Új lista létrehozása" />
       </Animated.View>
     </SafeAreaView>
   )

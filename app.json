@@ -11,7 +11,7 @@
       "icon": "./assets/images/icon.png",
       "supportsTablet": true,
       "bundleIdentifier": "com.kacsorzsolt.familyshopping",
-      "buildNumber": "15",
+      "buildNumber": "16",
       "infoPlist": {
         "NSCalendarsUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
         "NSCalendarsFullAccessUsageDescription": "A műszakbeosztásod telefon-naptárba mentéséhez, hogy a többi appodban (pl. edzésnaptár) is láthasd.",
@@ -62,14 +62,14 @@
       [
         "expo-camera",
         {
-          "cameraPermission": "A blokk beolvasásához szükséges a kamera-hozzáférés."
+          "cameraPermission": "A blokk beolvasásához és a családi feladatok fotóihoz szükséges a kamera-hozzáférés."
         }
       ],
       [
         "expo-image-picker",
         {
-          "photosPermission": "A blokk beolvasásához engedélyezd a fotókönyvtár-hozzáférést.",
-          "cameraPermission": "A blokk beolvasásához szükséges a kamera-hozzáférés."
+          "photosPermission": "A blokk beolvasásához és a családi feladatok fotóihoz engedélyezd a fotókönyvtár-hozzáférést.",
+          "cameraPermission": "A blokk beolvasásához és a családi feladatok fotóihoz szükséges a kamera-hozzáférés."
         }
       ],
       [

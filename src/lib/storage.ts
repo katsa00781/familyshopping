@@ -12,6 +12,8 @@ export const StorageKeys = {
   eventReminderMap: 'notification.eventReminderMap',
   eventReminderVersion: 'notification.eventReminderVersion',
   shiftConflictNotified: 'notification.shiftConflictNotified',
+  taskReminderMap: 'notification.taskReminderMap',
+  taskReminderVersion: 'notification.taskReminderVersion',
 } as const
 
 export type StorageKey = (typeof StorageKeys)[keyof typeof StorageKeys]
