@@ -9,6 +9,11 @@ interface Props {
   list: ShoppingList
   onPress: () => void
   onMenu: () => void
+  /** Hosszú nyomás – a képernyő ezzel indítja a kijelölő módot. */
+  onLongPress?: () => void
+  /** Kijelölő mód: a pipa-ikon helyén kijelölő kör, a menü rejtve. */
+  selectable?: boolean
+  selected?: boolean
 }
 
 const cardShadow = {
@@ -19,26 +24,49 @@ const cardShadow = {
   elevation: 1,
 }
 
-export function ListCardPast({ list, onPress, onMenu }: Props) {
+export function ListCardPast({ list, onPress, onMenu, onLongPress, selectable = false, selected = false }: Props) {
   const dateStr = formatHuDate(list.completed_at ?? list.date)
 
   return (
     <Pressable
       onPress={onPress}
-      accessibilityRole="button"
+      onLongPress={onLongPress}
+      accessibilityRole={selectable ? 'checkbox' : 'button'}
+      accessibilityState={selectable ? { checked: selected } : undefined}
       accessibilityLabel={`${list.name}, befejezve, ${formatHuf(list.total_amount)}`}
+      accessibilityHint={selectable ? 'Kijelölés be- vagy kikapcsolása' : undefined}
       style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}
     >
       <View
         style={[cardShadow, { paddingVertical: 13, paddingHorizontal: 14, borderRadius: 18, gap: 12 }]}
-        className="flex-row items-center bg-card dark:bg-dark-card dark:border dark:border-dark-border"
+        // Kijelölő módban mindig 2 pt keret (átlátszó/teal), hogy a kijelölés ne ugrassa a tartalmat.
+        className={`flex-row items-center bg-card dark:bg-dark-card ${
+          !selectable
+            ? 'dark:border dark:border-dark-border'
+            : selected
+              ? 'border-2 border-primary'
+              : 'border-2 border-transparent dark:border-dark-border'
+        }`}
       >
-        <View
-          className="items-center justify-center bg-surface-muted dark:bg-dark-border"
-          style={{ width: 38, height: 38, borderRadius: 12 }}
-        >
-          <Check size={19} color={colors.muted} strokeWidth={1.9} />
-        </View>
+        {selectable ? (
+          <View style={{ width: 38, height: 38 }} className="items-center justify-center">
+            <View
+              className={`items-center justify-center ${
+                selected ? 'bg-primary' : 'border-2 border-border dark:border-dark-border'
+              }`}
+              style={{ width: 26, height: 26, borderRadius: 13 }}
+            >
+              {selected ? <Check size={16} color={colors.primaryForeground} strokeWidth={2.8} /> : null}
+            </View>
+          </View>
+        ) : (
+          <View
+            className="items-center justify-center bg-surface-muted dark:bg-dark-border"
+            style={{ width: 38, height: 38, borderRadius: 12 }}
+          >
+            <Check size={19} color={colors.muted} strokeWidth={1.9} />
+          </View>
+        )}
 
         <View className="flex-1">
           <Text
@@ -63,15 +91,17 @@ export function ListCardPast({ list, onPress, onMenu }: Props) {
           >
             {formatHuf(list.total_amount)}
           </Text>
-          <Pressable
-            onPress={onMenu}
-            hitSlop={8}
-            accessibilityRole="button"
-            accessibilityLabel="Műveletek"
-            style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 4 })}
-          >
-            <MoreHorizontal size={20} color={colors.muted} strokeWidth={2} />
-          </Pressable>
+          {selectable ? null : (
+            <Pressable
+              onPress={onMenu}
+              hitSlop={8}
+              accessibilityRole="button"
+              accessibilityLabel="Műveletek"
+              style={({ pressed }) => ({ opacity: pressed ? 0.5 : 1, padding: 4 })}
+            >
+              <MoreHorizontal size={20} color={colors.muted} strokeWidth={2} />
+            </Pressable>
+          )}
         </View>
       </View>
     </Pressable>

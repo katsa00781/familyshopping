@@ -195,6 +195,7 @@ interface ListState {
   createListWithItems: (name: string, date: string, items: ShoppingItem[]) => Promise<string>
   updateList: (id: string, patch: Partial<Pick<ShoppingList, 'name' | 'date' | 'store_name'>>) => Promise<void>
   deleteList: (id: string) => Promise<void>
+  deleteLists: (ids: string[]) => Promise<void>
   completeList: (id: string) => Promise<void>
   restoreList: (id: string) => Promise<void>
   finishShopping: (id: string) => Promise<void>
@@ -202,6 +203,8 @@ interface ListState {
   updateItem: (listId: string, itemId: string, patch: Partial<Omit<ShoppingItem, 'id'>>) => Promise<void>
   deleteItem: (listId: string, itemId: string) => Promise<void>
   toggleItem: (listId: string, itemId: string) => Promise<void>
+  setAllChecked: (listId: string, checked: boolean) => Promise<void>
+  clearItems: (listId: string) => Promise<void>
   assignItemStore: (listId: string, itemId: string, storeName: string) => Promise<boolean>
 }
 
@@ -357,6 +360,26 @@ export const useListStore = create<ListState>((set, get) => ({
       const { error } = await supabase.from('shopping_lists').delete().eq('id', id)
       if (error) {
         set({ lists: prev, error: 'Lista törlése sikertelen' })
+        await saveCache(prev)
+      }
+    }
+  },
+
+  // Több lista törlése egy kéréssel (Korábbi listák kijelöléses törlése).
+  deleteLists: async (ids) => {
+    if (ids.length === 0) return
+    const idSet = new Set(ids)
+    const prev = get().lists
+    const next = prev.filter((l) => !idSet.has(l.id))
+    set({ lists: next })
+    await saveCache(next)
+
+    const session = await getSessionSafe()
+    const user = session?.user
+    if (user) {
+      const { error } = await supabase.from('shopping_lists').delete().in('id', ids)
+      if (error) {
+        set({ lists: prev, error: 'Listák törlése sikertelen' })
         await saveCache(prev)
       }
     }
@@ -564,6 +587,53 @@ export const useListStore = create<ListState>((set, get) => ({
       }
     }
   },
+
+  // Az összes tétel kipipálása / a pipák levétele egy lépésben.
+  setAllChecked: async (listId, checked) => {
+    const prev = get().lists
+    const next = prev.map((l) => {
+      if (l.id !== listId) return l
+      const items = l.items.map((i) => (i.checked === checked ? i : { ...i, checked }))
+      return { ...l, items }
+    })
+    set({ lists: next })
+    await saveCache(next)
+
+    const session = await getSessionSafe()
+    const user = session?.user
+    if (user) {
+      const list = next.find((l) => l.id === listId)
+      if (list) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
+          set({ lists: prev, error: 'Kijelölés sikertelen' })
+          await saveCache(prev)
+        }
+      }
+    }
+  },
+
+  // Lista ürítése: minden tétel törlése, maga a lista megmarad.
+  clearItems: async (listId) => {
+    const prev = get().lists
+    const next = prev.map((l) => (l.id === listId ? { ...l, items: [], total_amount: 0 } : l))
+    set({ lists: next })
+    await saveCache(next)
+
+    const session = await getSessionSafe()
+    const user = session?.user
+    if (user) {
+      const list = next.find((l) => l.id === listId)
+      if (list) {
+        const { ok } = await persistList(list, set, get)
+        if (!ok) {
+          set({ lists: prev, error: 'Lista ürítése sikertelen' })
+          await saveCache(prev)
+        }
+      }
+    }
+  },
+
   // Bolt hozzárendelése egy bolt nélküli tételhez. A tétel termékét kapja meg a bolt;
   // ha ebben a boltban már van ilyen termék (DUPLICATE), vagy a tételnek nincs terméke,
   // akkor a tétel ÚJ id-vel, a bolti termékhez kötve cserélődik ki – a meglévő tétel

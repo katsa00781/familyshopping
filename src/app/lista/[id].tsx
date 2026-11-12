@@ -56,6 +56,8 @@ export default function ListDetailScreen() {
   const addItem = useListStore((s) => s.addItem)
   const completeList = useListStore((s) => s.completeList)
   const deleteList = useListStore((s) => s.deleteList)
+  const setAllChecked = useListStore((s) => s.setAllChecked)
+  const clearItems = useListStore((s) => s.clearItems)
 
   const products = useProductStore((s) => s.products)
   const loadProducts = useProductStore((s) => s.loadProducts)
@@ -114,7 +116,34 @@ export default function ListDetailScreen() {
   const fgColor = dark ? colors.darkForeground : colors.foreground
 
   function showMenu() {
+    const hasItems = items.length > 0
+    const editable = hasItems && !list?.completed
     Alert.alert(list?.name ?? 'Lista', undefined, [
+      ...(editable
+        ? [
+            {
+              text: allChecked ? 'Kijelölés megszüntetése' : 'Összes kijelölése',
+              onPress: () => {
+                if (id) void setAllChecked(id, !allChecked)
+              },
+            },
+            {
+              text: 'Lista ürítése',
+              style: 'destructive' as const,
+              onPress: () =>
+                Alert.alert('Lista ürítése', `Biztosan törlöd mind a(z) ${items.length} tételt a listáról?`, [
+                  {
+                    text: 'Ürítés',
+                    style: 'destructive',
+                    onPress: () => {
+                      if (id) void clearItems(id)
+                    },
+                  },
+                  { text: 'Mégse', style: 'cancel' },
+                ]),
+            },
+          ]
+        : []),
       {
         text: 'Boltok sorrendje',
         onPress: () => setStoreOrderVisible(true),

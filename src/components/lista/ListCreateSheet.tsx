@@ -3,6 +3,8 @@ import { StyleSheet, Text, TextInput, useColorScheme } from 'react-native'
 
 import BottomSheet from '@/components/ui/BottomSheet'
 import Button from '@/components/ui/Button'
+import { dayKey } from '@/lib/calendar'
+import { formatHuDate } from '@/lib/format'
 
 interface Props {
   visible: boolean
@@ -12,7 +14,9 @@ interface Props {
 
 export default function ListCreateSheet({ visible, onClose, onCreate }: Props) {
   const dark = useColorScheme() === 'dark'
-  const [name, setName] = useState('')
+  // null = még nem szerkesztett → az alapértelmezett név az aznapi dátum (pl. „2026.11.12.").
+  const [edited, setEdited] = useState<string | null>(null)
+  const name = edited ?? formatHuDate(dayKey(new Date()))
 
   const inputBg = dark ? '#0F172A' : '#F8FAFC'
   const inputBorder = dark ? '#334155' : '#E2E8F0'
@@ -21,14 +25,15 @@ export default function ListCreateSheet({ visible, onClose, onCreate }: Props) {
   function handleCreate() {
     const trimmed = name.trim()
     if (!trimmed) return
-    const date = new Date().toISOString().split('T')[0]
+    // Helyi naptári nap (a toISOString UTC-je éjfél körül az előző napot adná).
+    const date = dayKey(new Date())
     onCreate(trimmed, date)
-    setName('')
+    setEdited(null)
     onClose()
   }
 
   function handleClose() {
-    setName('')
+    setEdited(null)
     onClose()
   }
 
@@ -39,7 +44,7 @@ export default function ListCreateSheet({ visible, onClose, onCreate }: Props) {
       </Text>
       <TextInput
         value={name}
-        onChangeText={setName}
+        onChangeText={setEdited}
         placeholder="pl. Heti bevásárlás"
         placeholderTextColor="#94A3B8"
         className="h-tap rounded-[10px] px-3 text-[17px] mb-6"
@@ -48,6 +53,8 @@ export default function ListCreateSheet({ visible, onClose, onCreate }: Props) {
           { backgroundColor: inputBg, borderColor: inputBorder, color: textColor },
         ]}
         autoFocus
+        selectTextOnFocus
+        clearButtonMode="while-editing"
         returnKeyType="done"
         onSubmitEditing={handleCreate}
       />
